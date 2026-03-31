@@ -8,6 +8,7 @@ use axum::{
 mod templates;
 mod billing;
 mod router;
+mod gemini;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::{Arc, Mutex as StdMutex}};
@@ -55,6 +56,7 @@ struct AppState {
     admin_token: Option<String>,
     stripe_key: Option<String>,
     resend_key: Option<String>,
+    gemini_key: Option<String>,
     base_url: String,
     limiter: Arc<billing::RateLimiter>,
     otp_store: Arc<StdMutex<HashMap<String, (String, u64)>>>,
@@ -120,6 +122,7 @@ async fn main() {
         workdir, db: Arc::new(StdMutex::new(init_db(&db_path))),
         stripe_key: std::env::var("STRIPE_SECRET_KEY").ok(),
         resend_key: std::env::var("RESEND_API_KEY").ok(),
+        gemini_key: std::env::var("GEMINI_API_KEY").ok(),
         base_url: std::env::var("BASE_URL").unwrap_or_else(|_| "https://term.pasha.run".to_string()),
         limiter: Arc::new(billing::RateLimiter::new(20)),
         otp_store: Arc::new(StdMutex::new(HashMap::new())),
@@ -597,17 +600,72 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 }
 
                 // Model routing: manual selection or auto
-                let (model, effort) = match cm.model.as_deref() {
-                    Some("haiku") => ("claude-haiku-4-5-20251001", "low"),
-                    Some("sonnet") => ("claude-sonnet-4-6", "medium"),
-                    Some("opus") => ("claude-sonnet-4-6", "max"),
-                    _ => router::route_message(&cm.text),
+                let use_gemini = cm.model.as_deref() == Some("gemini");
+                let (model, effort) = if use_gemini {
+                    (gemini::MODEL, "")
+                } else {
+                    match cm.model.as_deref() {
+                        Some("haiku") => ("claude-haiku-4-5-20251001", "low"),
+                        Some("sonnet") => ("claude-sonnet-4-6", "medium"),
+                        Some("opus") => ("claude-sonnet-4-6", "max"),
+                        _ => router::route_message(&cm.text),
+                    }
                 };
 
                 // ★ Send model_info IMMEDIATELY — client shows thinking indicator at once
                 let _ = ws.send(Message::Text(serde_json::json!({
                     "type":"model_info","model":model,"effort":effort
                 }).to_string().into())).await;
+
+                // ── Gemini path ───────────────────────────────────────────
+                if use_gemini {
+                    let gkey = match state.gemini_key.as_deref() {
+                        Some(k) => k.to_string(),
+                        None => {
+                            let _ = ws.send(Message::Text(serde_json::json!({
+                                "type":"error","text":"Gemini API key not configured on server."
+                            }).to_string().into())).await;
+                            state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
+                            continue;
+                        }
+                    };
+                    // Load conversation history for this session
+                    let history: Vec<(String, String)> = {
+                        let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                        let mut stmt = db.prepare(
+                            "SELECT role, content FROM messages WHERE session_id=?1 ORDER BY id ASC LIMIT 40"
+                        ).unwrap();
+                        stmt.query_map(rusqlite::params![cm.session], |r| Ok((r.get(0)?, r.get(1)?)))
+                            .unwrap().filter_map(|r| r.ok()).collect()
+                    };
+                    let result = gemini::stream(&mut ws, &gkey, model, &history, &cm.text).await;
+                    state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
+                    match result {
+                        Ok(gr) => {
+                            let charge = gr.cost_usd * COST_MULTIPLIER;
+                            credits -= charge;
+                            { let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                              db.execute("UPDATE users SET credits = credits - ?1 WHERE id = ?2",
+                                rusqlite::params![charge, uid]).ok();
+                              let now = chrono::Utc::now().to_rfc3339();
+                              if !gr.text.is_empty() {
+                                db.execute("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?1,'assistant',?2,?3)",
+                                    rusqlite::params![cm.session, gr.text, now]).ok();
+                              }
+                            }
+                            let _ = ws.send(Message::Text(serde_json::json!({
+                                "type":"done","credits":credits
+                            }).to_string().into())).await;
+                        }
+                        Err(e) => {
+                            let _ = ws.send(Message::Text(serde_json::json!({
+                                "type":"error","text":format!("Gemini error: {e}")
+                            }).to_string().into())).await;
+                        }
+                    }
+                    continue;
+                }
+                // ── End Gemini path ───────────────────────────────────────
 
                 // macOS: wrap in sandbox-exec; Linux: Docker container provides isolation
                 #[cfg(target_os = "macos")]
