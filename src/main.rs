@@ -628,10 +628,16 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 if let Some(ref sid) = claude_sid { cmd.arg("--resume").arg(sid); }
                 cmd.current_dir(&workdir)
                     .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
+                    // Pipe stdin to /dev/null so interactive prompts fail fast (never hang)
+                    .stdin(std::process::Stdio::null())
                     .env("TERM","dumb").env("NO_COLOR","1")
                     // Reduce node/claude startup overhead
                     .env("CI","1").env("NODE_NO_WARNINGS","1")
-                    .env("DISABLE_AUTOUPDATE","1").env("DO_NOT_TRACK","1");
+                    .env("DISABLE_AUTOUPDATE","1").env("DO_NOT_TRACK","1")
+                    // Git: fail immediately on auth prompt instead of hanging forever
+                    .env("GIT_TERMINAL_PROMPT","0")
+                    .env("GIT_ASKPASS","echo")
+                    .env("GCM_INTERACTIVE","never");
 
                 // Use user's API key if set, otherwise fall back to system
                 if let Some(ref key) = api_key {
@@ -728,7 +734,9 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                                         }
                                     }
                                     if ws.send(Message::Text(line.into())).await.is_err() {
-                                        let _ = child.kill().await; stopped=true; break;
+                                        let _ = child.kill().await;
+                                        state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
+                                        stopped=true; break;
                                     }
                                 }
                                 Ok(None)|Err(_) => break,
@@ -736,9 +744,16 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                         }
                     }
                 }
-                let _ = child.wait().await;
-                // Release active process lock
+                // Release active process lock FIRST so user can retry immediately,
+                // then wait for the child (child.wait can block briefly after kill)
                 state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
+                // Wait with a timeout — if git push hangs kill() may take a moment
+                tokio::select! {
+                    _ = child.wait() => {}
+                    _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                        let _ = child.kill().await;
+                    }
+                }
 
                 // Deduct credits with margin
                 // BYOK users: charge platform fee (20% of cost for infra)
