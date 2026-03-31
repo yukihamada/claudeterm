@@ -135,6 +135,7 @@ async fn main() {
         // Auth
         .route("/api/auth/login", post(login))
         .route("/api/auth/verify", post(verify_otp))
+        .route("/api/auth/local-login", get(local_login))
         .route("/api/auth/me", get(me))
         .route("/api/auth/apikey", post(set_api_key))
         // Sessions
@@ -254,6 +255,38 @@ async fn verify_otp(State(s): State<Arc<AppState>>, Json(body): Json<serde_json:
 
     Json(serde_json::json!({
         "token": token, "user": { "id": uid, "email": email, "credits": credits, "has_api_key": has_key }
+    })).into_response()
+}
+
+/// Local auth for NOU macOS app — only works if LOCAL_TOKEN env var is set.
+/// The NOU app generates a random token and passes it as ?local=<token>.
+/// Returns a permanent local user session (unlimited credits, no OTP needed).
+#[derive(Deserialize)] struct LocalLoginQ { local: String }
+async fn local_login(Query(q): Query<LocalLoginQ>, State(s): State<Arc<AppState>>) -> Response {
+    let expected = match std::env::var("LOCAL_TOKEN") {
+        Ok(t) if !t.is_empty() => t,
+        _ => return StatusCode::NOT_FOUND.into_response(),
+    };
+    if q.local != expected {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let email = "local@localhost";
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let existing: Option<(String, String)> = db.query_row(
+        "SELECT id, token FROM users WHERE email=?1", [email],
+        |r| Ok((r.get(0)?, r.get(1)?))).ok();
+    let (uid, token) = if let Some(pair) = existing { pair } else {
+        let uid = uuid::Uuid::new_v4().to_string()[..8].to_string();
+        let tok = uuid::Uuid::new_v4().to_string().replace("-", "");
+        let now = chrono::Utc::now().to_rfc3339();
+        // Local user gets effectively unlimited credits
+        db.execute("INSERT INTO users (id,email,token,credits,created_at) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![uid, email, tok, 999999.0_f64, now]).unwrap();
+        (uid, tok)
+    };
+    Json(serde_json::json!({
+        "token": token,
+        "user": {"id": uid, "email": "Local (Mac)", "credits": 999999.0, "has_api_key": false}
     })).into_response()
 }
 

@@ -669,7 +669,17 @@ $('lc-free').textContent=L.free;
 $('go').textContent=L.signin;$('er').style.color='var(--rd)';
 $('mg').placeholder=L.ph;
 
-(async()=>{const t=localStorage.getItem('ct_tk')||'';if(t&&await checkToken(t))show();else $('em').focus()})();
+(async()=>{
+  // NOU macOS app passes ?local=<token> for one-time auto-login
+  const params=new URLSearchParams(location.search);
+  const localParam=params.get('local');
+  if(localParam&&!localStorage.getItem('ct_tk')){
+    const r=await fetch('/api/auth/local-login?local='+encodeURIComponent(localParam));
+    if(r.ok){const d=await r.json();if(d.token){localStorage.setItem('ct_tk',d.token);history.replaceState({},'',location.pathname);}}
+  }
+  const t=localStorage.getItem('ct_tk')||'';
+  if(t&&await checkToken(t))show();else $('em').focus();
+})();
 })();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
