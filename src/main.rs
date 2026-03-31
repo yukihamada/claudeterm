@@ -43,6 +43,9 @@ fn init_db(path: &str) -> Connection {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT, role TEXT, content TEXT, timestamp TEXT
         );
+        CREATE TABLE IF NOT EXISTS otps (
+            email TEXT PRIMARY KEY, code TEXT NOT NULL, expires_at INTEGER NOT NULL
+        );
     ").expect("init");
     // Add claude_sid column if missing (migration)
     conn.execute("ALTER TABLE sessions ADD COLUMN claude_sid TEXT", []).ok();
@@ -60,7 +63,6 @@ struct AppState {
     gemini_key: Option<String>,
     base_url: String,
     limiter: Arc<billing::RateLimiter>,
-    otp_store: Arc<StdMutex<HashMap<String, (String, u64)>>>,
     // Per-user active process flag: uid -> bool (true = running)
     active_procs: Arc<StdMutex<HashMap<String, bool>>>,
 }
@@ -126,7 +128,6 @@ async fn main() {
         gemini_key: std::env::var("GEMINI_API_KEY").ok(),
         base_url: std::env::var("BASE_URL").unwrap_or_else(|_| "https://term.pasha.run".to_string()),
         limiter: Arc::new(billing::RateLimiter::new(20)),
-        otp_store: Arc::new(StdMutex::new(HashMap::new())),
         active_procs: Arc::new(StdMutex::new(HashMap::new())),
     });
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
@@ -177,12 +178,13 @@ async fn login(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Valu
         _ => return (StatusCode::BAD_REQUEST, "Invalid email").into_response(),
     };
 
-    // Generate 6-digit OTP, store for 10 minutes
+    // Generate 6-digit OTP, store for 10 minutes in DB (survives restarts)
     let code: String = (0..6).map(|_| (b'0' + (rand::random::<u8>() % 10)) as char).collect();
     let expires = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() + 600;
-    s.otp_store.lock().unwrap_or_else(|e| e.into_inner())
-        .insert(email.clone(), (code.clone(), expires));
+    { let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+      db.execute("INSERT OR REPLACE INTO otps (email, code, expires_at) VALUES (?1,?2,?3)",
+        rusqlite::params![email, code, expires as i64]).ok(); }
 
     // Send via Resend if key is set, otherwise log for dev
     if let Some(ref key) = s.resend_key {
@@ -334,14 +336,18 @@ async fn verify_otp(State(s): State<Arc<AppState>>, Json(body): Json<serde_json:
         None => return (StatusCode::BAD_REQUEST, "Missing code").into_response(),
     };
 
-    // Validate OTP
+    // Validate OTP from DB
     let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
     let valid = {
-        let mut store = s.otp_store.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((stored_code, expires)) = store.get(&email) {
-            if *expires > now && *stored_code == code {
-                store.remove(&email);
+        let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+        let row: Option<(String, i64)> = db.query_row(
+            "SELECT code, expires_at FROM otps WHERE email=?1", [&email],
+            |r| Ok((r.get(0)?, r.get(1)?))
+        ).ok();
+        if let Some((stored_code, expires)) = row {
+            if expires > now && stored_code == code {
+                db.execute("DELETE FROM otps WHERE email=?1", [&email]).ok();
                 true
             } else { false }
         } else { false }
