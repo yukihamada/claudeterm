@@ -20,7 +20,7 @@ use tokio::{
 
 const HTML: &str = include_str!("../static/index.html");
 const MANIFEST: &str = include_str!("../static/manifest.json");
-const INITIAL_CREDITS: f64 = 10.0;
+const INITIAL_CREDITS: f64 = 1.0;
 const COST_MULTIPLIER: f64 = 1.3; // 30% margin on API costs
 
 type Db = Arc<StdMutex<Connection>>;
