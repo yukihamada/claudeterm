@@ -9,6 +9,7 @@ mod templates;
 mod billing;
 mod router;
 mod gemini;
+mod imagen;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::{Arc, Mutex as StdMutex}};
@@ -154,6 +155,8 @@ async fn main() {
         .route("/api/billing/checkout", post(create_checkout))
         .route("/api/billing/webhook", post(stripe_webhook))
         .route("/billing/success", get(billing_success))
+        // Image generation
+        .route("/api/image", post(generate_image))
         // Admin alerts
         .route("/api/admin/alert", post(admin_alert))
         // WebSocket
@@ -517,6 +520,28 @@ async fn admin_alert(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
 
 async fn list_templates() -> Json<Vec<templates::Template>> {
     Json(templates::all())
+}
+
+// ── Image generation ──
+
+#[derive(Deserialize)]
+struct ImageReq { token: Option<String>, prompt: String }
+
+async fn generate_image(State(s): State<Arc<AppState>>, Json(body): Json<ImageReq>) -> Response {
+    if auth_user(&s, body.token.as_deref()).is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let key = match s.gemini_key.as_deref() {
+        Some(k) => k.to_string(),
+        None => return (StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error":"Image generation not configured"}))).into_response(),
+    };
+    match imagen::generate(&key, &body.prompt).await {
+        Ok((mime, data)) => Json(serde_json::json!({
+            "url": format!("data:{};base64,{}", mime, data)
+        })).into_response(),
+        Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": e}))).into_response(),
+    }
 }
 
 // ── WebSocket ──

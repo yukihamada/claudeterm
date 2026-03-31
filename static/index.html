@@ -529,8 +529,24 @@ if(ev.type==='result'){if(ev.result&&!ev.is_error){let l=h.m[h.m.length-1];
   if(!l||l.role!=='assistant')h.m.push({role:'assistant',text:ev.result,html:md(ev.result),st:false});
   else{l.st=false;if(!l.text){l.text=ev.result;l.html=md(ev.result)}}}setB(false);render();return}}
 
+async function sendImage(prompt){
+  setB(true);
+  gH(sid).m.push({role:'user',text:'/image '+prompt});render();
+  try{
+    const r=await fetch('/api/image',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({token:localStorage.getItem('ct_tk'),prompt})});
+    if(r.ok){const d=await r.json();
+      gH(sid).m.push({role:'assistant',text:'',html:`<img src="${d.url}" style="max-width:100%;border-radius:8px" alt="${esc(prompt)}">`,st:false});
+    }else{const d=await r.json().catch(()=>({}));
+      gH(sid).m.push({role:'system',text:'Image error: '+(d.error||r.status)});
+    }
+  }catch(e){gH(sid).m.push({role:'system',text:'Image error: '+e.message});}
+  setB(false);render();
+}
 function send(t){if(busy||!sid)return;t=(t||$('mg').value).trim();if(!t)return;
-$('mg').value='';$('mg').style.height='auto';gH(sid).m.push({role:'user',text:t});asid=sid;
+$('mg').value='';$('mg').style.height='auto';
+if(t.startsWith('/image ')){const p=t.slice(7).trim();if(p){asid=sid;sendImage(p);}return;}
+gH(sid).m.push({role:'user',text:t});asid=sid;
 setB(true);render();
 const mdl=$('mdl').value;
 ws.send(JSON.stringify({session:sid,text:t,model:mdl==='auto'?null:mdl}))}
