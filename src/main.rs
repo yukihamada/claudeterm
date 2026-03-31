@@ -139,6 +139,8 @@ async fn main() {
         // Auth
         .route("/api/auth/login", post(login))
         .route("/api/auth/verify", post(verify_otp))
+        .route("/api/auth/google", get(google_oauth_start))
+        .route("/api/auth/google/callback", get(google_oauth_callback))
         .route("/api/auth/local-login", get(local_login))
         .route("/api/auth/me", get(me))
         .route("/api/auth/apikey", post(set_api_key))
@@ -210,6 +212,117 @@ async fn login(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Valu
 
     Json(serde_json::json!({"sent": true})).into_response()
 }
+
+// ── Google OAuth ──────────────────────────────────────────────────────────────
+
+async fn google_oauth_start(State(s): State<Arc<AppState>>) -> Response {
+    let client_id = match std::env::var("GOOGLE_CLIENT_ID") {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::SERVICE_UNAVAILABLE, "Google OAuth not configured").into_response(),
+    };
+    let redirect_uri = format!("{}/api/auth/google/callback", s.base_url);
+    let url = format!(
+        "https://accounts.google.com/o/oauth2/v2/auth\
+        ?client_id={}\
+        &redirect_uri={}\
+        &response_type=code\
+        &scope=email+profile\
+        &access_type=offline\
+        &prompt=select_account",
+        urlencoding::encode(&client_id),
+        urlencoding::encode(&redirect_uri)
+    );
+    axum::response::Redirect::temporary(&url).into_response()
+}
+
+#[derive(Deserialize)]
+struct OAuthCallbackQ { code: Option<String>, error: Option<String> }
+
+async fn google_oauth_callback(
+    Query(q): Query<OAuthCallbackQ>,
+    State(s): State<Arc<AppState>>,
+) -> Response {
+    if let Some(err) = q.error {
+        return axum::response::Redirect::temporary(&format!("/?oauth_error={}", urlencoding::encode(&err))).into_response();
+    }
+    let code = match q.code {
+        Some(c) => c,
+        None => return axum::response::Redirect::temporary("/?oauth_error=missing_code").into_response(),
+    };
+
+    let client_id = match std::env::var("GOOGLE_CLIENT_ID") {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::SERVICE_UNAVAILABLE, "Google OAuth not configured").into_response(),
+    };
+    let client_secret = match std::env::var("GOOGLE_CLIENT_SECRET") {
+        Ok(s) => s,
+        Err(_) => return (StatusCode::SERVICE_UNAVAILABLE, "Google OAuth not configured").into_response(),
+    };
+    let redirect_uri = format!("{}/api/auth/google/callback", s.base_url);
+
+    // Exchange code for token
+    let http = reqwest::Client::new();
+    let token_resp = http.post("https://oauth2.googleapis.com/token")
+        .form(&[
+            ("code", code.as_str()),
+            ("client_id", &client_id),
+            ("client_secret", &client_secret),
+            ("redirect_uri", &redirect_uri),
+            ("grant_type", "authorization_code"),
+        ])
+        .send().await;
+
+    let token_json: serde_json::Value = match token_resp {
+        Ok(r) => match r.json().await {
+            Ok(j) => j,
+            Err(_) => return axum::response::Redirect::temporary("/?oauth_error=token_parse").into_response(),
+        },
+        Err(_) => return axum::response::Redirect::temporary("/?oauth_error=token_request").into_response(),
+    };
+
+    let access_token = match token_json["access_token"].as_str() {
+        Some(t) => t.to_string(),
+        None => return axum::response::Redirect::temporary("/?oauth_error=no_access_token").into_response(),
+    };
+
+    // Get user info
+    let userinfo_resp = http
+        .get("https://www.googleapis.com/oauth2/v3/userinfo")
+        .bearer_auth(&access_token)
+        .send().await;
+    let userinfo: serde_json::Value = match userinfo_resp {
+        Ok(r) => r.json::<serde_json::Value>().await.unwrap_or_default(),
+        Err(_) => return axum::response::Redirect::temporary("/?oauth_error=userinfo").into_response(),
+    };
+
+    let email = match userinfo["email"].as_str() {
+        Some(e) => e.to_lowercase(),
+        None => return axum::response::Redirect::temporary("/?oauth_error=no_email").into_response(),
+    };
+
+    // Upsert user
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let existing: Option<(String, String)> = db.query_row(
+        "SELECT id, token FROM users WHERE email=?1", [&email],
+        |r| Ok((r.get(0)?, r.get(1)?))
+    ).ok();
+
+    let token = if let Some((_, tok)) = existing {
+        tok
+    } else {
+        let uid = uuid::Uuid::new_v4().to_string()[..8].to_string();
+        let tok = uuid::Uuid::new_v4().to_string().replace("-", "");
+        let now = chrono::Utc::now().to_rfc3339();
+        db.execute("INSERT INTO users (id, email, token, credits, created_at) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![uid, email, tok, INITIAL_CREDITS, now]).unwrap();
+        tok
+    };
+
+    // Redirect to frontend with token in fragment (never in server logs)
+    axum::response::Redirect::temporary(&format!("/#google_token={}", token)).into_response()
+}
+
+// ── Email OTP ─────────────────────────────────────────────────────────────────
 
 async fn verify_otp(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Value>) -> Response {
     let email = match body.get("email").and_then(|e| e.as_str()) {
