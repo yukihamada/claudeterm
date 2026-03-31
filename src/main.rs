@@ -634,9 +634,14 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 let mut assistant_text=String::new();
                 let mut cost_this_turn: f64 = 0.0;
 
-                // 120-second idle timeout: if claude produces no output, kill it
-                let deadline = tokio::time::sleep(Duration::from_secs(120));
+                // 600-second idle timeout: kills only if claude produces NO output at all
+                // (resets on every line received)
+                let deadline = tokio::time::sleep(Duration::from_secs(600));
                 tokio::pin!(deadline);
+
+                // Ping the browser every 20s to keep the Fly.io proxy from closing the WS
+                let mut ping_tick = tokio::time::interval(Duration::from_secs(20));
+                ping_tick.tick().await; // skip first immediate tick
 
                 loop {
                     tokio::select! {
@@ -648,9 +653,15 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                             tracing::error!("claude timeout uid={uid} session={}", cm.session);
                             let _ = child.kill().await;
                             let _ = ws.send(Message::Text(serde_json::json!({
-                                "type":"error","text":"Request timed out after 120 seconds. Please try again."
+                                "type":"error","text":"Request timed out after 10 minutes. Please try again."
                             }).to_string().into())).await;
                             stopped=true; break;
+                        }
+                        _ = ping_tick.tick() => {
+                            // WebSocket ping — keeps Fly.io proxy + browser connection alive
+                            if ws.send(Message::Ping(vec![])).await.is_err() {
+                                let _ = child.kill().await; stopped=true; break;
+                            }
                         }
                         line = reader.next_line() => {
                             match line {
@@ -725,6 +736,10 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 }).to_string().into())).await;
             }
             Some(Ok(Message::Close(_)))|None|Some(Err(_)) => break,
+            Some(Ok(Message::Ping(data))) => {
+                // Respond to client pings
+                let _ = ws.send(Message::Pong(data)).await;
+            }
             _ => {}
         }
     }
