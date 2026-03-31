@@ -188,14 +188,14 @@ async fn login(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Valu
     if let Some(ref key) = s.resend_key {
         let client = reqwest::Client::new();
         let body = serde_json::json!({
-            "from": "Claude Code <noreply@term.pasha.run>",
+            "from": "chatweb.ai <noreply@chatweb.ai>",
             "to": [&email],
             "subject": format!("Your login code: {}", code),
             "html": format!(
                 "<div style='font-family:system-ui;max-width:400px;margin:40px auto;padding:32px;background:#09090b;border-radius:16px;border:1px solid #27272a'>\
                 <div style='width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#a78bfa,#60a5fa);margin-bottom:24px'></div>\
                 <h2 style='color:#fafafa;font-size:22px;margin:0 0 8px'>Your login code</h2>\
-                <p style='color:#a1a1aa;font-size:14px;margin:0 0 24px'>Enter this code to sign in to Claude Code</p>\
+                <p style='color:#a1a1aa;font-size:14px;margin:0 0 24px'>Enter this code to sign in to chatweb.ai</p>\
                 <div style='font-size:36px;font-weight:700;letter-spacing:8px;color:#a78bfa;background:#18181b;padding:20px;border-radius:12px;text-align:center'>{}</div>\
                 <p style='color:#52525b;font-size:12px;margin:20px 0 0'>Expires in 10 minutes. If you didn't request this, ignore this email.</p>\
                 </div>", code)
