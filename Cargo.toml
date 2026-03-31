@@ -1,0 +1,30 @@
+[package]
+name = "claudeterm"
+version = "0.2.0"
+edition = "2021"
+
+[[bin]]
+name = "claudeterm"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+portable-pty = "0.8"
+tower-http = { version = "0.5", features = ["cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+base64 = "0.22"
+rusqlite = { version = "0.31", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+reqwest = { version = "0.12", features = ["json"] }
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

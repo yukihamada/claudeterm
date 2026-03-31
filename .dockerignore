@@ -1,0 +1,11 @@
+target/
+.git/
+.env
+.env.*
+*.md
+.DS_Store
+worker/
+data/
+*.db
+*.db-wal
+*.db-shm
