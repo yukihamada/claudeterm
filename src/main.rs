@@ -107,7 +107,13 @@ async fn main() {
     let workdir = std::env::var("WORKDIR").unwrap_or_else(|_| "/tmp/claudeterm-sandbox".to_string());
     // Ensure sandbox exists
     std::fs::create_dir_all(&workdir).ok();
-    let db_path = format!("{}/claudeterm.db", std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()));
+    // DB lives on the persistent volume (parent of workdir), not ephemeral $HOME
+    let data_dir = std::path::Path::new(&workdir)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| workdir.clone());
+    let db_path = std::env::var("DB_PATH")
+        .unwrap_or_else(|_| format!("{}/claudeterm.db", data_dir));
     let state = Arc::new(AppState {
         admin_token: std::env::var("AUTH_TOKEN").ok(),
         command: std::env::var("CLAUDE_COMMAND").unwrap_or_else(|_| "claude".to_string()),
@@ -122,6 +128,7 @@ async fn main() {
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let app = Router::new()
         .route("/", get(|_: Query<TokenQ>| async { Html(HTML) }))
+        .route("/health", get(|| async { (StatusCode::OK, "ok") }))
         .route("/manifest.json", get(|| async {
             (StatusCode::OK, [("content-type","application/manifest+json")], MANIFEST)
         }))
@@ -588,7 +595,10 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 if let Some(ref sid) = claude_sid { cmd.arg("--resume").arg(sid); }
                 cmd.current_dir(&workdir)
                     .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
-                    .env("TERM","dumb").env("NO_COLOR","1");
+                    .env("TERM","dumb").env("NO_COLOR","1")
+                    // Reduce node/claude startup overhead
+                    .env("CI","1").env("NODE_NO_WARNINGS","1")
+                    .env("DISABLE_AUTOUPDATE","1").env("DO_NOT_TRACK","1");
 
                 // Use user's API key if set, otherwise fall back to system
                 if let Some(ref key) = api_key {
