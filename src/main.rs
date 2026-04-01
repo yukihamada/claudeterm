@@ -180,7 +180,8 @@ async fn main() {
         // Files
         .route("/api/files", get(list_files))
         .route("/api/files/read", get(read_file))
-        .route("/api/projects", get(list_projects))
+        .route("/api/projects", get(list_projects).post(create_project))
+        .route("/api/projects/merge", post(merge_projects))
         .route("/api/templates", get(list_templates))
         // Billing
         .route("/api/billing/checkout", post(create_checkout))
@@ -601,15 +602,77 @@ async fn list_projects(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) 
             if !e.metadata().map(|m|m.is_dir()).unwrap_or(false) { continue; }
             let name = e.file_name().to_string_lossy().to_string();
             if name.starts_with('.')||name=="target"||name=="node_modules" { continue; }
-            let p = e.path();
-            if p.join("Cargo.toml").exists()||p.join("package.json").exists()||p.join("go.mod").exists()
-                ||p.join("Makefile").exists()||p.join("CLAUDE.md").exists() {
-                projects.push(ProjectEntry{name:name.clone(),path:name});
-            }
+            projects.push(ProjectEntry{name:name.clone(),path:name});
         }
     }
     projects.sort_by(|a,b|a.name.cmp(&b.name));
     Json(projects).into_response()
+}
+
+#[derive(Deserialize)] struct CreateProjectReq { name: String }
+
+async fn create_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<CreateProjectReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    // Sanitize name: only allow alphanumeric, dash, underscore
+    let name: String = body.name.chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+        .take(50).collect();
+    if name.is_empty() {
+        return (StatusCode::BAD_REQUEST, "Invalid project name").into_response();
+    }
+    let dir = PathBuf::from(format!("{}/users/{}/{}", s.workdir, uid, name));
+    std::fs::create_dir_all(&dir).ok();
+    // Write default CLAUDE.md
+    std::fs::write(dir.join("CLAUDE.md"), format!("# {}\n\nProject workspace.\n", name)).ok();
+    Json(serde_json::json!({"name": name, "path": name})).into_response()
+}
+
+#[derive(Deserialize)] struct MergeReq { from: String, to: String }
+
+async fn merge_projects(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<MergeReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let base = PathBuf::from(format!("{}/users/{}", s.workdir, uid));
+    let src = base.join(&body.from);
+    let dst = base.join(&body.to);
+    if !src.starts_with(&base) || !dst.starts_with(&base) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    if !src.is_dir() {
+        return (StatusCode::NOT_FOUND, "Source project not found").into_response();
+    }
+    std::fs::create_dir_all(&dst).ok();
+    // Recursive copy (merge: existing files in dst are NOT overwritten)
+    fn copy_dir_merge(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<u64> {
+        let mut count = 0u64;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let s = entry.path();
+            let d = dst.join(&name);
+            if s.is_dir() {
+                std::fs::create_dir_all(&d)?;
+                count += copy_dir_merge(&s, &d)?;
+            } else if !d.exists() {
+                // Only copy if destination file does NOT exist (no overwrite)
+                std::fs::copy(&s, &d)?;
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+    match copy_dir_merge(&src, &dst) {
+        Ok(n) => {
+            tracing::info!("Merged {} → {}: {} files", body.from, body.to, n);
+            Json(serde_json::json!({"ok": true, "files_copied": n})).into_response()
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
 }
 
 // ── Billing ──

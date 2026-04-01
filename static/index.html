@@ -322,6 +322,29 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .sv-home{font-size:12px;color:var(--ac);text-decoration:none;border:1px solid var(--ac);border-radius:8px;padding:5px 14px}
 .sv-msgs{display:flex;flex-direction:column;gap:20px}
 
+/* Project picker */
+#proj-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#proj-modal.on{display:flex}
+.prj{width:min(420px,92vw);background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow)}
+.prj h2{font-size:18px;font-weight:700;letter-spacing:-.03em}
+.prj-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
+.prj-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .12s;font-size:13px}
+.prj-item:hover{border-color:var(--ac);background:rgba(167,139,250,.06)}
+.prj-item.active{border-color:var(--ac);background:rgba(167,139,250,.1)}
+.prj-item .prj-ico{font-size:18px;flex-shrink:0}
+.prj-item .prj-name{font-weight:600;flex:1}
+.prj-new{display:flex;gap:8px}
+.prj-new input{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--tx);font-size:13px;outline:none}
+.prj-new input:focus{border-color:var(--ac)}
+.prj-new button{background:var(--ac);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.prj-section{font-size:11px;color:var(--mu);font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+.prj-merge{display:flex;gap:8px;align-items:center}
+.prj-merge select{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:8px;color:var(--tx);font-size:12px}
+.prj-merge .arrow{color:var(--mu);font-size:16px;flex-shrink:0}
+.prj-merge button{background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer}
+.prj-status{font-size:11px;color:var(--gn);min-height:16px}
+.prj-cur{font-size:11px;color:var(--mu);padding:2px 8px;background:var(--s2);border-radius:6px;display:inline-block}
+
 /* ── LANDING PAGE ── */
 #landing{position:fixed;inset:0;background:var(--bg);z-index:310;overflow-y:auto;display:none}
 #landing.on{display:block}
@@ -565,6 +588,29 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 
 <div id="pv"><div class="pvw"><div class="pvh"><span id="pp"></span><button id="pc">&times;</button></div><div class="pvb" id="pb"></div></div></div>
+
+<!-- Project picker / merge modal -->
+<div id="proj-modal"><div class="prj">
+<h2 id="prj-title"></h2>
+<div id="prj-cur-wrap"></div>
+<div class="prj-list" id="prj-list"></div>
+<div class="prj-section" id="prj-new-label"></div>
+<div class="prj-new">
+  <input id="prj-name" placeholder="my-app">
+  <button id="prj-create-btn"></button>
+</div>
+<div class="prj-section" id="prj-merge-label"></div>
+<div class="prj-merge">
+  <select id="prj-from"></select>
+  <span class="arrow">→</span>
+  <select id="prj-to"></select>
+  <button id="prj-merge-btn"></button>
+</div>
+<div class="prj-status" id="prj-status"></div>
+<div class="row" style="display:flex;gap:8px;justify-content:flex-end">
+  <button class="bs bs-g" id="prj-close"></button>
+</div>
+</div></div>
 
 <!-- Shared session view (public, no auth needed) -->
 <div id="shared-view"><div class="sv">
@@ -1140,9 +1186,9 @@ function tU(){$('tabs').innerHTML='';ss.forEach(s=>{const d=document.createEleme
 d.innerHTML=`<span>${esc(s.name)}</span><span class="x">x</span>`;
 d.querySelector('span').onclick=()=>{sid=s.id;tU();lH(s.id)};
 d.querySelector('.x').onclick=e=>{e.stopPropagation();dS(s.id)};$('tabs').appendChild(d)})}
-$('ab').onclick=()=>cS();
-async function cS(n){const r=await fetch('/api/sessions'+tq(),{method:'POST',headers:{'content-type':'application/json'},
-body:JSON.stringify({name:n||'Session '+(ss.length+1),template:'general'})});if(!r.ok)return;const s=await r.json();ss.unshift(s);sid=s.id;tU();render();showOB();}
+$('ab').onclick=()=>showProjectPicker();
+async function cS(n,proj){const r=await fetch('/api/sessions'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+body:JSON.stringify({name:n||'Session '+(ss.length+1),template:'general',project:proj||''})});if(!r.ok)return;const s=await r.json();ss.unshift(s);sid=s.id;tU();render();showOB();}
 async function dS(id){await fetch('/api/sessions/'+id+tq(),{method:'DELETE'});ss=ss.filter(s=>s.id!==id);delete H[id];
 if(sid===id){if(ss.length){sid=ss[0].id;lH(sid)}else await cS()}tU()}
 async function lH(s){sid=s;localStorage.setItem('ct_sid',s);const r=await fetch(`/api/sessions/${s}/messages${tq()}`);if(!r.ok){render();showOB();return}
@@ -1216,6 +1262,80 @@ if(f.name.match(/\.(js|ts|py|rs|go|json|yaml|toml|md|txt|html|css)$/i))rd.readAs
 (()=>{const lt=localStorage.getItem('ct_theme')==='light';if(lt)document.documentElement.classList.add('light')})();
 $('thm').onclick=()=>{const isL=document.documentElement.classList.toggle('light');localStorage.setItem('ct_theme',isL?'light':'dark');$('thm').textContent=isL?'☀':'☾'};
 if(localStorage.getItem('ct_theme')==='light')$('thm').textContent='☀';
+
+// ── Projects ──
+let projects=[];
+async function loadProjects(){
+  const r=await fetch('/api/projects'+tq());
+  if(r.ok)projects=await r.json();
+}
+function curProject(){
+  const s=ss.find(x=>x.id===sid);
+  return s?.project||'';
+}
+async function showProjectPicker(){
+  await loadProjects();
+  const cur=curProject();
+  $('prj-title').textContent=isJa?'プロジェクト':'Projects';
+  $('prj-cur-wrap').innerHTML=cur
+    ?`<span class="prj-cur">${isJa?'現在':'Current'}: ${esc(cur)}</span>`
+    :`<span class="prj-cur">${isJa?'ルートフォルダ':'Root folder'}</span>`;
+  // List
+  const el=$('prj-list');
+  el.innerHTML=`<div class="prj-item${!cur?' active':''}" data-p="">
+    <span class="prj-ico">🏠</span><span class="prj-name">${isJa?'ルート（デフォルト）':'Root (default)'}</span>
+  </div>`+projects.map(p=>`<div class="prj-item${p.path===cur?' active':''}" data-p="${esc(p.path)}">
+    <span class="prj-ico">📁</span><span class="prj-name">${esc(p.name)}</span>
+  </div>`).join('');
+  el.querySelectorAll('.prj-item').forEach(d=>{
+    d.onclick=()=>{
+      const proj=d.dataset.p;
+      $('proj-modal').classList.remove('on');
+      cS((proj||'Session '+(ss.length+1)),proj);
+    };
+  });
+  // New project
+  $('prj-new-label').textContent=isJa?'新規プロジェクト':'New Project';
+  $('prj-create-btn').textContent=isJa?'作成':'Create';
+  $('prj-name').value='';
+  // Merge selects
+  $('prj-merge-label').textContent=isJa?'フォルダをマージ':'Merge Folders';
+  const opts=projects.map(p=>`<option value="${esc(p.path)}">${esc(p.name)}</option>`).join('');
+  $('prj-from').innerHTML=opts;
+  $('prj-to').innerHTML=opts;
+  $('prj-merge-btn').textContent=isJa?'マージ':'Merge';
+  $('prj-close').textContent=isJa?'閉じる':'Close';
+  $('prj-status').textContent='';
+  $('proj-modal').classList.add('on');
+}
+$('prj-close').onclick=()=>$('proj-modal').classList.remove('on');
+$('proj-modal').onclick=e=>{if(e.target===$('proj-modal'))$('proj-modal').classList.remove('on')};
+
+$('prj-create-btn').onclick=async()=>{
+  const name=$('prj-name').value.trim();
+  if(!name){$('prj-status').textContent=isJa?'名前を入力してください':'Enter a name';return}
+  const r=await fetch('/api/projects'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({name})});
+  if(r.ok){
+    const d=await r.json();
+    $('proj-modal').classList.remove('on');
+    cS(d.name,d.path);
+  }else{$('prj-status').textContent=isJa?'作成に失敗しました':'Failed to create'}
+};
+
+$('prj-merge-btn').onclick=async()=>{
+  const from=$('prj-from').value,to=$('prj-to').value;
+  if(!from||!to){$('prj-status').textContent=isJa?'プロジェクトを選択してください':'Select projects';return}
+  if(from===to){$('prj-status').textContent=isJa?'異なるプロジェクトを選んでください':'Choose different projects';return}
+  $('prj-status').textContent=isJa?'マージ中...':'Merging...';
+  const r=await fetch('/api/projects/merge'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({from,to})});
+  if(r.ok){
+    const d=await r.json();
+    $('prj-status').textContent=isJa?`✓ ${d.files_copied}ファイルをマージしました`:`✓ Merged ${d.files_copied} files`;
+    $('prj-status').style.color='var(--gn)';
+  }else{$('prj-status').textContent=isJa?'マージに失敗しました':'Merge failed';$('prj-status').style.color='var(--rd)'}
+};
 
 // ── Share ──
 $('sharebtn').onclick=async()=>{
