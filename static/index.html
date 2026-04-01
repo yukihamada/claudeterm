@@ -170,7 +170,26 @@ button{font-family:var(--f);cursor:pointer}
 #tv .ts2{color:var(--dm);font-style:italic;font-size:12px}#tv .tm{color:var(--bl);font-size:12px}
 
 /* Empty state */
-.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px 20px;text-align:center;opacity:0;animation:.4s .1s cubic-bezier(.16,1,.3,1) both fi}
+.empty-state{display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px;text-align:center;opacity:0;animation:.4s .1s cubic-bezier(.16,1,.3,1) both fi}
+
+/* Pipeline progress */
+.pl-bar{margin:8px 12px;padding:12px 14px;background:var(--s1);border:1px solid var(--bd);border-radius:14px;flex-shrink:0}
+.pl-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pl-ico{font-size:18px}.pl-title{font-size:13px;font-weight:700;flex:1}
+.pl-pct{font-size:11px;color:var(--mu);font-family:var(--m)}
+.pl-end{background:none;border:none;color:var(--dm);font-size:14px;cursor:pointer;padding:2px 4px;border-radius:4px}
+.pl-end:hover{color:var(--rd);background:rgba(248,113,113,.1)}
+.pl-track{height:4px;background:var(--s3);border-radius:99px;overflow:hidden;margin-bottom:10px}
+.pl-fill{height:100%;background:linear-gradient(90deg,var(--ac),var(--bl));border-radius:99px;transition:width .3s ease}
+.pl-steps{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:10px}
+.pl-step{display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;font-size:10px;cursor:pointer;transition:all .1s;background:var(--s2);color:var(--dm);border:1px solid transparent}
+.pl-step.done{color:var(--gn);background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.2)}
+.pl-step.active{color:var(--ac);background:rgba(167,139,250,.08);border-color:var(--ac);font-weight:700}
+.pl-step:hover{background:var(--s3)}
+.pl-s-ico{font-size:12px}.pl-s-name{font-size:10px}
+.pl-next{width:100%;padding:10px;background:linear-gradient(135deg,var(--ac),var(--bl));color:#000;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s}
+.pl-next:hover{opacity:.85}
+.pl-done{text-align:center;font-size:13px;color:var(--gn);font-weight:600;padding:8px}
 
 /* Input bar */
 .ib2{padding:6px 12px;padding-bottom:max(8px,env(safe-area-inset-bottom));border-top:1px solid var(--bd);background:var(--bg);flex-shrink:0;display:flex;flex-direction:column;gap:5px}
@@ -245,16 +264,16 @@ button{font-family:var(--f);cursor:pointer}
 .tpc-icon{font-size:24px}.tpc-name{font-size:14px;font-weight:600}.tpc-desc{font-size:11px;color:var(--mu);line-height:1.4}
 
 /* Dashboard */
-#ob-wrap{flex-shrink:0}
-.ob-caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;width:100%;max-width:600px}
+#ob-wrap{flex-shrink:0;overflow-y:auto;max-height:calc(100dvh - 160px)}
+.ob-caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;width:100%;max-width:500px}
 @media(max-width:480px){.ob-caps{grid-template-columns:1fr 1fr}}
-.ob-cap{display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--s1);border:1px solid var(--bd);border-radius:12px;cursor:pointer;transition:all .15s}
-.ob-cap:hover{border-color:var(--ac);background:rgba(167,139,250,.05);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.ob-cap{display:flex;align-items:center;gap:8px;padding:10px;background:var(--s1);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .15s}
+.ob-cap:hover{border-color:var(--ac);background:rgba(167,139,250,.05);transform:translateY(-1px)}
 .ob-cap:active{transform:none}
-.ob-cap-ico{font-size:20px;flex-shrink:0;line-height:1.2}
-.ob-cap-title{font-size:13px;font-weight:700;margin-bottom:4px}
-.ob-cap-examples{display:flex;flex-direction:column;gap:2px}
-.ob-cap-examples span{font-size:10px;color:var(--mu);line-height:1.4}
+.ob-cap-ico{font-size:18px;flex-shrink:0}
+.ob-cap-title{font-size:12px;font-weight:700}
+.ob-cap-examples{display:flex;flex-wrap:wrap;gap:3px}
+.ob-cap-examples span{font-size:9px;color:var(--dm);white-space:nowrap}
 
 /* Prism overrides */
 code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5px;background:none;text-shadow:none}
@@ -1598,47 +1617,187 @@ if(!h.m.length&&ms.length){
   });
 }
 render();showOB();}
-// ── Dashboard (replaces old onboarding) ──
-const CAPABILITIES=isJa?[
-  {ico:'💻',title:'コードを書く',examples:['「Todoアプリを作って」','「このCSVをグラフにして」','「REST APIサーバーを作って」'],try:'Todoアプリを React で作ってください'},
-  {ico:'🐛',title:'バグ修正',examples:['エラーメッセージを貼るだけ','「テストが落ちてるので直して」','「このコードをレビューして」'],try:'このプロジェクトのコードをレビューして改善点を教えてください'},
-  {ico:'🚀',title:'デプロイ',examples:['「Fly.ioにデプロイして」','「Dockerfileを作って」','「GitHub Actionsを設定して」'],try:'このプロジェクトを Fly.io にデプロイしてください'},
-  {ico:'📱',title:'モバイル開発',examples:['「SwiftでiOSアプリを作って」','「App Storeに提出して」','「UIを改善して」'],try:'シンプルなメモアプリを Swift で作ってください'},
-  {ico:'🎨',title:'画像生成',examples:['「/image ロゴデザイン」','「/image アプリのモックアップ」','「/image アイコン」'],try:'/image モダンなWebアプリのロゴ、グラデーション、ミニマル'},
-  {ico:'📊',title:'データ分析',examples:['「このデータを分析して」','「SQLクエリを書いて」','「レポートを作って」'],try:'Pythonでサンプルデータを生成してグラフを作ってください'},
+// ── Workflow Pipelines ──
+const PIPELINES=isJa?[
+  {id:'web',ico:'🌐',title:'Webアプリ開発',steps:[
+    {s:'💡',t:'アイデア',p:'作りたいWebアプリのアイデアを教えてください。ターゲットユーザー、解決する課題、主要機能を整理します。'},
+    {s:'🔍',t:'リサーチ',p:'このアプリのアイデアについて、競合サービスを調べて差別化ポイントと必要な機能リストを作ってください。'},
+    {s:'📋',t:'設計',p:'機能リストから実装計画を作ってください。技術スタック、ファイル構成、画面構成、APIエンドポイントを設計してください。'},
+    {s:'🔨',t:'実装',p:'設計に基づいて実装を始めてください。まずコア機能から作り、動くプロトタイプを目指してください。'},
+    {s:'👀',t:'レビュー',p:'ここまでのコードをレビューしてください。バグ、パフォーマンス問題、改善点を指摘して修正してください。'},
+    {s:'🔒',t:'セキュリティ',p:'セキュリティチェックをしてください。XSS、CSRF、SQLインジェクション、認証の穴がないか確認してください。'},
+    {s:'🚀',t:'デプロイ',p:'本番環境にデプロイしてください。Dockerfile作成、環境変数設定、ヘルスチェック追加もお願いします。'},
+    {s:'🧪',t:'テスト',p:'デプロイしたアプリを確認して、E2Eテストを書いてください。主要フローが正しく動くか検証してください。'},
+    {s:'✨',t:'改善',p:'ユーザー体験を改善してください。レスポンシブ対応、ローディング状態、エラーハンドリング、アニメーションを追加してください。'},
+    {s:'📊',t:'分析',p:'パフォーマンスを計測してください。Lighthouse実行、バンドルサイズ確認、Core Web Vitalsの改善をしてください。'},
+  ]},
+  {id:'mobile',ico:'📱',title:'モバイルアプリ',steps:[
+    {s:'💡',t:'コンセプト',p:'作りたいiOSアプリのコンセプトを教えてください。画面構成とユーザーフローを設計します。'},
+    {s:'🎨',t:'UI設計',p:'SwiftUIで主要画面のUIを設計してください。ダークモード対応、Dynamic Type対応もお願いします。'},
+    {s:'🔨',t:'実装',p:'コア機能を実装してください。MVVM構成で、データの永続化はSwiftDataを使ってください。'},
+    {s:'🧪',t:'テスト',p:'ユニットテストとUIテストを書いてください。主要フローをXCTestで自動化してください。'},
+    {s:'🔒',t:'セキュリティ',p:'Keychainの使い方、ネットワーク通信の暗号化、プライバシー設定を確認してください。'},
+    {s:'📦',t:'ビルド',p:'Archive作成、署名設定を確認し、TestFlightにアップロードしてください。'},
+    {s:'📝',t:'審査準備',p:'App Storeの審査に必要なスクリーンショット、説明文、プライバシーポリシーを準備してください。'},
+    {s:'🚀',t:'提出',p:'App Store Connectに提出してください。審査ガイドラインに沿っているか最終確認もお願いします。'},
+  ]},
+  {id:'video',ico:'🎬',title:'動画制作',steps:[
+    {s:'🎭',t:'キャラクター',p:'動画のキャラクターを作りましょう。名前、性格、見た目、声のトーンを決めてください。/image でキャラクターデザインも生成できます。'},
+    {s:'🎨',t:'テイスト',p:'動画のビジュアルスタイルを決めてください。色使い、アニメーション風 or 実写風、画面のトーンを /image で試してください。'},
+    {s:'📖',t:'ストーリー',p:'ストーリーの構成を作ってください。起承転結、各シーンの説明、セリフを脚本形式で書いてください。'},
+    {s:'🖼',t:'絵コンテ',p:'各シーンの絵コンテを /image で生成してください。カメラアングル、構図、キャラクターの配置を指示してください。'},
+    {s:'🎵',t:'音楽・SE',p:'BGMや効果音の方針を決めてください。テンポ、ジャンル、キーモーメントの音を設計してください。'},
+    {s:'🎬',t:'制作',p:'Veoやその他のツールで動画クリップを生成してください。各シーンのプロンプトを作成します。'},
+    {s:'✂️',t:'編集',p:'ffmpegで動画を結合し、字幕、トランジション、色補正を追加してください。'},
+    {s:'📤',t:'公開',p:'完成した動画をYouTubeやSNSに公開するための、タイトル、サムネイル、説明文を作ってください。'},
+  ]},
+  {id:'research',ico:'🔬',title:'リサーチ・論文',steps:[
+    {s:'❓',t:'問い',p:'リサーチしたいテーマと問いを明確にしてください。先行研究の有無も確認します。'},
+    {s:'📚',t:'文献調査',p:'関連する論文、記事、データソースを調べてまとめてください。'},
+    {s:'📐',t:'方法論',p:'研究方法を設計してください。データ収集方法、分析手法、評価基準を決めてください。'},
+    {s:'🧮',t:'分析',p:'収集したデータを分析してください。Pythonでグラフや統計を作成してください。'},
+    {s:'📝',t:'執筆',p:'分析結果を論文形式でまとめてください。Introduction、Method、Results、Discussionの構成で。'},
+    {s:'👀',t:'査読',p:'論文をレビューして、論理の飛躍、引用の不足、改善点を指摘してください。'},
+  ]},
+  {id:'design',ico:'🎨',title:'デザイン',steps:[
+    {s:'🎯',t:'ブリーフ',p:'デザインの目的、ターゲット、制約を整理してください。ブランドカラーやトーンがあれば教えてください。'},
+    {s:'🔍',t:'参考収集',p:'参考になるデザインを /image で生成して、方向性を探ってください。3-5パターン出してください。'},
+    {s:'✏️',t:'ラフ案',p:'選んだ方向性でラフデザインを /image で生成してください。レイアウト、色、タイポグラフィのバリエーションを試してください。'},
+    {s:'🎨',t:'ブラッシュアップ',p:'選んだラフ案をブラッシュアップしてください。ディテール、余白、コントラストを調整してください。'},
+    {s:'📐',t:'実装',p:'デザインをHTML/CSSで実装してください。レスポンシブ対応、アニメーション、インタラクションも追加してください。'},
+    {s:'📤',t:'納品',p:'最終的なデザインファイルを整理してください。使用フォント、カラーコード、アセット一覧をまとめてください。'},
+  ]},
 ]:[
-  {ico:'💻',title:'Write Code',examples:['"Build me a todo app"','"Convert this CSV to a chart"','"Create a REST API server"'],try:'Build a todo app in React'},
-  {ico:'🐛',title:'Fix Bugs',examples:['Paste any error message','"Fix the failing tests"','"Review this code"'],try:'Review this project and suggest improvements'},
-  {ico:'🚀',title:'Deploy',examples:['"Deploy to Fly.io"','"Create a Dockerfile"','"Set up GitHub Actions"'],try:'Deploy this project to Fly.io'},
-  {ico:'📱',title:'Mobile Dev',examples:['"Build an iOS app in Swift"','"Submit to App Store"','"Improve the UI"'],try:'Build a simple notes app in Swift'},
-  {ico:'🎨',title:'Generate Images',examples:['"Logo design"','"App mockup"','"Icon design"'],try:'/image modern web app logo, gradient, minimal'},
-  {ico:'📊',title:'Data Analysis',examples:['"Analyze this data"','"Write SQL queries"','"Generate a report"'],try:'Generate sample data in Python and create a chart'},
+  {id:'web',ico:'🌐',title:'Web App',steps:[
+    {s:'💡',t:'Idea',p:'Tell me about the web app you want to build. Target users, problem to solve, key features.'},
+    {s:'🔍',t:'Research',p:'Research competitors and create a feature list with differentiators.'},
+    {s:'📋',t:'Design',p:'Create an implementation plan: tech stack, file structure, screens, API endpoints.'},
+    {s:'🔨',t:'Build',p:'Start implementing from the design. Build core features first, aim for a working prototype.'},
+    {s:'👀',t:'Review',p:'Review the code so far. Find bugs, performance issues, and improvements.'},
+    {s:'🔒',t:'Security',p:'Security audit: check for XSS, CSRF, SQL injection, auth vulnerabilities.'},
+    {s:'🚀',t:'Deploy',p:'Deploy to production. Create Dockerfile, set env vars, add health checks.'},
+    {s:'🧪',t:'Test',p:'Write E2E tests and verify the deployed app works correctly.'},
+    {s:'✨',t:'Polish',p:'Improve UX: responsive design, loading states, error handling, animations.'},
+    {s:'📊',t:'Analyze',p:'Run Lighthouse, check bundle size, improve Core Web Vitals.'},
+  ]},
+  {id:'mobile',ico:'📱',title:'Mobile App',steps:[
+    {s:'💡',t:'Concept',p:'Tell me the iOS app concept. Design screen layout and user flow.'},
+    {s:'🎨',t:'UI Design',p:'Design main screens in SwiftUI with dark mode and Dynamic Type.'},
+    {s:'🔨',t:'Build',p:'Implement core features with MVVM and SwiftData.'},
+    {s:'🧪',t:'Test',p:'Write unit tests and UI tests with XCTest.'},
+    {s:'🔒',t:'Security',p:'Check Keychain usage, network encryption, privacy settings.'},
+    {s:'📦',t:'Archive',p:'Create archive, verify signing, upload to TestFlight.'},
+    {s:'📝',t:'Review Prep',p:'Prepare screenshots, description, privacy policy for App Store.'},
+    {s:'🚀',t:'Submit',p:'Submit to App Store Connect with final guideline compliance check.'},
+  ]},
+  {id:'video',ico:'🎬',title:'Video Production',steps:[
+    {s:'🎭',t:'Character',p:'Create video characters. Name, personality, appearance, voice tone. Use /image for design.'},
+    {s:'🎨',t:'Style',p:'Decide visual style: colors, animation vs live-action, tone. Try with /image.'},
+    {s:'📖',t:'Story',p:'Write the story structure. Beginning, middle, end. Scene descriptions and dialogue.'},
+    {s:'🖼',t:'Storyboard',p:'Generate storyboard frames with /image. Camera angles, composition, character placement.'},
+    {s:'🎵',t:'Audio',p:'Plan BGM and sound effects. Tempo, genre, key moments.'},
+    {s:'🎬',t:'Produce',p:'Generate video clips with Veo or other tools. Create prompts for each scene.'},
+    {s:'✂️',t:'Edit',p:'Combine clips with ffmpeg. Add subtitles, transitions, color correction.'},
+    {s:'📤',t:'Publish',p:'Create title, thumbnail, and description for YouTube/social media.'},
+  ]},
+  {id:'research',ico:'🔬',title:'Research',steps:[
+    {s:'❓',t:'Question',p:'Define your research question and check for existing work.'},
+    {s:'📚',t:'Literature',p:'Survey related papers, articles, and data sources.'},
+    {s:'📐',t:'Method',p:'Design methodology: data collection, analysis techniques, evaluation criteria.'},
+    {s:'🧮',t:'Analyze',p:'Analyze data with Python. Create charts and statistics.'},
+    {s:'📝',t:'Write',p:'Write up results in paper format: Intro, Method, Results, Discussion.'},
+    {s:'👀',t:'Peer Review',p:'Review the paper for logical gaps, missing citations, improvements.'},
+  ]},
+  {id:'design',ico:'🎨',title:'Design',steps:[
+    {s:'🎯',t:'Brief',p:'Define design goals, target audience, constraints, brand colors and tone.'},
+    {s:'🔍',t:'Inspiration',p:'Generate reference designs with /image. Try 3-5 directions.'},
+    {s:'✏️',t:'Rough Draft',p:'Create rough designs with /image. Explore layout, color, typography variations.'},
+    {s:'🎨',t:'Refine',p:'Polish the chosen design. Adjust details, spacing, contrast.'},
+    {s:'📐',t:'Implement',p:'Build the design in HTML/CSS. Add responsive, animations, interactions.'},
+    {s:'📤',t:'Deliver',p:'Package final design files. List fonts, color codes, assets.'},
+  ]},
 ];
+
+let activePipeline=null,pipelineStep=0;
 
 function showOB(){
   const wrap=$('ob-wrap');wrap.innerHTML='';
   const h=gH(sid);
+
+  // If pipeline is active, show progress bar
+  if(activePipeline){
+    const pl=PIPELINES.find(p=>p.id===activePipeline);
+    if(pl){
+      const pct=Math.round((pipelineStep/pl.steps.length)*100);
+      wrap.innerHTML=`<div class="pl-bar">
+        <div class="pl-hd">
+          <span class="pl-ico">${pl.ico}</span>
+          <span class="pl-title">${pl.title}</span>
+          <span class="pl-pct">${pipelineStep}/${pl.steps.length}</span>
+          <button class="pl-end" data-action="end-pipeline">✕</button>
+        </div>
+        <div class="pl-track"><div class="pl-fill" style="width:${pct}%"></div></div>
+        <div class="pl-steps">${pl.steps.map((st,i)=>
+          `<div class="pl-step${i<pipelineStep?' done':i===pipelineStep?' active':''}" data-step="${i}">
+            <span class="pl-s-ico">${st.s}</span>
+            <span class="pl-s-name">${st.t}</span>
+          </div>`).join('')}</div>
+        ${pipelineStep<pl.steps.length?`<button class="pl-next" data-action="next-step">${pl.steps[pipelineStep].s} ${pl.steps[pipelineStep].t} ${isJa?'を実行':'— Run'}</button>`
+          :`<div class="pl-done">${isJa?'🎉 全ステップ完了！':'🎉 All steps complete!'}</div>`}
+      </div>`;
+      wrap.querySelector('[data-action="end-pipeline"]')?.addEventListener('click',()=>{activePipeline=null;pipelineStep=0;showOB()});
+      wrap.querySelector('[data-action="next-step"]')?.addEventListener('click',()=>{
+        const step=pl.steps[pipelineStep];
+        pipelineStep++;
+        localStorage.setItem('ct_pipeline',JSON.stringify({id:activePipeline,step:pipelineStep}));
+        send(step.p);
+        showOB();
+      });
+      wrap.querySelectorAll('.pl-step').forEach(el=>{
+        el.onclick=()=>{
+          const i=parseInt(el.dataset.step);
+          if(i<=pipelineStep){
+            pipelineStep=i;
+            localStorage.setItem('ct_pipeline',JSON.stringify({id:activePipeline,step:pipelineStep}));
+            showOB();
+          }
+        };
+      });
+      return;
+    }
+  }
+
+  // Default: show pipeline selector (only when no messages)
   if(h.m.filter(m=>m.role==='user').length>0)return;
 
-  const cards=CAPABILITIES.map((c,i)=>
-    `<div class="ob-cap" data-try="${i}">
-      <div class="ob-cap-ico">${c.ico}</div>
+  const cards=PIPELINES.map((p,i)=>
+    `<div class="ob-cap" data-pl="${i}">
+      <div class="ob-cap-ico">${p.ico}</div>
       <div class="ob-cap-body">
-        <div class="ob-cap-title">${c.title}</div>
-        <div class="ob-cap-examples">${c.examples.map(e=>`<span>${e}</span>`).join('')}</div>
+        <div class="ob-cap-title">${p.title}</div>
+        <div class="ob-cap-examples">${p.steps.slice(0,3).map(st=>`<span>${st.s} ${st.t}</span>`).join('')}<span style="color:var(--dm)">...${p.steps.length} ${isJa?'ステップ':'steps'}</span></div>
       </div>
     </div>`).join('');
 
   wrap.innerHTML=`<div class="empty-state">
     <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--ac),var(--bl));display:grid;place-items:center;font-size:22px;font-weight:900;color:#fff;box-shadow:0 6px 20px rgba(167,139,250,.3)">C</div>
-    <div style="font-size:13px;color:var(--mu);max-width:360px;line-height:1.6">${isJa?'何でも聞いてみてください。<br>下のカードをタップしてすぐ始められます。':'Ask anything.<br>Tap a card below to get started.'}</div>
+    <div style="font-size:13px;color:var(--mu);max-width:400px;line-height:1.6">${isJa?'ワークフローを選んでステップバイステップで進められます。<br>もちろん自由に質問してもOK！':'Choose a workflow for step-by-step guidance.<br>Or just ask anything freely!'}</div>
     <div class="ob-caps">${cards}</div>
   </div>`;
 
-  wrap.querySelectorAll('.ob-cap[data-try]').forEach(el=>{
-    el.onclick=()=>send(CAPABILITIES[parseInt(el.dataset.try)].try);
+  wrap.querySelectorAll('.ob-cap[data-pl]').forEach(el=>{
+    el.onclick=()=>{
+      const pl=PIPELINES[parseInt(el.dataset.pl)];
+      activePipeline=pl.id;pipelineStep=0;
+      localStorage.setItem('ct_pipeline',JSON.stringify({id:pl.id,step:0}));
+      showOB();
+    };
   });
 }
+
+// Restore pipeline state
+try{const saved=JSON.parse(localStorage.getItem('ct_pipeline')||'null');
+if(saved){activePipeline=saved.id;pipelineStep=saved.step||0}}catch{}
 
 // D&D
 $('cv').addEventListener('dragover',e=>e.preventDefault());
