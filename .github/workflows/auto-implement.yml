@@ -19,6 +19,12 @@ jobs:
   implement:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    # ── Owner-only guard ────────────────────────────────────────────────────
+    # Only the repository owner can trigger this workflow.
+    # Any other actor (including collaborators) will see the job skipped.
+    if: github.actor == 'yukihamada'
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,6 +38,43 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code@1
 
+      # ── Safety review BEFORE any code changes ───────────────────────────
+      # Claude evaluates the task. If it looks malicious or destructive,
+      # it prints UNSAFE and the step fails, halting the whole job.
+      - name: Safety review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          VERDICT=$(claude --print \
+            "You are a security reviewer for an automated code-change pipeline.
+
+          Evaluate whether the following task is SAFE to implement automatically.
+
+          TASK: ${{ inputs.task }}
+
+          A task is UNSAFE if it:
+          - Reads, prints, or exfiltrates secrets / API keys / credentials / tokens
+          - Deletes or overwrites important files without clear justification
+          - Adds backdoors, remote-execution endpoints, or admin bypass routes
+          - Sends user data to external services without consent
+          - Installs new system packages or modifies CI/CD pipelines
+          - Is unrelated to improving the claudeterm web-terminal product
+          - Is vague or ambiguous in a way that could hide malicious intent
+
+          Respond with exactly one of:
+            SAFE: <one-line reason>
+            UNSAFE: <one-line reason>
+
+          Do not add anything else." 2>&1)
+
+          echo "Safety verdict: $VERDICT"
+
+          # Fail if the verdict starts with UNSAFE
+          if echo "$VERDICT" | grep -qi "^UNSAFE"; then
+            echo "::error::Task rejected by safety review: $VERDICT"
+            exit 1
+          fi
+
       - name: Create feature branch
         id: branch
         run: |
@@ -40,30 +83,34 @@ jobs:
           git checkout -b "$BRANCH"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
+      # ── Implementation ───────────────────────────────────────────────────
+      # --allowedTools restricts Claude to file read/write/edit only.
+      # No Bash execution, no network calls, no secret access.
       - name: Implement with Claude Code
         if: inputs.dry_run == 'false'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          claude --print --dangerously-skip-permissions \
+          claude --print \
+            --allowedTools "Read,Write,Edit,Glob,Grep" \
             "You are implementing user feedback for the claudeterm project (a web terminal for Claude Code at chatweb.ai).
 
           TASK: ${{ inputs.task }}
 
           Rules:
-          1. Read the relevant files first before making changes
-          2. Keep changes minimal and focused
-          3. Do not break existing functionality
-          4. Do not commit secrets or API keys
-          5. If the task seems unsafe or destructive, explain why and stop
-          6. After implementing, run a quick sanity check (cargo check if Rust was changed)
+          1. Read relevant files first before making changes
+          2. Keep changes minimal and focused on the task
+          3. Never read or write .env files, secrets, or API key files
+          4. Never add new routes that bypass authentication
+          5. Never add code that sends data to external URLs
+          6. After editing, double-check your changes make sense
 
-          The main files are:
-          - src/main.rs (Rust backend, axum)
-          - static/index.html (single-file frontend)
+          Main files:
+          - src/main.rs (Rust backend, axum 0.7)
+          - static/index.html (single-file frontend, include_str! compiled in)
           - src/billing.rs, src/gemini.rs, src/imagen.rs, src/templates.rs
 
-          Implement the task now."
+          Implement now."
 
       - name: Plan only (dry run)
         if: inputs.dry_run == 'true'
@@ -71,15 +118,28 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           claude --print \
-            "Analyze this feedback/task for the claudeterm project and write a detailed implementation plan (do NOT make any changes):
+            "Analyze this task for the claudeterm project and write a detailed implementation plan (do NOT make changes):
 
           TASK: ${{ inputs.task }}
 
           Output:
-          1. What files need to change
-          2. What exactly to change
-          3. Estimated effort (small/medium/large)
-          4. Any risks or concerns"
+          1. Files to change
+          2. Exact changes needed
+          3. Effort: small / medium / large
+          4. Risks or concerns"
+
+      # ── Post-implementation secret scan ─────────────────────────────────
+      # Detect if any API keys or tokens were accidentally written to files.
+      - name: Secret scan
+        if: inputs.dry_run == 'false'
+        run: |
+          # Fail if any changed file contains obvious secret patterns
+          git diff --name-only HEAD 2>/dev/null | while read f; do
+            if grep -qE '(sk-ant-|sk_live_|ghp_|AKIA|ya29\.|eyJh)' "$f" 2>/dev/null; then
+              echo "::error::Secret pattern detected in $f — aborting"
+              exit 1
+            fi
+          done
 
       - name: Commit changes
         if: inputs.dry_run == 'false'
@@ -102,7 +162,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if there are commits to PR
           DIFF=$(git log origin/main.."${{ steps.branch.outputs.branch }}" --oneline 2>/dev/null | wc -l)
           if [ "$DIFF" -gt "0" ]; then
             gh pr create \
@@ -113,15 +172,15 @@ jobs:
 
           **Task:** ${{ inputs.task }}
 
-          This PR was automatically generated by the auto-implement workflow using Claude Code.
+          Auto-generated by Claude Code. Passed safety review + secret scan.
 
           ### Review checklist
-          - [ ] Changes look correct and safe
+          - [ ] Changes look correct and minimal
           - [ ] No secrets or credentials exposed
           - [ ] Existing functionality not broken
           - [ ] Ready to merge
 
-          > ⚠️ Review carefully before merging — auto-generated code."
+          > Review carefully before merging."
           else
-            echo "No changes were made, skipping PR creation"
+            echo "No changes were made — skipping PR creation"
           fi
