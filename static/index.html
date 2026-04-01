@@ -133,9 +133,14 @@ button{font-family:var(--f);cursor:pointer}
 .qa:hover{background:var(--s3);color:var(--tx);border-color:var(--s3)}.qa:active{background:var(--ac);color:#fff;border-color:var(--ac)}
 
 /* Input bar */
-.ib2{padding:8px 12px;border-top:1px solid var(--bd);background:var(--bg);flex-shrink:0;display:flex;gap:6px;align-items:flex-end;padding-bottom:max(8px,env(safe-area-inset-bottom))}
-.ib2 textarea{flex:1;background:var(--s2);border:1.5px solid var(--bd);border-radius:14px;padding:10px 14px;color:var(--tx);font-size:14px;font-family:var(--f);outline:none;resize:none;max-height:120px;min-height:42px;line-height:1.4;transition:border-color .15s}
-.ib2 textarea:focus{border-color:var(--ac);background:var(--s1)}.ib2 textarea:disabled{opacity:.3}
+.ib2{padding:6px 12px;padding-bottom:max(8px,env(safe-area-inset-bottom));border-top:1px solid var(--bd);background:var(--bg);flex-shrink:0;display:flex;flex-direction:column;gap:5px}
+.mdl-row{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding:1px 0}
+.mdl-row::-webkit-scrollbar{display:none}
+.mp{padding:3px 11px;border-radius:99px;border:1.5px solid var(--bd);background:transparent;color:var(--dm);font-size:11px;font-weight:500;white-space:nowrap;cursor:pointer;transition:all .12s;font-family:var(--f);flex-shrink:0}
+.mp:hover{border-color:var(--mu);color:var(--mu)}.mp.on{background:var(--ac);color:#000;border-color:var(--ac)}
+.ir{display:flex;gap:6px;align-items:flex-end}
+.ir textarea{flex:1;background:var(--s2);border:1.5px solid var(--bd);border-radius:14px;padding:10px 14px;color:var(--tx);font-size:14px;font-family:var(--f);outline:none;resize:none;max-height:120px;min-height:42px;line-height:1.4;transition:border-color .15s}
+.ir textarea:focus{border-color:var(--ac);background:var(--s1)}.ir textarea:disabled{opacity:.3}
 .cb{width:36px;height:36px;border-radius:50%;border:none;display:grid;place-items:center;flex-shrink:0;font-size:14px;transition:all .15s}
 .cb:disabled{opacity:.3}.cb-s{background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;box-shadow:0 2px 10px rgba(167,139,250,.35)}
 .cb-s:hover:not(:disabled){transform:scale(1.08);box-shadow:0 4px 16px rgba(167,139,250,.45)}
@@ -143,9 +148,23 @@ button{font-family:var(--f);cursor:pointer}
 .cb-m{background:var(--s2);color:var(--mu);border:1px solid var(--bd)}.cb-m.rc{background:var(--rd);color:#fff;animation:bk .8s step-end infinite}
 .cb-m:hover{background:var(--s3);color:var(--tx)}
 
-/* Model select */
-.mdl-sel{background:var(--s2);border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-size:11px;padding:5px 8px;outline:none;flex-shrink:0;font-family:var(--f);transition:all .12s;cursor:pointer}
-.mdl-sel:hover{border-color:var(--ac);color:var(--tx)}.mdl-sel:focus{border-color:var(--ac)}
+/* Setup wizard */
+#wizard{display:none;position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px}
+#wizard.on{display:flex}
+.wz{width:min(480px,100%);background:var(--s1);border:1px solid var(--bd);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;max-height:90vh;overflow-y:auto}
+.wz-hd{text-align:center}.wz-ico{font-size:40px;margin-bottom:8px}.wz-hd h2{font-size:20px;font-weight:700;letter-spacing:-.03em;margin-bottom:4px}
+.wz-sub{font-size:12px;color:var(--mu);line-height:1.5}
+.wz-key{display:flex;flex-direction:column;gap:5px}
+.wz-key label{font-size:12px;color:var(--mu);font-weight:500}
+.wz-key .hint{font-size:11px;color:var(--dm);display:flex;align-items:center;gap:4px}
+.wz-key .hint a{color:var(--bl);text-decoration:none}.wz-key .hint a:hover{text-decoration:underline}
+.wz-key input{background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:9px 12px;color:var(--tx);font-size:12px;font-family:var(--m);outline:none;width:100%;transition:border-color .15s}
+.wz-key input:focus{border-color:var(--ac)}
+.wz-skip{font-size:11px;color:var(--dm);background:var(--s2);border-radius:10px;padding:10px 12px;line-height:1.6;border:1px solid var(--bd)}
+.wz-skip b{color:var(--bl)}.wz-btns{display:flex;gap:8px;justify-content:flex-end}
+.wz-btns button{padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all .12s}
+.wz-btns .wz-sv{background:var(--ac);color:#000}.wz-btns .wz-sk{background:var(--s3);color:var(--mu)}
+.wz-btns .wz-sk:hover{color:var(--tx)}.wz-btns .wz-sv:hover{opacity:.85}
 
 /* Settings modal */
 #settings{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
@@ -266,16 +285,19 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button class="qa" data-q="Undo all changes using git checkout">Undo</button>
 </div>
 <div class="ib2">
-<select id="mdl" class="mdl-sel" title="Model — Auto adjusts effort automatically">
-<option value="auto">Auto</option>
-<option value="haiku">⚡ Haiku (fast)</option>
-<option value="sonnet">✦ Sonnet</option>
-<option value="opus">◆ Max effort</option>
-</select>
-<button class="cb cb-m" id="mi">&#127908;</button>
-<textarea class="inp" id="mg" rows="1" placeholder="Message Claude... (Cmd+K)"></textarea>
+<div class="mdl-row">
+<button class="mp on" data-m="auto">Auto</button>
+<button class="mp" data-m="haiku">⚡ Fast</button>
+<button class="mp" data-m="sonnet">✦ Sonnet</button>
+<button class="mp" data-m="opus">◆ Max</button>
+<select id="mdl" style="display:none"><option value="auto">auto</option><option value="haiku">haiku</option><option value="sonnet">sonnet</option><option value="opus">opus</option></select>
+</div>
+<div class="ir">
+<button class="cb cb-m" id="mi" style="display:none">&#127908;</button>
+<textarea id="mg" rows="1" placeholder="Message Claude... (Cmd+K)"></textarea>
 <button class="cb cb-s" id="sd">&#8593;</button>
 <button class="cb cb-x" id="st">&#9632;</button>
+</div>
 </div>
 </div>
 </div>
@@ -317,6 +339,14 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div></div>
 
 <div id="pk"><div class="pl"><input id="pi" placeholder="Search..."><div class="pl-l" id="pll"></div></div></div>
+<!-- Setup wizard -->
+<div id="wizard"><div class="wz">
+<div class="wz-hd"><div class="wz-ico" id="wz-ico">🌐</div><h2 id="wz-title">Project Setup</h2><p class="wz-sub" id="wz-desc"></p></div>
+<div id="wz-keys"></div>
+<div class="wz-skip" id="wz-skip-note"></div>
+<div class="wz-btns"><button class="wz-sk" id="wz-skip">Skip for now</button><button class="wz-sv" id="wz-save">Save & Continue</button></div>
+</div></div>
+
 <!-- Template picker -->
 <div id="tp" style="display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);align-items:center;justify-content:center">
 <div style="width:min(500px,92vw);background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:24px;animation:.15s ease both fi;max-height:80vh;overflow-y:auto">
@@ -577,7 +607,9 @@ if(t.startsWith('/image ')){const p=t.slice(7).trim();if(p){asid=sid;sendImage(p
 gH(sid).m.push({role:'user',text:t});asid=sid;
 setB(true);render();
 const mdl=$('mdl').value;
-ws.send(JSON.stringify({session:sid,text:t,model:mdl==='auto'?null:mdl}))}
+const isFirst=gH(sid).m.filter(m=>m.role==='user').length===1;
+const ctx=isFirst?getSetupCtx():'';
+ws.send(JSON.stringify({session:sid,text:t+(ctx),model:mdl==='auto'?null:mdl}))}
 function stop(){if(ws)ws.send(JSON.stringify({type:'stop'}))}
 function setB(b){busy=b;$('mg').disabled=b;$('sd').style.display=b?'none':'grid';$('st').style.display=b?'grid':'none';$('dot').className='dt '+(b?'busy':'on')}
 $('sd').onclick=()=>send();$('st').onclick=stop;
@@ -585,12 +617,74 @@ $('mg').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.prevent
 $('mg').oninput=function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'};
 document.querySelectorAll('.qa').forEach(b=>b.onclick=()=>send(b.dataset.q));
 
+// Model pills
+document.querySelectorAll('.mp').forEach(b=>{b.onclick=()=>{
+  document.querySelectorAll('.mp').forEach(x=>x.classList.toggle('on',x===b));
+  $('mdl').value=b.dataset.m;
+}});
+
 // Voice
 if('webkitSpeechRecognition' in window||'SpeechRecognition' in window){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const r=new SR();r.continuous=false;r.interimResults=true;r.lang='ja-JP';let rc=false,fn='';
 r.onresult=e=>{let i='';fn='';for(let j=0;j<e.results.length;j++){if(e.results[j].isFinal)fn+=e.results[j][0].transcript;else i+=e.results[j][0].transcript}$('mg').value=fn+i};
 r.onend=()=>{rc=false;$('mi').classList.remove('rc')};r.onerror=r.onend;
-$('mi').onclick=()=>{if(rc){r.stop();return}rc=true;$('mi').classList.add('rc');fn='';r.start()}}else $('mi').style.display='none';
+$('mi').style.display='grid';$('mi').onclick=()=>{if(rc){r.stop();return}rc=true;$('mi').classList.add('rc');fn='';r.start()}}
+
+// ── Setup Wizard ──
+const WIZ_DEFS={
+  webapp:{ico:'🌐',title:'Web App Setup',desc:'APIキーを設定すると1クリックでデプロイできます。スキップしてもChatWebの環境で開発できます。',
+    skip:'<b>スキップしても使えること:</b> Node.js / Bun / Python / Rust がインストール済み。Fly.io CLIでデプロイ可能。',
+    keys:[
+      {id:'CF_API_TOKEN',label:'Cloudflare API Token',hint:'dash.cloudflare.com → Profile → API Tokens',url:'https://dash.cloudflare.com/profile/api-tokens',ph:'token...'},
+      {id:'CF_ACCOUNT_ID',label:'Cloudflare Account ID',hint:'ダッシュボード右サイドバーに表示',ph:'abc123...'},
+      {id:'GITHUB_TOKEN',label:'GitHub Token (optional)',hint:'github.com → Settings → Developer settings → Tokens',url:'https://github.com/settings/tokens',ph:'ghp_...'},
+    ]},
+  mobile:{ico:'📱',title:'Mobile App Setup',desc:'App Store / Play Store への提出に必要なキーを設定します。',
+    skip:'<b>スキップしても使えること:</b> Xcode / Android Studio インストール済み。ローカルビルド・テストは可能。App Store提出にはキーが必要。',
+    keys:[
+      {id:'APPLE_TEAM_ID',label:'Apple Developer Team ID',hint:'developer.apple.com → Account → Membership',url:'https://developer.apple.com/account',ph:'ABC123DEF'},
+      {id:'ASC_KEY_ID',label:'App Store Connect API Key ID',hint:'appstoreconnect.apple.com → Users & Access → Keys',url:'https://appstoreconnect.apple.com/access/api',ph:'5KT46G9Y29'},
+      {id:'ASC_ISSUER_ID',label:'App Store Connect Issuer ID',hint:'同じページの上部に表示',ph:'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'},
+      {id:'BUNDLE_ID',label:'App Bundle ID',hint:'例: com.yourcompany.appname',ph:'com.company.app'},
+    ]},
+  automation:{ico:'⚙️',title:'DevOps Setup',desc:'クラウドプロバイダーのキーを設定するとCI/CDが自動化されます。',
+    skip:'<b>スキップしても使えること:</b> Docker / kubectl / Terraform / fly CLI インストール済み。ChatWebの共有認証で基本操作可能。',
+    keys:[
+      {id:'FLY_API_TOKEN',label:'Fly.io API Token',hint:'fly.io → Dashboard → Access Tokens',url:'https://fly.io/user/personal_access_tokens',ph:'fo1_...'},
+      {id:'AWS_ACCESS_KEY_ID',label:'AWS Access Key ID (optional)',hint:'AWS Console → IAM → Users → Security credentials',ph:'AKIA...'},
+      {id:'AWS_SECRET_ACCESS_KEY',label:'AWS Secret Access Key (optional)',hint:'Access Key IDと同時に生成',ph:''},
+    ]},
+};
+let wizPendingFn=null;
+function showWizard(tmplId,onDone){
+  const def=WIZ_DEFS[tmplId];if(!def){onDone&&onDone();return;}
+  wizPendingFn=onDone;
+  $('wz-ico').textContent=def.ico;$('wz-title').textContent=def.title;
+  $('wz-desc').textContent=def.desc;$('wz-skip-note').innerHTML=def.skip;
+  const saved=JSON.parse(localStorage.getItem('cw_keys')||'{}');
+  $('wz-keys').innerHTML=def.keys.map(k=>`
+    <div class="wz-key">
+      <label>${k.label}</label>
+      <div class="hint">${k.url?`<a href="${k.url}" target="_blank" rel="noopener">取得方法</a> —`:''}${esc(k.hint)}</div>
+      <input id="wk-${k.id}" type="password" placeholder="${k.ph}" value="${esc(saved[k.id]||'')}">
+    </div>`).join('');
+  $('wizard').classList.add('on');
+}
+$('wz-skip').onclick=()=>{$('wizard').classList.remove('on');wizPendingFn&&wizPendingFn();wizPendingFn=null;};
+$('wz-save').onclick=()=>{
+  const def=WIZ_DEFS[Object.keys(WIZ_DEFS).find(k=>WIZ_DEFS[k].title===$('wz-title').textContent)||'webapp'];
+  if(!def){$('wizard').classList.remove('on');wizPendingFn&&wizPendingFn();wizPendingFn=null;return;}
+  const saved=JSON.parse(localStorage.getItem('cw_keys')||'{}');
+  def.keys.forEach(k=>{const v=document.getElementById('wk-'+k.id)?.value.trim();if(v)saved[k.id]=v;});
+  localStorage.setItem('cw_keys',JSON.stringify(saved));
+  $('wizard').classList.remove('on');wizPendingFn&&wizPendingFn();wizPendingFn=null;
+};
+function getSetupCtx(){
+  const keys=JSON.parse(localStorage.getItem('cw_keys')||'{}');
+  const e=Object.entries(keys).filter(([,v])=>v);
+  if(!e.length)return'';
+  return'\n\n[Project env vars available: '+e.map(([k,v])=>k+'=***').join(', ')+'. Use these when deploying or submitting.]';
+}
 
 // Files
 let fp='';$('fb').onclick=()=>$('sb').classList.toggle('open');$('sc').onclick=()=>$('sb').classList.remove('open');
@@ -641,7 +735,7 @@ function showTemplatePicker(){
   templates.forEach(t=>{
     const d=document.createElement('div');d.className='tpc';
     d.innerHTML=`<span class="tpc-icon">${t.icon}</span><span class="tpc-name">${isJa?t.name_ja:t.name}</span><span class="tpc-desc">${isJa?t.description_ja:t.description}</span>`;
-    d.onclick=()=>{$('tp').style.display='none';cS((isJa?t.name_ja:t.name),t.id)};
+    d.onclick=()=>{$('tp').style.display='none';const n=isJa?t.name_ja:t.name;if(WIZ_DEFS[t.id])showWizard(t.id,()=>cS(n,t.id));else cS(n,t.id)};
     el.appendChild(d);
   });
   $('tp').style.display='flex';
