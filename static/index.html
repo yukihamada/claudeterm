@@ -365,27 +365,31 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .sv-act-btn.secondary:hover{border-color:var(--ac);color:var(--ac)}
 
 /* Project picker */
-#proj-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#proj-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:flex-start;justify-content:center;padding:max(20px,env(safe-area-inset-top)) 0 max(20px,env(safe-area-inset-bottom))}
 #proj-modal.on{display:flex}
-.prj{width:min(420px,92vw);background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow)}
-.prj h2{font-size:18px;font-weight:700;letter-spacing:-.03em}
-.prj-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
-.prj-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .12s;font-size:13px}
+.prj{width:min(400px,94vw);max-height:calc(100dvh - 40px);overflow-y:auto;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:20px 16px;display:flex;flex-direction:column;gap:10px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);margin-top:auto;margin-bottom:auto;position:relative}
+.prj h2{font-size:16px;font-weight:700;letter-spacing:-.03em;padding-right:28px}
+.prj-list{display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto}
+.prj-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;cursor:pointer;transition:all .12s;font-size:12px}
 .prj-item:hover{border-color:var(--ac);background:rgba(167,139,250,.06)}
 .prj-item.active{border-color:var(--ac);background:rgba(167,139,250,.1)}
-.prj-item .prj-ico{font-size:18px;flex-shrink:0}
+.prj-item .prj-ico{font-size:16px;flex-shrink:0}
 .prj-item .prj-name{font-weight:600;flex:1}
-.prj-new{display:flex;gap:8px}
-.prj-new input{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--tx);font-size:13px;outline:none}
+.prj-new{display:flex;gap:6px}
+.prj-new input{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--tx);font-size:12px;outline:none}
 .prj-new input:focus{border-color:var(--ac)}
-.prj-new button{background:var(--ac);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer}
-.prj-section{font-size:11px;color:var(--mu);font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
-.prj-merge{display:flex;gap:8px;align-items:center}
-.prj-merge select{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:8px;color:var(--tx);font-size:12px}
-.prj-merge .arrow{color:var(--mu);font-size:16px;flex-shrink:0}
-.prj-merge button{background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer}
-.prj-status{font-size:11px;color:var(--gn);min-height:16px}
-.prj-cur{font-size:11px;color:var(--mu);padding:2px 8px;background:var(--s2);border-radius:6px;display:inline-block}
+.prj-new button{background:var(--ac);color:#000;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer}
+.prj-section{font-size:10px;color:var(--mu);font-weight:600;margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.prj-merge{display:flex;gap:6px;align-items:center}
+.prj-merge select{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:11px}
+.prj-merge .arrow{color:var(--mu);font-size:14px;flex-shrink:0}
+.prj-merge button{background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer}
+.prj-status{font-size:11px;color:var(--gn);min-height:14px}
+.prj-cur{font-size:10px;color:var(--mu);padding:2px 6px;background:var(--s2);border-radius:6px;display:inline-block}
+.prj-adv{display:none;flex-direction:column;gap:8px}
+.prj-adv.on{display:flex}
+.prj-adv-toggle{font-size:10px;color:var(--dm);background:none;border:none;cursor:pointer;text-align:left;padding:2px 0}
+.prj-adv-toggle:hover{color:var(--ac)}
 
 /* Cron */
 #cron-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
@@ -795,32 +799,42 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 
 <!-- Project picker / merge modal -->
 <div id="proj-modal"><div class="prj">
+<button class="pm-close" id="prj-close">&times;</button>
 <h2 id="prj-title"></h2>
-<div id="prj-cur-wrap"></div>
+
+<!-- Quick: existing projects -->
 <div class="prj-list" id="prj-list"></div>
+
+<!-- New project (always visible) -->
 <div class="prj-section" id="prj-new-label"></div>
-<div class="prj-new" style="flex-direction:column;gap:10px">
-  <input id="prj-name" placeholder="my-app" style="width:100%">
+<div style="display:flex;flex-direction:column;gap:8px">
+  <input id="prj-name" class="prj-new" placeholder="my-app" style="width:100%;padding:9px 12px;border-radius:10px">
   <div id="prj-types" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-  <button id="prj-create-btn" style="width:100%;background:var(--ac);color:#000;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer"></button>
+  <button id="prj-create-btn" style="width:100%;background:linear-gradient(135deg,var(--ac),var(--bl));color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s"></button>
 </div>
-<div class="prj-section" id="prj-clone-label"></div>
-<div class="prj-new" id="prj-clone-wrap" style="flex-direction:column;gap:8px">
-  <input id="prj-clone-url" placeholder="https://github.com/user/repo" style="width:100%;font-size:12px">
-  <button id="prj-clone-btn" style="width:100%;background:var(--ac);color:#000;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Clone</button>
-  <div id="prj-clone-status" style="font-size:12px;color:var(--dim)"></div>
-</div>
-<div class="prj-section" id="prj-merge-label"></div>
-<div class="prj-merge">
-  <select id="prj-from"></select>
-  <span class="arrow">→</span>
-  <select id="prj-to"></select>
-  <button id="prj-merge-btn"></button>
-</div>
+
+<!-- Templates -->
 <div class="prj-section" id="prj-tmpl-label"></div>
 <div class="tmpl-grid" id="prj-templates"></div>
+
+<!-- Advanced (toggle) -->
+<button class="prj-adv-toggle" id="prj-adv-toggle"></button>
+<div class="prj-adv" id="prj-adv">
+  <div class="prj-section" id="prj-clone-label"></div>
+  <div style="display:flex;gap:6px">
+    <input id="prj-clone-url" class="prj-new" placeholder="https://github.com/user/repo" style="flex:1;padding:7px 10px;font-size:11px;border-radius:8px">
+    <button id="prj-clone-btn" style="background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Clone</button>
+  </div>
+  <div id="prj-clone-status" style="font-size:11px;color:var(--dm)"></div>
+  <div class="prj-section" id="prj-merge-label"></div>
+  <div class="prj-merge">
+    <select id="prj-from"></select>
+    <span class="arrow">→</span>
+    <select id="prj-to"></select>
+    <button id="prj-merge-btn"></button>
+  </div>
+</div>
 <div class="prj-status" id="prj-status"></div>
-<button class="pm-close" id="prj-close">&times;</button>
 </div></div>
 
 <!-- Shared session view (public, no auth needed) -->
@@ -2005,10 +2019,13 @@ function curProject(){
 async function showProjectPicker(){
   await loadProjects();
   const cur=curProject();
-  $('prj-title').textContent=isJa?'プロジェクト':'Projects';
-  $('prj-cur-wrap').innerHTML=cur
-    ?`<span class="prj-cur">${isJa?'現在':'Current'}: ${esc(cur)}</span>`
-    :`<span class="prj-cur">${isJa?'ルートフォルダ':'Root folder'}</span>`;
+  $('prj-title').textContent=isJa?'新しいセッション':'New Session';
+  // Advanced toggle
+  $('prj-adv-toggle').textContent=isJa?'▸ GitHub clone / マージ':'▸ GitHub clone / Merge';
+  $('prj-adv-toggle').onclick=()=>{
+    const adv=$('prj-adv');adv.classList.toggle('on');
+    $('prj-adv-toggle').textContent=(adv.classList.contains('on')?'▾ ':'▸ ')+(isJa?'GitHub clone / マージ':'GitHub clone / Merge');
+  };
   // List
   const el=$('prj-list');
   el.innerHTML=`<div class="prj-item${!cur?' active':''}" data-p="">
