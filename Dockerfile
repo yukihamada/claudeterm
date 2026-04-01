@@ -12,25 +12,25 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin claudeterm
 
-# Runtime: Node.js 22 (for claude CLI) + our binary
-FROM node:22-slim AS runtime
+# ── base: apt + npm install (cached unless this layer changes) ──────────────
+FROM node:22-slim AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl git python3 gosu \
     && rm -rf /var/lib/apt/lists/*
+# Pin version so cache is stable; bump manually when upgrading claude CLI
+RUN npm install -g @anthropic-ai/claude-code@1
 
-# Install claude CLI
-RUN npm install -g @anthropic-ai/claude-code
+# ── runtime: copy binary on top of cached base ──────────────────────────────
+FROM base AS runtime
 
 # Configure git (required by claude)
 RUN git config --global user.name "Claude Code" && \
     git config --global user.email "user@claudeterm.app" && \
-    git config --global init.defaultBranch main
+    git config --global init.defaultBranch main && \
+    git config --global --add safe.directory '*'
 
 # node:22-slim already has a 'node' user (uid 1000) — reuse it as our non-root runner
-# claude CLI blocks --dangerously-skip-permissions when running as root
-RUN mkdir -p /data/workspaces /home/node && \
-    chown node:node /home/node && \
-    git config --global --add safe.directory '*'
+RUN mkdir -p /data/workspaces /home/node && chown node:node /home/node
 
 COPY --from=builder /app/target/release/claudeterm /usr/local/bin/claudeterm
 

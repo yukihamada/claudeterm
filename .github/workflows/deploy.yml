@@ -11,9 +11,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - uses: superfly/flyctl-actions/setup-flyctl@master
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Log in to Fly Registry
+        run: flyctl auth docker
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Build & push (with layer cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: registry.fly.io/claudeterm:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Deploy
-        run: flyctl deploy --remote-only
+        run: flyctl deploy --image registry.fly.io/claudeterm:${{ github.sha }} --app claudeterm
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
