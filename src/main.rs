@@ -58,6 +58,20 @@ fn init_db(path: &str) -> Connection {
     conn.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'", []).ok();
     conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT", []).ok();
     conn.execute("ALTER TABLE sessions ADD COLUMN share_id TEXT", []).ok();
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS gallery (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            author TEXT NOT NULL,
+            project TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            tags TEXT DEFAULT '',
+            likes INTEGER DEFAULT 0,
+            created_at TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+    ").ok();
     conn.execute("ALTER TABLE users ADD COLUMN referral_code TEXT", []).ok();
     conn.execute("ALTER TABLE users ADD COLUMN referred_by TEXT", []).ok();
     conn.execute_batch("
@@ -238,6 +252,7 @@ async fn main() {
         .route("/api/files", get(list_files))
         .route("/api/files/read", get(read_file))
         .route("/api/projects", get(list_projects).post(create_project))
+        .route("/api/projects/clone", post(clone_project))
         .route("/api/projects/merge", post(merge_projects))
         .route("/api/templates", get(list_templates))
         // Billing
@@ -274,10 +289,17 @@ async fn main() {
         .route("/api/github/status", get(github_status))
         // Templates
         .route("/api/projects/from-template", post(create_from_template))
+        // Community
+        .route("/api/community/publish", post(publish_project))
+        .route("/api/community/gallery", get(gallery))
         // Cron
         .route("/api/cron", get(list_crons).post(create_cron))
         .route("/api/cron/:id", delete(delete_cron))
         .route("/api/cron/:id/toggle", post(toggle_cron))
+        // Public app preview
+        .route("/app/:uid/:project/*path", get(serve_user_app))
+        .route("/app/:uid/:project/", get(serve_user_app_index))
+        .route("/app/:uid/:project", get(serve_user_app_index))
         // WebSocket
         .route("/ws", get(ws_handler))
         .with_state(state.clone());
@@ -912,6 +934,172 @@ async fn merge_projects(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
+}
+
+// ── Clone from GitHub ──
+
+#[derive(Deserialize)] struct CloneReq { url: String }
+
+async fn clone_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<CloneReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    // Validate: only allow github.com URLs matching the expected pattern
+    let url = body.url.trim();
+    let stripped = url.strip_prefix("https://github.com/").unwrap_or("");
+    let parts: Vec<&str> = stripped.split('/').collect();
+    if parts.len() < 2 || parts[0].is_empty() || parts[1].is_empty() {
+        return (StatusCode::BAD_REQUEST, "Invalid GitHub URL. Use https://github.com/owner/repo").into_response();
+    }
+    let owner = parts[0];
+    let repo_raw = parts[1].trim_end_matches(".git");
+    // Sanitize owner and repo: only allow [a-zA-Z0-9_.-]
+    let valid_chars = |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.');
+    if !valid_chars(owner) || !valid_chars(repo_raw) || owner.starts_with('.') || repo_raw.starts_with('.') {
+        return (StatusCode::BAD_REQUEST, "Invalid repository name").into_response();
+    }
+    let repo_name = repo_raw.to_string();
+    let clone_url = format!("https://github.com/{}/{}.git", owner, repo_name);
+    let user_dir = PathBuf::from(format!("{}/users/{}", s.workdir, uid));
+    std::fs::create_dir_all(&user_dir).ok();
+    let dest = user_dir.join(&repo_name);
+    if dest.exists() {
+        return (StatusCode::CONFLICT, "Project already exists").into_response();
+    }
+    // Run git clone in background
+    match Command::new("git")
+        .args(["clone", "--depth", "1", &clone_url, &dest.to_string_lossy()])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => {
+            match child.wait_with_output().await {
+                Ok(out) if out.status.success() => {
+                    tracing::info!("Cloned {} for user {}", clone_url, uid);
+                    Json(serde_json::json!({"name": repo_name, "path": repo_name})).into_response()
+                }
+                Ok(out) => {
+                    let stderr = String::from_utf8_lossy(&out.stderr);
+                    tracing::warn!("git clone failed: {}", stderr);
+                    // Clean up partial clone
+                    let _ = std::fs::remove_dir_all(&dest);
+                    (StatusCode::BAD_REQUEST, format!("Clone failed: {}", stderr.chars().take(200).collect::<String>())).into_response()
+                }
+                Err(e) => {
+                    let _ = std::fs::remove_dir_all(&dest);
+                    (StatusCode::INTERNAL_SERVER_ERROR, format!("Process error: {}", e)).into_response()
+                }
+            }
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to run git: {}", e)).into_response(),
+    }
+}
+
+// ── Public App Preview ──
+
+fn content_type_for(path: &str) -> &'static str {
+    if path.ends_with(".html") || path.ends_with(".htm") { "text/html; charset=utf-8" }
+    else if path.ends_with(".js") || path.ends_with(".mjs") { "application/javascript" }
+    else if path.ends_with(".css") { "text/css" }
+    else if path.ends_with(".json") { "application/json" }
+    else if path.ends_with(".png") { "image/png" }
+    else if path.ends_with(".jpg") || path.ends_with(".jpeg") { "image/jpeg" }
+    else if path.ends_with(".gif") { "image/gif" }
+    else if path.ends_with(".svg") { "image/svg+xml" }
+    else if path.ends_with(".ico") { "image/x-icon" }
+    else if path.ends_with(".woff2") { "font/woff2" }
+    else if path.ends_with(".woff") { "font/woff" }
+    else if path.ends_with(".wasm") { "application/wasm" }
+    else { "application/octet-stream" }
+}
+
+async fn serve_user_app(
+    Path((uid, project, path)): Path<(String, String, String)>,
+    State(s): State<Arc<AppState>>,
+) -> Response {
+    // Sanitize uid/project to prevent directory traversal
+    if uid.contains("..") || project.contains("..") || path.contains("..") {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let file_path = if path.is_empty() || path == "/" {
+        PathBuf::from(format!("{}/users/{}/{}/index.html", s.workdir, uid, project))
+    } else {
+        PathBuf::from(format!("{}/users/{}/{}/{}", s.workdir, uid, project, path))
+    };
+    // Ensure the resolved path stays within the user dir
+    let base = PathBuf::from(format!("{}/users/{}/{}", s.workdir, uid, project));
+    if let (Ok(resolved), Ok(base_resolved)) = (file_path.canonicalize(), base.canonicalize()) {
+        if !resolved.starts_with(&base_resolved) {
+            return StatusCode::FORBIDDEN.into_response();
+        }
+    }
+    match std::fs::read(&file_path) {
+        Ok(data) => {
+            let ct = content_type_for(&file_path.to_string_lossy());
+            (StatusCode::OK, [
+                ("content-type", ct),
+                ("access-control-allow-origin", "*"),
+                ("cache-control", "public, max-age=300"),
+            ], data).into_response()
+        }
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+async fn serve_user_app_index(
+    Path((uid, project)): Path<(String, String)>,
+    State(s): State<Arc<AppState>>,
+) -> Response {
+    serve_user_app(Path((uid, project, String::new())), State(s)).await
+}
+
+// ── Community Gallery ──
+
+#[derive(Deserialize)] struct PublishReq { project: String, title: String, description: Option<String>, tags: Option<String> }
+
+async fn publish_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<PublishReq>) -> Response {
+    let (uid, email, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    if body.title.trim().is_empty() || body.project.trim().is_empty() {
+        return (StatusCode::BAD_REQUEST, "title and project required").into_response();
+    }
+    // Check project exists
+    let dir = PathBuf::from(format!("{}/users/{}/{}", s.workdir, uid, body.project));
+    if !dir.is_dir() { return (StatusCode::NOT_FOUND, "Project not found").into_response(); }
+
+    let id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let author = email.split('@').next().unwrap_or("user").to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute(
+        "INSERT OR REPLACE INTO gallery (id,user_id,author,project,title,description,tags,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        rusqlite::params![id, uid, author, body.project, body.title.trim(),
+            body.description.as_deref().unwrap_or(""), body.tags.as_deref().unwrap_or(""), now]
+    ).ok();
+    Json(serde_json::json!({"id": id, "ok": true})).into_response()
+}
+
+async fn gallery(State(s): State<Arc<AppState>>) -> Response {
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let mut st = db.prepare(
+        "SELECT id,author,project,title,description,tags,likes,created_at,user_id FROM gallery ORDER BY created_at DESC LIMIT 50"
+    ).unwrap();
+    let items: Vec<serde_json::Value> = st.query_map([], |r| {
+        let uid: String = r.get(8)?;
+        let project: String = r.get(2)?;
+        Ok(serde_json::json!({
+            "id": r.get::<_,String>(0)?, "author": r.get::<_,String>(1)?,
+            "project": project, "title": r.get::<_,String>(3)?,
+            "description": r.get::<_,String>(4)?, "tags": r.get::<_,String>(5)?,
+            "likes": r.get::<_,i64>(6)?, "created_at": r.get::<_,String>(7)?,
+            "url": format!("/app/{}/{}/", uid, project),
+        }))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    Json(items).into_response()
 }
 
 // ── Live Preview ──

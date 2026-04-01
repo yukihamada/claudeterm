@@ -149,6 +149,20 @@ button{font-family:var(--f);cursor:pointer}
 .tmpl-card .tmpl-ico{font-size:22px;margin-bottom:4px}
 .tmpl-card .tmpl-name{font-size:11px;font-weight:600}
 .tmpl-card .tmpl-desc{font-size:9px;color:var(--dm);margin-top:2px}
+
+/* Gallery */
+#gallery-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#gallery-modal.on{display:flex}
+.gal{width:min(600px,95vw);max-height:85vh;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;overflow-y:auto;position:relative}
+.gal h2{font-size:18px;font-weight:700}
+.gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.gal-card{background:var(--bg);border:1.5px solid var(--bd);border-radius:12px;padding:14px;cursor:pointer;transition:all .15s}
+.gal-card:hover{border-color:var(--ac);transform:translateY(-1px)}
+.gal-card h4{font-size:13px;font-weight:700;margin-bottom:4px}
+.gal-card p{font-size:10px;color:var(--mu);line-height:1.4;margin-bottom:6px}
+.gal-card .gal-meta{display:flex;gap:6px;font-size:9px;color:var(--dm)}
+.gal-card .gal-author{color:var(--ac)}
+
 .ts{flex-shrink:0;font-size:10px;padding:1px 6px;border-radius:10px}.ts.ok{color:var(--gn);background:rgba(74,222,128,.1)}.ts.er{color:var(--rd);background:rgba(248,113,113,.1)}.ts.rn{color:var(--yl);background:rgba(250,204,21,.1)}
 .tb{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-family:var(--m);font-size:11px;color:var(--mu);white-space:pre-wrap;max-height:260px;overflow-y:auto}
 .tl.open .tb{display:block}.da{color:var(--gn)}.dd{color:var(--rd);text-decoration:line-through;opacity:.6}
@@ -423,13 +437,25 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .ld-demo{background:var(--s1);border:1px solid var(--bd);border-radius:16px;overflow:hidden;margin-top:48px}
 .ld-demo-hd{padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mu)}
 .ld-demo-hd .dt{width:7px;height:7px;border-radius:50%;background:var(--gn);box-shadow:0 0 6px var(--gn)}
-.ld-demo-body{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:180px}
-.ld-demo-msg{max-width:85%;animation:.3s cubic-bezier(.16,1,.3,1) both fi}
-.ld-demo-msg.u{align-self:flex-end;background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;padding:10px 14px;border-radius:14px 14px 4px 14px;font-size:13px}
-.ld-demo-msg.a{align-self:flex-start;color:var(--tx);font-size:13px;line-height:1.7}
-.ld-demo-msg.a code{background:var(--s2);padding:1px 5px;border-radius:4px;font-family:var(--m);font-size:11px}
-.ld-demo-msg.t{align-self:flex-start;font-size:11px;color:var(--mu);background:var(--s2);padding:4px 10px;border-radius:6px;font-family:var(--m)}
-.ld-demo-type{font-size:12px;color:var(--dm);padding-left:4px}
+.ld-demo-hd .demo-replay{margin-left:auto;background:none;border:1px solid var(--bd);color:var(--mu);border-radius:6px;padding:2px 10px;font-size:10px;cursor:pointer;transition:all .15s}
+.ld-demo-hd .demo-replay:hover{border-color:var(--ac);color:var(--ac)}
+.ld-demo-body{padding:16px;display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:480px;overflow-y:auto}
+.ld-demo-body .msg{max-width:min(620px,94%);animation:.2s cubic-bezier(.16,1,.3,1) both fi}
+.ld-demo-body .msg.u{align-self:flex-end}
+.ld-demo-body .msg.a{align-self:flex-start;width:100%}
+.ld-demo-body .msg.u .bb{background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;border-bottom-right-radius:5px;box-shadow:0 2px 12px rgba(167,139,250,.25);display:inline-block;max-width:min(480px,90%);float:right;padding:10px 16px;border-radius:14px 14px 4px 14px;font-size:13px;line-height:1.6}
+.ld-demo-body .msg.a .bb{background:transparent;color:var(--tx);border:none;padding:0;font-size:13px;line-height:1.7}
+.ld-demo-body .msg.a .bb p{margin:.5em 0}
+.ld-demo-body .tl{margin:4px 0;animation:.2s cubic-bezier(.16,1,.3,1) both fi}
+.ld-demo-sys{font-size:11px;color:var(--dm);padding:2px 0 2px 4px;animation:.2s cubic-bezier(.16,1,.3,1) both fi}
+.ld-demo-cta{align-self:center;margin-top:12px;animation:.3s cubic-bezier(.16,1,.3,1) both fi}
+.ld-demo-cta a{display:inline-block;background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;padding:12px 28px;border-radius:12px;font-size:14px;font-weight:600;text-decoration:none;transition:all .15s;box-shadow:0 2px 12px rgba(167,139,250,.25)}
+.ld-demo-cta a:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(167,139,250,.35)}
+.ld-demo-preview{animation:.3s cubic-bezier(.16,1,.3,1) both fi;border-radius:10px;overflow:hidden;border:1px solid var(--bd);margin:4px 0}
+.ld-demo-preview .pv-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg);border-bottom:1px solid var(--bd);font-size:11px;color:var(--mu)}
+.ld-demo-preview .pv-bar .pv-dot{width:6px;height:6px;border-radius:50%;background:var(--gn);box-shadow:0 0 4px var(--gn)}
+.ld-demo-preview .pv-bar .pv-url{flex:1;font-family:var(--m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ld-demo-preview iframe{width:100%;height:200px;border:none;background:#fff;border-radius:0 0 10px 10px}
 .ld-bottom{text-align:center;margin-top:48px}
 .ld-bottom .bp{padding:14px 40px;font-size:16px;border-radius:14px}
 .ld-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:48px}
@@ -508,7 +534,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 
 <!-- Live demo -->
 <div class="ld-demo">
-  <div class="ld-demo-hd"><span class="dt"></span> <span id="ld-demo-label"></span></div>
+  <div class="ld-demo-hd"><span class="dt"></span> <span id="ld-demo-label"></span><button class="demo-replay" id="demo-replay" style="display:none">↻ Replay</button></div>
   <div class="ld-demo-body" id="ld-demo-body"></div>
 </div>
 
@@ -574,6 +600,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button id="historybtn" class="hm-item"><span>📜</span><span id="hm-history"></span><span class="hm-key">⌘H</span></button>
 <button id="ubtn" class="hm-item"><span>👤</span><span id="hm-settings"></span><span class="hm-key">⌘,</span></button>
 <div class="hm-sep"></div>
+<button id="gallerybtn" class="hm-item"><span>🏛</span><span id="hm-gallery"></span></button>
 <button id="shortcutsbtn" class="hm-item"><span>⌨</span><span id="hm-shortcuts"></span><span class="hm-key">?</span></button>
 </div>
 <div class="tut-bar" id="tut-bar">
@@ -719,6 +746,13 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 
 <div id="pv"><div class="pvw"><div class="pvh"><span id="pp"></span><button id="pc">&times;</button></div><div class="pvb" id="pb"></div></div></div>
 
+<!-- Gallery modal -->
+<div id="gallery-modal"><div class="gal">
+<button class="pm-close" id="gal-close">&times;</button>
+<h2 id="gal-title"></h2>
+<div class="gal-grid" id="gal-grid"></div>
+</div></div>
+
 <!-- Shortcuts modal -->
 <div id="shortcuts-modal"><div class="sc-modal">
 <button class="pm-close" id="sc-close">&times;</button>
@@ -769,6 +803,12 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
   <input id="prj-name" placeholder="my-app" style="width:100%">
   <div id="prj-types" style="display:flex;gap:4px;flex-wrap:wrap"></div>
   <button id="prj-create-btn" style="width:100%;background:var(--ac);color:#000;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer"></button>
+</div>
+<div class="prj-section" id="prj-clone-label"></div>
+<div class="prj-new" id="prj-clone-wrap" style="flex-direction:column;gap:8px">
+  <input id="prj-clone-url" placeholder="https://github.com/user/repo" style="width:100%;font-size:12px">
+  <button id="prj-clone-btn" style="width:100%;background:var(--ac);color:#000;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Clone</button>
+  <div id="prj-clone-status" style="font-size:12px;color:var(--dim)"></div>
 </div>
 <div class="prj-section" id="prj-merge-label"></div>
 <div class="prj-merge">
@@ -897,7 +937,7 @@ $('otp').oninput=()=>{if($('otp').value.length===6)doLogin()};
 
 async function checkToken(t){
   const r=await fetch('/api/auth/me?token='+encodeURIComponent(t));
-  if(!r.ok)return false;user=await r.json();tk=t;
+  if(!r.ok)return false;user=await r.json();tk=t;window._userId=user.id;
   // Sync latest plan/credits from server
   if(user.plan&&user.plan!=='free')shCr();
   return true;
@@ -1160,6 +1200,34 @@ $('hm-history').textContent=isJa?'履歴':'History';
 $('hm-settings').textContent=isJa?'設定':'Settings';
 $('hm-shortcuts').textContent=isJa?'ショートカット':'Shortcuts';
 $('hm-preview').textContent=isJa?'プレビュー':'Preview';
+$('hm-gallery').textContent=isJa?'ギャラリー':'Gallery';
+
+// Gallery
+async function showGallery(){
+  $('hd-menu').classList.remove('on');
+  $('gal-title').textContent=isJa?'コミュニティギャラリー':'Community Gallery';
+  $('gal-grid').innerHTML=`<div style="text-align:center;color:var(--dm);padding:20px">${isJa?'読み込み中...':'Loading...'}</div>`;
+  $('gallery-modal').classList.add('on');
+  const r=await fetch('/api/community/gallery');
+  if(!r.ok)return;
+  const items=await r.json();
+  if(!items.length){
+    $('gal-grid').innerHTML=`<div style="grid-column:1/-1;text-align:center;color:var(--dm);padding:24px">${isJa?'まだ作品がありません。最初の投稿者になりましょう！':'No projects published yet. Be the first!'}</div>`;
+    return;
+  }
+  $('gal-grid').innerHTML=items.map(it=>`
+    <div class="gal-card" onclick="window.open('${it.url}','_blank')">
+      <h4>${esc(it.title)}</h4>
+      <p>${esc(it.description||'')}</p>
+      <div class="gal-meta">
+        <span class="gal-author">@${esc(it.author)}</span>
+        ${it.tags?`<span>${esc(it.tags)}</span>`:''}
+      </div>
+    </div>`).join('');
+}
+$('gallerybtn').onclick=showGallery;
+$('gal-close').onclick=()=>$('gallery-modal').classList.remove('on');
+$('gallery-modal').onclick=e=>{if(e.target===$('gallery-modal'))$('gallery-modal').classList.remove('on')};
 
 // Shortcuts modal
 const isMac=navigator.platform?.includes('Mac');
@@ -1385,20 +1453,39 @@ const LD_FEATS=isJa?[
   {ico:'🎨',t:'Generate Images',d:'Use /image to create AI images for mockups, icons, and designs.'},
   {ico:'⚙️',t:'DevOps',d:'AI sets up Docker, CI/CD, AWS, Terraform and deploys for you.'},
 ];
-const LD_DEMO=isJa?[
-  {type:'u',text:'Todoアプリを作って'},
-  {type:'t',text:'Write → src/App.tsx'},
-  {type:'a',text:'Todoアプリを作成しました！\n\n・追加・完了・削除機能\n・<code>localStorage</code> で永続化\n・レスポンシブ対応'},
-  {type:'u',text:'Fly.ioにデプロイして'},
-  {type:'t',text:'Bash → fly deploy --remote-only'},
-  {type:'a',text:'デプロイ完了！\nhttps://todo-app.fly.dev で公開されました。'},
+const DEMO_TODO_HTML=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f14;color:#e2e8f0;display:flex;justify-content:center;padding:24px}.app{width:100%;max-width:360px}.app h1{font-size:18px;font-weight:700;margin-bottom:16px;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.add{display:flex;gap:8px;margin-bottom:16px}.add input{flex:1;padding:8px 12px;background:#1a1a24;border:1px solid #2a2a3a;border-radius:8px;color:#e2e8f0;font-size:13px;outline:none}.add input:focus{border-color:#a78bfa}.add button{padding:8px 16px;background:linear-gradient(135deg,#a78bfa,#818cf8);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}.items{display:flex;flex-direction:column;gap:6px}.item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#1a1a24;border:1px solid #2a2a3a;border-radius:8px;font-size:13px;transition:all .15s}.item.done{opacity:.5}.item.done .text{text-decoration:line-through}.item input[type=checkbox]{accent-color:#a78bfa;width:16px;height:16px;cursor:pointer}.text{flex:1}.del{background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;padding:0 4px}.del:hover{color:#f87171}</style></head><body><div class="app"><h1>✨ Todo App</h1><div class="add"><input placeholder="${isJa?'新しいタスク...':'New task...'}" id="inp"><button onclick="addTodo()">+</button></div><div class="items" id="list"></div></div><script>let todos=[{t:'${isJa?'デザインをレビュー':'Review design'}',d:true},{t:'${isJa?'APIを実装':'Implement API'}',d:false},{t:'${isJa?'テストを書く':'Write tests'}',d:false}];function render(){const l=document.getElementById('list');l.innerHTML=todos.map((t,i)=>\`<div class="item \${t.d?'done':''}"><input type="checkbox" \${t.d?'checked':''} onchange="toggle(\${i})"><span class="text">\${t.t}</span><button class="del" onclick="del(\${i})">×</button></div>\`).join('')}function addTodo(){const inp=document.getElementById('inp');if(inp.value.trim()){todos.unshift({t:inp.value.trim(),d:false});inp.value='';render()}}function toggle(i){todos[i].d=!todos[i].d;render()}function del(i){todos.splice(i,1);render()}document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter')addTodo()});render()<\/script></body></html>`;
+const DEMO_RECORDING=isJa?[
+  {delay:0,type:'user',data:'Todoアプリを作って'},
+  {delay:600,type:'system',data:'✦ Claude 4 Sonnet'},
+  {delay:400,type:'tool',data:{name:'Write',file:'package.json'}},
+  {delay:700,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Write',file:'src/App.tsx'}},
+  {delay:900,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Write',file:'src/main.tsx'}},
+  {delay:600,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Bash',file:'npm install'}},
+  {delay:1200,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Bash',file:'npm run dev'}},
+  {delay:800,type:'tool_done'},
+  {delay:400,type:'text',data:'Todoアプリを作成しました！タスクの追加・完了・削除ができます。localStorage で永続化されるので、リロードしても消えません。'},
+  {delay:500,type:'preview',data:DEMO_TODO_HTML},
+  {delay:1000,type:'cta',data:'これを自分でもやってみる →'},
 ]:[
-  {type:'u',text:'Build me a todo app'},
-  {type:'t',text:'Write → src/App.tsx'},
-  {type:'a',text:'Created a Todo app!\n\n- Add, complete, delete tasks\n- Persisted with <code>localStorage</code>\n- Fully responsive'},
-  {type:'u',text:'Deploy to Fly.io'},
-  {type:'t',text:'Bash → fly deploy --remote-only'},
-  {type:'a',text:'Deployed!\nLive at https://todo-app.fly.dev'},
+  {delay:0,type:'user',data:'Build me a todo app'},
+  {delay:600,type:'system',data:'✦ Claude 4 Sonnet'},
+  {delay:400,type:'tool',data:{name:'Write',file:'package.json'}},
+  {delay:700,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Write',file:'src/App.tsx'}},
+  {delay:900,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Write',file:'src/main.tsx'}},
+  {delay:600,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Bash',file:'npm install'}},
+  {delay:1200,type:'tool_done'},
+  {delay:300,type:'tool',data:{name:'Bash',file:'npm run dev'}},
+  {delay:800,type:'tool_done'},
+  {delay:400,type:'text',data:'I\'ve created a Todo app! You can add, complete, and delete tasks. It persists data with localStorage so nothing is lost on reload.'},
+  {delay:500,type:'preview',data:DEMO_TODO_HTML},
+  {delay:1000,type:'cta',data:'Try it yourself →'},
 ];
 
 function initLanding(){
@@ -1407,13 +1494,15 @@ function initLanding(){
     :'Write code, run it, deploy — all in your browser.\nPowered by Claude Code.';
   $('ld-start').textContent=isJa?'無料で始める →':'Start Free →';
   $('ld-start').onclick=e=>{e.preventDefault();showLogin()};
-  $('ld-try').textContent=isJa?'デモを見る':'Watch Demo';
+  $('ld-try').textContent=isJa?'試してみる':'Try it';
   // Add gift text below CTA
   const giftEl=document.createElement('div');
   giftEl.style.cssText='text-align:center;margin-top:12px;font-size:13px;color:var(--gn)';
   giftEl.textContent=isJa?'🎁 今なら¥450分プレゼント（ログインするだけ！）':'🎁 $3 free — just sign in!';
   document.querySelector('.ld-cta').after(giftEl);
-  $('ld-try').onclick=()=>{playDemo(0)};
+  $('ld-try').onclick=()=>{startDemoReplay()};
+  $('demo-replay').onclick=()=>{startDemoReplay()};
+  $('demo-replay').textContent=isJa?'↻ もう一度':'↻ Replay';
   $('ld-start2').textContent=isJa?'今すぐ始める — 無料':'Get Started — Free';
   $('ld-start2').onclick=e=>{e.preventDefault();showLogin()};
   $('ld-demo-label').textContent=isJa?'ライブデモ':'Live Demo';
@@ -1435,16 +1524,63 @@ function showLogin(){
   $('login').style.display='flex';
   setTimeout(()=>$('em').focus(),100);
 }
-function playDemo(i){
+let _demoTimer=null;let _demoRunning=false;
+function startDemoReplay(){
+  if(_demoRunning)return;
+  _demoRunning=true;
   const el=$('ld-demo-body');
-  if(i===0)el.innerHTML='';
-  if(i>=LD_DEMO.length)return;
-  const d=LD_DEMO[i];
-  const cls=d.type==='u'?'u':d.type==='t'?'t':'a';
-  const div=document.createElement('div');div.className='ld-demo-msg '+cls;
-  div.innerHTML=d.text.replace(/\n/g,'<br>');
-  el.appendChild(div);el.scrollTop=el.scrollHeight;
-  setTimeout(()=>playDemo(i+1),d.type==='u'?800:d.type==='t'?600:1200);
+  el.innerHTML='';
+  $('demo-replay').style.display='none';
+  let lastTool=null;
+  let idx=0;
+  function tick(){
+    if(idx>=DEMO_RECORDING.length){_demoRunning=false;$('demo-replay').style.display='inline-block';return;}
+    const ev=DEMO_RECORDING[idx];idx++;
+    const next=()=>{if(idx<DEMO_RECORDING.length){_demoTimer=setTimeout(tick,DEMO_RECORDING[idx].delay);}else{_demoRunning=false;$('demo-replay').style.display='inline-block';}};
+    if(ev.type==='user'){
+      const m=document.createElement('div');m.className='msg u';
+      m.innerHTML='<div class="bb">'+ev.data+'</div>';
+      el.appendChild(m);el.scrollTop=el.scrollHeight;next();
+    }else if(ev.type==='system'){
+      const s=document.createElement('div');s.className='ld-demo-sys';
+      s.textContent=ev.data;
+      el.appendChild(s);el.scrollTop=el.scrollHeight;next();
+    }else if(ev.type==='tool'){
+      const ico=ev.data.name==='Bash'?'⚡':ev.data.name==='Read'?'📖':'📝';
+      const tl=document.createElement('div');tl.className='tl';
+      tl.innerHTML='<div class="th"><span class="t-ico">'+ico+'</span><span class="tn">'+ev.data.name+'</span><span class="tf">'+ev.data.file+'</span><span class="ts rn">⟳</span></div>';
+      el.appendChild(tl);el.scrollTop=el.scrollHeight;
+      lastTool=tl;next();
+    }else if(ev.type==='tool_done'){
+      if(lastTool){const ts=lastTool.querySelector('.ts');if(ts){ts.className='ts ok';ts.textContent='✓';}}
+      next();
+    }else if(ev.type==='text'){
+      const m=document.createElement('div');m.className='msg a';
+      const bb=document.createElement('div');bb.className='bb';
+      const p=document.createElement('p');bb.appendChild(p);m.appendChild(bb);
+      el.appendChild(m);
+      const txt=ev.data;let ci=0;
+      const cur=document.createElement('span');cur.className='cur';p.appendChild(cur);
+      function typeChar(){
+        if(ci<txt.length){p.insertBefore(document.createTextNode(txt[ci]),cur);ci++;el.scrollTop=el.scrollHeight;setTimeout(typeChar,18);}
+        else{cur.remove();next();}
+      }
+      typeChar();
+    }else if(ev.type==='preview'){
+      const wrap=document.createElement('div');wrap.className='ld-demo-preview';
+      wrap.innerHTML='<div class="pv-bar"><span class="pv-dot"></span><span class="pv-url">localhost:5173</span></div>';
+      const blob=new Blob([ev.data],{type:'text/html'});
+      const url=URL.createObjectURL(blob);
+      const iframe=document.createElement('iframe');iframe.src=url;iframe.sandbox='allow-scripts';
+      wrap.appendChild(iframe);el.appendChild(wrap);el.scrollTop=el.scrollHeight;next();
+    }else if(ev.type==='cta'){
+      const c=document.createElement('div');c.className='ld-demo-cta';
+      const a=document.createElement('a');a.href='#';a.textContent=ev.data;
+      a.onclick=e=>{e.preventDefault();showLogin();};
+      c.appendChild(a);el.appendChild(c);el.scrollTop=el.scrollHeight;next();
+    }else{next();}
+  }
+  _demoTimer=setTimeout(tick,300);
 }
 
 // ── Tutorial (no token consumption) ──
@@ -1937,6 +2073,27 @@ async function showProjectPicker(){
       if(r.ok){const d=await r.json();$('proj-modal').classList.remove('on');cS(d.name,d.path)}
     };
   });
+  // Clone from GitHub
+  $('prj-clone-label').textContent=isJa?'GitHubからクローン':'Clone from GitHub';
+  $('prj-clone-url').value='';
+  $('prj-clone-status').textContent='';
+  $('prj-clone-btn').textContent=isJa?'クローン':'Clone';
+  // Public URL display in project list
+  const uid=window._userId||'';
+  if(uid){
+    el.querySelectorAll('.prj-item').forEach(d=>{
+      const p=d.dataset.p;
+      if(p){
+        const pubUrl=location.origin+'/app/'+uid+'/'+p+'/';
+        const link=document.createElement('a');
+        link.href=pubUrl;link.target='_blank';
+        link.style.cssText='font-size:10px;color:var(--dim);margin-left:8px;text-decoration:none;opacity:0.7';
+        link.textContent=isJa?'公開URL':'Public URL';
+        link.onclick=e=>e.stopPropagation();
+        d.appendChild(link);
+      }
+    });
+  }
   // Merge selects
   $('prj-merge-label').textContent=isJa?'フォルダをマージ':'Merge Folders';
   const opts=projects.map(p=>`<option value="${esc(p.path)}">${esc(p.name)}</option>`).join('');
@@ -1974,6 +2131,31 @@ $('prj-merge-btn').onclick=async()=>{
     $('prj-status').textContent=isJa?`✓ ${d.files_copied}ファイルをマージしました`:`✓ Merged ${d.files_copied} files`;
     $('prj-status').style.color='var(--gn)';
   }else{$('prj-status').textContent=isJa?'マージに失敗しました':'Merge failed';$('prj-status').style.color='var(--rd)'}
+};
+
+$('prj-clone-btn').onclick=async()=>{
+  const url=$('prj-clone-url').value.trim();
+  if(!url){$('prj-clone-status').textContent=isJa?'URLを入力してください':'Enter a GitHub URL';return}
+  if(!url.match(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+/)){
+    $('prj-clone-status').textContent=isJa?'有効なGitHub URLを入力してください':'Enter a valid GitHub URL';return}
+  $('prj-clone-btn').disabled=true;
+  $('prj-clone-status').textContent=isJa?'クローン中...':'Cloning...';
+  $('prj-clone-status').style.color='var(--dim)';
+  try{
+    const r=await fetch('/api/projects/clone'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({url})});
+    if(r.ok){
+      const d=await r.json();
+      $('prj-clone-status').textContent=isJa?'クローン完了':'Clone complete';
+      $('prj-clone-status').style.color='var(--gn)';
+      setTimeout(()=>{$('proj-modal').classList.remove('on');cS(d.name,d.path)},500);
+    }else{
+      const t=await r.text();
+      $('prj-clone-status').textContent=t||'Clone failed';
+      $('prj-clone-status').style.color='var(--rd)';
+    }
+  }catch(e){$('prj-clone-status').textContent='Error: '+e.message;$('prj-clone-status').style.color='var(--rd)'}
+  finally{$('prj-clone-btn').disabled=false}
 };
 
 // ── Cron (Scheduled Tasks) ──
