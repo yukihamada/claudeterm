@@ -429,7 +429,7 @@ async fn verify_otp(State(s): State<Arc<AppState>>, Json(body): Json<serde_json:
         |r| Ok(r.get::<_,Option<String>>(0)?.is_some())).unwrap_or(false);
 
     Json(serde_json::json!({
-        "token": token, "user": { "id": uid, "email": email, "credits": credits, "has_api_key": has_key }
+        "token": token, "user": { "id": uid, "email": email, "credits": credits, "has_api_key": has_key, "plan": "free" }
     })).into_response()
 }
 
@@ -461,7 +461,7 @@ async fn local_login(Query(q): Query<LocalLoginQ>, State(s): State<Arc<AppState>
     };
     Json(serde_json::json!({
         "token": token,
-        "user": {"id": uid, "email": "Local (Mac)", "credits": 999999.0, "has_api_key": false}
+        "user": {"id": uid, "email": "Local (Mac)", "credits": 999999.0, "has_api_key": false, "plan": "power"}
     })).into_response()
 }
 
