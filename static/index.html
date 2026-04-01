@@ -393,49 +393,15 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <h2>Settings</h2>
 <label>Email<input id="s-email" disabled></label>
 <div class="s-plan-row"><span>現在のプラン</span><span class="s-plan-badge" id="s-plan">Free</span></div>
-<label>Credits<input id="s-credits" disabled></label>
+<label><span id="s-credits-label"></span><input id="s-credits" disabled></label>
 <label>Anthropic API Key (optional)
 <input id="s-key" type="password" placeholder="sk-ant-...">
 </label>
-<div class="info">Set your own API key to avoid using platform credits. Your key is stored securely and never shared.</div>
-<label>月額プラン</label>
-<div class="sub-grid">
-<div class="plan-card" onclick="subscribe('starter');$('settings').classList.remove('on')">
-  <div class="plan-price" style="font-size:17px">$9<span style="font-size:11px;font-weight:400">/月</span></div>
-  <div class="plan-name">Starter</div>
-  <div class="plan-detail">10 credits/月</div>
-</div>
-<div class="plan-card plan-popular" onclick="subscribe('pro');$('settings').classList.remove('on')">
-  <div class="plan-badge">人気</div>
-  <div class="plan-price" style="font-size:17px">$29<span style="font-size:11px;font-weight:400">/月</span></div>
-  <div class="plan-name">Pro</div>
-  <div class="plan-detail">35 credits/月</div>
-</div>
-<div class="plan-card" onclick="subscribe('power');$('settings').classList.remove('on')">
-  <div class="plan-price" style="font-size:17px">$79<span style="font-size:11px;font-weight:400">/月</span></div>
-  <div class="plan-name">Power</div>
-  <div class="plan-detail">100 credits/月</div>
-</div>
-</div>
-<label>クレジット追加（一回のみ）</label>
-<div class="plan-grid">
-<div class="plan-card" onclick="buyCredits(10)">
-  <div class="plan-price">$10</div>
-  <div class="plan-name">10 credits</div>
-  <div class="plan-detail">~200 Sonnet turns</div>
-</div>
-<div class="plan-card plan-popular" onclick="buyCredits(25)">
-  <div class="plan-badge">POPULAR</div>
-  <div class="plan-price">$25</div>
-  <div class="plan-name">25 credits</div>
-  <div class="plan-detail">~500 Sonnet turns</div>
-</div>
-<div class="plan-card" onclick="buyCredits(50)">
-  <div class="plan-price">$50</div>
-  <div class="plan-name">50 credits</div>
-  <div class="plan-detail">~1,000 Sonnet turns</div>
-</div>
-</div>
+<div class="info" id="s-apikey-info"></div>
+<label id="s-sub-label"></label>
+<div class="sub-grid" id="s-sub-grid"></div>
+<label id="s-onetime-label"></label>
+<div class="plan-grid" id="s-onetime-grid"></div>
 <div class="info" id="buy-msg"></div>
 <div class="row">
 <button class="bs bs-g" id="s-close">Cancel</button>
@@ -460,46 +426,19 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 </div></div>
 
-<!-- Plans modal (credit exhaustion / upgrade) -->
+<!-- Plans modal (balance exhaustion / upgrade) -->
 <div id="plans-modal">
 <div class="pm">
 <button class="pm-close" id="pm-close">&times;</button>
 <div class="pm-hd">
   <div class="pm-emoji">🎉</div>
-  <h2 id="pm-title">ありがとうございます！</h2>
-  <p id="pm-sub">クレジットを使い切りました。続けるには月額プランかクレジット追加をご検討ください。</p>
+  <h2 id="pm-title"></h2>
+  <p id="pm-sub"></p>
 </div>
-<div class="pm-plans">
-  <div class="pm-card" onclick="subscribe('starter')">
-    <div class="pm-name">Starter</div>
-    <div class="pm-price">$9</div>
-    <div class="pm-per">/月</div>
-    <div class="pm-credits">10 credits/月</div>
-    <button class="pm-btn">始める</button>
-  </div>
-  <div class="pm-card featured" onclick="subscribe('pro')">
-    <div class="pm-badge">人気</div>
-    <div class="pm-name">Pro</div>
-    <div class="pm-price">$29</div>
-    <div class="pm-per">/月</div>
-    <div class="pm-credits">35 credits/月</div>
-    <button class="pm-btn">始める</button>
-  </div>
-  <div class="pm-card" onclick="subscribe('power')">
-    <div class="pm-name">Power</div>
-    <div class="pm-price">$79</div>
-    <div class="pm-per">/月</div>
-    <div class="pm-credits">100 credits/月</div>
-    <button class="pm-btn">始める</button>
-  </div>
-</div>
-<div class="pm-divider">または一回だけ追加</div>
-<div class="pm-one">
-  <button onclick="buyCredits(10);$('plans-modal').classList.remove('on')">$10 追加</button>
-  <button onclick="buyCredits(25);$('plans-modal').classList.remove('on')">$25 追加</button>
-  <button onclick="buyCredits(50);$('plans-modal').classList.remove('on')">$50 追加</button>
-</div>
-<div class="pm-footer">自分のAPIキーを使って無料で続ける → <span onclick="$('plans-modal').classList.remove('on');$('ubtn').click()">設定を開く</span></div>
+<div class="pm-plans" id="pm-plans"></div>
+<div class="pm-divider" id="pm-divider"></div>
+<div class="pm-one" id="pm-one"></div>
+<div class="pm-footer" id="pm-footer"></div>
 </div>
 </div>
 
@@ -539,8 +478,8 @@ const isJa=navigator.language?.startsWith('ja');
 const L={
   think:isJa?'考えています...':'Thinking...',
   stopped:isJa?'停止しました':'Stopped',
-  noCredits:isJa?'クレジット残高がありません。設定からAPIキーを追加してください。':'No credits remaining. Add your API key in settings.',
-  free:isJa?'無料でお試し — $3 分のクレジット付き':'Free to start — $3 credit included',
+  noCredits:isJa?'残高がありません。設定からAPIキーを追加してください。':'No balance remaining. Add your API key in settings.',
+  free:isJa?'無料でお試し — ¥450分付き':'Free to start — $3 included',
   ph:isJa?'Claudeに何でも聞いてください... (Cmd+K)':'Message Claude... (Cmd+K)',
   signin:isJa?'はじめる':'Get started',
   summary:isJa?'まとめ':'Summary',
@@ -569,12 +508,12 @@ window.cpCode=function(btn,id){
 }
 function tq(){return tk?'?token='+encodeURIComponent(tk):''}
 
-// Credits display
+// Balance display (show as currency)
 function shCr(){
   if(!user)return;const c=user.credits;
   const el=$('crd');el.textContent=fc(c);
   el.className='cr '+(c>3?'cr-ok':c>0?'cr-low':'cr-out');
-  el.style.cursor='pointer';el.title='クレジットを追加';
+  el.style.cursor='pointer';el.title=isJa?'残高を追加':'Add balance';
   el.onclick=showPlansModal;
 }
 
@@ -651,12 +590,32 @@ async function show(){
 // ── SETTINGS ──
 $('ubtn').onclick=()=>{
   $('s-email').value=user.email;
+  $('s-credits-label').textContent=isJa?'残高':'Balance';
   $('s-credits').value=fc(user.credits);
   $('s-key').value='';
+  $('s-apikey-info').textContent=isJa?'自分のAPIキーを設定すると残高を使わずに利用できます。キーは安全に保存され共有されません。':'Set your own API key to avoid using platform balance. Your key is stored securely and never shared.';
   const plan=user.plan||'free';
   const el=$('s-plan');
   el.textContent=plan.charAt(0).toUpperCase()+plan.slice(1);
   el.className='s-plan-badge'+(plan!=='free'?' '+plan:'');
+  // Render subscription plans
+  $('s-sub-label').textContent=isJa?'月額プラン':'Monthly Plans';
+  $('s-sub-grid').innerHTML=PLANS.map(p=>`
+    <div class="plan-card${p.popular?' plan-popular':''}" onclick="subscribe('${p.id}');$('settings').classList.remove('on')">
+      ${p.popular?`<div class="plan-badge">${isJa?'人気':'POPULAR'}</div>`:''}
+      <div class="plan-price" style="font-size:17px">${fcp(p.usd)}<span style="font-size:11px;font-weight:400">/${isJa?'月':'mo'}</span></div>
+      <div class="plan-name">${p.id.charAt(0).toUpperCase()+p.id.slice(1)}</div>
+      <div class="plan-detail">${fcv(p.value)}/${isJa?'月':'mo'}</div>
+    </div>`).join('');
+  // Render one-time options
+  $('s-onetime-label').textContent=isJa?'残高追加（一回のみ）':'Add Balance (one-time)';
+  $('s-onetime-grid').innerHTML=ONEOFF.map((o,i)=>`
+    <div class="plan-card${i===1?' plan-popular':''}" onclick="buyCredits(${o.usd})">
+      ${i===1?'<div class="plan-badge">POPULAR</div>':''}
+      <div class="plan-price">${fcp(o.usd)}</div>
+      <div class="plan-name">${fcv(o.usd)}</div>
+      <div class="plan-detail">${o.turns} Sonnet</div>
+    </div>`).join('');
   $('settings').classList.add('on');
 };
 $('s-close').onclick=()=>$('settings').classList.remove('on');
@@ -687,8 +646,35 @@ $('s-save').onclick=async()=>{const k=$('s-key').value.trim();
   user.has_api_key=!!k;$('settings').classList.remove('on')};
 $('settings').onclick=e=>{if(e.target===$('settings'))$('settings').classList.remove('on')};
 
+// ── Pricing data ──
+const PLANS=[
+  {id:'starter',usd:9,value:10,turns:'~200'},
+  {id:'pro',usd:29,value:35,turns:'~700',popular:true},
+  {id:'power',usd:79,value:100,turns:'~2,000'},
+];
+const ONEOFF=[{usd:10,turns:'~200'},{usd:25,turns:'~500'},{usd:50,turns:'~1,000'}];
+function fcp(usd){return isJa?'¥'+Math.round(usd*150).toLocaleString():'$'+usd}
+function fcv(usd){return isJa?'¥'+Math.round(usd*150).toLocaleString()+'分':'$'+usd+' worth'}
+
 // Plans modal
-function showPlansModal(){$('plans-modal').classList.add('on')}
+function showPlansModal(){
+  $('pm-title').textContent=isJa?'ありがとうございます！':'Thank you!';
+  $('pm-sub').textContent=isJa?'残高を使い切りました。続けるには月額プランか残高追加をご検討ください。':'You\'ve used your balance. Choose a plan or add funds to continue.';
+  $('pm-plans').innerHTML=PLANS.map(p=>`
+    <div class="pm-card${p.popular?' featured':''}" onclick="subscribe('${p.id}')">
+      ${p.popular?`<div class="pm-badge">${isJa?'人気':'POPULAR'}</div>`:''}
+      <div class="pm-name">${p.id.charAt(0).toUpperCase()+p.id.slice(1)}</div>
+      <div class="pm-price">${fcp(p.usd)}</div>
+      <div class="pm-per">/${isJa?'月':'mo'}</div>
+      <div class="pm-credits">${fcv(p.value)}/${isJa?'月':'mo'}</div>
+      <button class="pm-btn">${isJa?'始める':'Start'}</button>
+    </div>`).join('');
+  $('pm-divider').textContent=isJa?'または一回だけ追加':'or add once';
+  $('pm-one').innerHTML=ONEOFF.map(o=>
+    `<button onclick="buyCredits(${o.usd});$('plans-modal').classList.remove('on')">${fcp(o.usd)} ${isJa?'追加':'add'}</button>`).join('');
+  $('pm-footer').innerHTML=`${isJa?'自分のAPIキーを使って無料で続ける →':'Use your own API key for free →'} <span onclick="$('plans-modal').classList.remove('on');$('ubtn').click()">${isJa?'設定を開く':'Open settings'}</span>`;
+  $('plans-modal').classList.add('on');
+}
 $('pm-close').onclick=()=>$('plans-modal').classList.remove('on');
 $('plans-modal').onclick=e=>{if(e.target===$('plans-modal'))$('plans-modal').classList.remove('on')};
 
@@ -762,7 +748,7 @@ if(ev.type==='done'||ev.type==='stopped'){
   if(ev.credits!==undefined&&user){user.credits=ev.credits;shCr()}
   setB(false);render();asid=null;return}
 if(ev.type==='no_credits'){
-  h.m.push({role:'system',text:isJa?'クレジットを使い切りました 🎉 ありがとうございます！':'Credits exhausted — thank you for using ChatWeb! 🎉'});
+  h.m.push({role:'system',text:isJa?'残高を使い切りました 🎉 ありがとうございます！':'Balance exhausted — thank you for using ChatWeb! 🎉'});
   setB(false);render();asid=null;
   setTimeout(showPlansModal,300);return}
 if(ev.type==='error'){
@@ -993,7 +979,7 @@ const OB_TIPS={
   webapp:{icon:'🚀',title:isJa?'Webアプリ開発':'Web App Development',items:[
     {dot:'info',label:isJa?'デプロイ（Fly.io）':'Deploy to Fly.io',sub:isJa?'fly auth login でログインが必要':'Run fly auth login first',action:'fly auth login',actionLabel:'Setup'},
     {dot:'warn',label:isJa?'カスタムドメイン':'Custom domain',sub:isJa?'ドメインのCNAME設定が必要':'Requires DNS CNAME configuration'},
-    {dot:'ok',label:isJa?'APIキーなしでも動作':'Works without API key',sub:isJa?'クレジット消費あり / BYOKでコスト削減':'Uses platform credits / cheaper with your own key'},
+    {dot:'ok',label:isJa?'APIキーなしでも動作':'Works without API key',sub:isJa?'残高消費あり / 自分のキーでコスト削減':'Uses platform balance / cheaper with your own key'},
   ]},
   mobile:{icon:'📱',title:isJa?'モバイルアプリ開発':'Mobile App Development',items:[
     {dot:'warn',label:isJa?'App Store リリースには Apple Developer アカウント必要':'Apple Developer account required for App Store ($99/yr)',sub:'developer.apple.com'},
@@ -1010,7 +996,7 @@ const OB_TIPS={
   ]},
   general:{icon:'🧠',title:isJa?'クイックスタート':'Quick Start',items:[
     {dot:'ok',label:isJa?'今すぐ使えます':'Ready to use — ask Claude anything'},
-    {dot:'info',label:isJa?'自分のAPIキーを設定するとコスト削減':'Add your Anthropic API key in Settings to reduce cost',action:'settings',actionLabel:isJa?'設定':'Settings'},
+    {dot:'info',label:isJa?'自分のAPIキーを設定すると残高を使わずに利用可能':'Add your Anthropic API key in Settings to skip balance usage',action:'settings',actionLabel:isJa?'設定':'Settings'},
   ]},
 };
 function showOB(){
