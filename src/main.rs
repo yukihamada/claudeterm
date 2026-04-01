@@ -217,12 +217,20 @@ async fn login(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Valu
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────
 
+/// Returns the OAuth redirect URI registered in Google Cloud Console.
+/// Prefer GOOGLE_REDIRECT_URI env var (allows using a canonical domain like claudeterm.fly.dev
+/// even when BASE_URL is chatweb.ai), falling back to BASE_URL.
+fn google_redirect_uri(base_url: &str) -> String {
+    let base = std::env::var("GOOGLE_REDIRECT_URI").unwrap_or_else(|_| base_url.to_string());
+    format!("{}/api/auth/google/callback", base)
+}
+
 async fn google_oauth_start(State(s): State<Arc<AppState>>) -> Response {
     let client_id = match std::env::var("GOOGLE_CLIENT_ID") {
         Ok(id) => id,
         Err(_) => return (StatusCode::SERVICE_UNAVAILABLE, "Google OAuth not configured").into_response(),
     };
-    let redirect_uri = format!("{}/api/auth/google/callback", s.base_url);
+    let redirect_uri = google_redirect_uri(&s.base_url);
     let url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth\
         ?client_id={}\
@@ -260,7 +268,7 @@ async fn google_oauth_callback(
         Ok(s) => s,
         Err(_) => return (StatusCode::SERVICE_UNAVAILABLE, "Google OAuth not configured").into_response(),
     };
-    let redirect_uri = format!("{}/api/auth/google/callback", s.base_url);
+    let redirect_uri = google_redirect_uri(&s.base_url);
 
     // Exchange code for token
     let http = reqwest::Client::new();
@@ -321,7 +329,8 @@ async fn google_oauth_callback(
     };
 
     // Redirect to frontend with token in fragment (never in server logs)
-    axum::response::Redirect::temporary(&format!("/#google_token={}", token)).into_response()
+    // Always redirect to BASE_URL so user lands on the canonical domain (chatweb.ai)
+    axum::response::Redirect::temporary(&format!("{}/#google_token={}", s.base_url, token)).into_response()
 }
 
 // ── Email OTP ─────────────────────────────────────────────────────────────────
