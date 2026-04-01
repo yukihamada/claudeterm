@@ -2403,54 +2403,70 @@ function startMusicDemo(){
     {t:212,l:'chatweb.ai'},
   ];
 
-  // Chat events synced to music (simulated conversation)
-  const HAMADA_SITE=`<html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#f5f5f5}
-.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;background:linear-gradient(135deg,#1a1040,#09090b)}
-h1{font-size:3rem;font-weight:900;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
-.sub{font-size:1.1rem;color:#a1a1aa;margin-bottom:32px;max-width:500px;line-height:1.7}
-.links{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
-.links a{color:#a78bfa;border:1px solid #a78bfa;padding:8px 20px;border-radius:99px;text-decoration:none;font-size:.9rem;transition:all .15s}
-.links a:hover{background:#a78bfa;color:#000}
-.section{padding:60px 20px;max-width:700px;margin:0 auto}
-.section h2{font-size:1.5rem;font-weight:700;margin-bottom:16px;color:#a78bfa}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
-.card{background:#111;border:1px solid #222;border-radius:12px;padding:20px}
-.card h3{font-size:1rem;margin-bottom:6px}.card p{color:#888;font-size:.85rem;line-height:1.5}
-</style></head><body>
-<div class="hero"><h1>Yuki Hamada</h1><p class="sub">Creator / Developer / Explorer<br>テクノロジーと創造性の交差点で、未来を作る。</p>
-<div class="links"><a href="#">GitHub</a><a href="#">X (Twitter)</a><a href="#">Projects</a></div></div>
-<div class="section"><h2>Projects</h2><div class="grid">
-<div class="card"><h3>ChatWeb</h3><p>AIが動くブラウザ開発ターミナル</p></div>
-<div class="card"><h3>Elio</h3><p>P2P分散AIアシスタント</p></div>
-<div class="card"><h3>Koe</h3><p>群衆を楽器にするデバイス</p></div>
-<div class="card"><h3>JiuFlow</h3><p>柔術の技術を記録・分析</p></div>
-</div></div></body></html>`;
+  // Staged site HTML — evolves as user requests changes
+  const SITE_V1=`<html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#f5f5f5}.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;background:linear-gradient(135deg,#1a1040,#09090b)}h1{font-size:2.5rem;font-weight:900;color:#a78bfa;margin-bottom:8px}.sub{color:#a1a1aa;margin-bottom:24px}</style></head><body><div class="hero"><h1>Yuki Hamada</h1><p class="sub">Developer</p></div></body></html>`;
+  const SITE_V2=`<html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#f5f5f5}.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px;background:linear-gradient(135deg,#1a1040,#09090b)}h1{font-size:4rem;font-weight:900;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}.sub{font-size:1.2rem;color:#a1a1aa;max-width:500px;line-height:1.8;margin-bottom:32px}.links{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}.links a{color:#a78bfa;border:1px solid #a78bfa;padding:10px 24px;border-radius:99px;text-decoration:none;transition:all .2s}.links a:hover{background:#a78bfa;color:#000}</style></head><body><div class="hero"><h1>Yuki Hamada</h1><p class="sub">Creator / Developer / Explorer<br>テクノロジーと創造性の交差点で、未来を作る。</p><div class="links"><a href="#">GitHub</a><a href="#">X</a><a href="#">Projects</a></div></div></body></html>`;
+  const SITE_V3=`<html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#f5f5f5}.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px;background:linear-gradient(135deg,#1a1040,#09090b)}h1{font-size:4rem;font-weight:900;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}.sub{font-size:1.2rem;color:#a1a1aa;max-width:500px;line-height:1.8;margin-bottom:32px}.links{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}.links a{color:#a78bfa;border:1px solid #a78bfa;padding:10px 24px;border-radius:99px;text-decoration:none;transition:all .2s}.links a:hover{background:#a78bfa;color:#000}.sec{padding:80px 20px;max-width:720px;margin:0 auto}.sec h2{font-size:1.6rem;font-weight:800;margin-bottom:20px;color:#a78bfa}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}.card{background:#111;border:1px solid #222;border-radius:14px;padding:24px;transition:border-color .2s}.card:hover{border-color:#a78bfa}.card h3{margin-bottom:8px}.card p{color:#888;font-size:.85rem;line-height:1.6}.nav{position:fixed;top:0;width:100%;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;background:rgba(10,10,10,.8);backdrop-filter:blur(12px);border-bottom:1px solid #1a1a1a;z-index:10}.nav a{color:#a1a1aa;text-decoration:none;font-size:.9rem}.nav a:hover{color:#fff}footer{text-align:center;padding:40px;color:#555;font-size:.85rem;border-top:1px solid #1a1a1a}</style></head><body><nav class="nav"><strong style="color:#a78bfa">YH</strong><div style="display:flex;gap:20px"><a href="#">Projects</a><a href="#">About</a><a href="#">Contact</a></div></nav><div class="hero"><h1>Yuki Hamada</h1><p class="sub">Creator / Developer / Explorer<br>テクノロジーと創造性の交差点で、未来を作る。</p><div class="links"><a href="#">GitHub</a><a href="#">X</a><a href="#">Projects</a></div></div><div class="sec"><h2>Projects</h2><div class="grid"><div class="card"><h3>🌐 ChatWeb</h3><p>AIが動くブラウザ開発ターミナル。Claude Codeをブラウザから。</p></div><div class="card"><h3>🤖 Elio</h3><p>P2P分散AIアシスタント。EBRトークンゲート。</p></div><div class="card"><h3>🔊 Koe</h3><p>群衆を楽器にするデバイス。ESP32 + Rust。</p></div><div class="card"><h3>🥋 JiuFlow</h3><p>柔術の技術を記録・分析するアプリ。</p></div></div></div><div class="sec"><h2>About</h2><p style="color:#a1a1aa;line-height:1.8">Rustとクリエイティブテクノロジーを愛するエンジニア。複数のプロダクトを同時に開発し、Fly.ioでデプロイ。柔術・音楽・旅が好き。</p></div><footer>© 2026 Yuki Hamada — yukihamada.jp</footer></body></html>`;
 
   const EVENTS=[
-    {t:2,type:'sys',text:'ChatWeb — AI Development Terminal'},
-    {t:24,type:'user',text:'僕は濱田優貴。ネットで徹底的に検索して、どんな人物か調べて。'},
-    {t:26,type:'sys',text:'✦ Claude Sonnet'},
-    {t:27,type:'tool',name:'Bash',file:'web search "濱田優貴"',done:30},
-    {t:31,type:'tool',name:'Read',file:'search results (12 sources)',done:34},
-    {t:37,type:'text',text:'濱田優貴さんについて調査しました。\\n\\n**プロフィール:**\\n- Creator / Developer / Explorer\\n- ChatWeb、Elio、Koe Device、JiuFlowなど複数のプロダクトを開発\\n- Rust + Fly.io を中心とした技術スタック\\n- 柔術・音楽・旅行が好き\\n\\nあなたは**テクノロジーと創造性の交差点**で活動するクリエイターですね。'},
-    {t:100,type:'user',text:'検索結果をもとに、僕に一番似合うポートフォリオサイトを作って。ミニマルで、プロジェクトが映えるデザインで。'},
-    {t:103,type:'sys',text:'✦ Claude Sonnet'},
-    {t:104,type:'tool',name:'Write',file:'index.html',done:108},
-    {t:109,type:'tool',name:'Write',file:'style.css',done:112},
-    {t:113,type:'tool',name:'Bash',file:'live-server --port=3000',done:115},
-    {t:116,type:'preview'},
-    {t:118,type:'text',text:'ポートフォリオサイトを作成しました！\\n\\n- ヒーロー: グラデーション背景に名前とタグライン\\n- プロジェクトカード: ChatWeb, Elio, Koe, JiuFlow\\n- レスポンシブ対応\\n\\nプレビューで確認してください。修正があれば言ってください。'},
-    {t:128,type:'user',text:'もっとカッコよくして。フォントを大きく、余白をたっぷり。スマホでも見やすく直して。'},
-    {t:131,type:'tool',name:'Edit',file:'index.html (hero section)',done:134},
-    {t:135,type:'tool',name:'Edit',file:'style.css (responsive)',done:138},
-    {t:139,type:'text',text:'修正しました。フォント3rem→4rem、セクション間の余白を80pxに、モバイル時のパディングも増やしました。'},
-    {t:150,type:'user',text:'完璧。デプロイして。'},
-    {t:152,type:'sys',text:'✦ Claude Sonnet'},
-    {t:153,type:'tool',name:'Write',file:'Dockerfile',done:155},
-    {t:156,type:'tool',name:'Bash',file:'fly deploy --remote-only',done:163},
-    {t:164,type:'text',text:'🚀 デプロイ完了！\\n\\nhttps://yuki-hamada.fly.dev\\n\\nセキュリティヘッダーも設定済み。スコアA+です。'},
-    {t:181,type:'user',text:'共有リンクをコピーして。友達に見せたい。'},
-    {t:183,type:'text',text:'リンクをコピーしました！\\n\\n📋 https://yuki-hamada.fly.dev\\n\\n「これ俺のサイト」って送ってください 🎉'},
+    // Intro (0-22s) — セットアップ
+    {t:1,type:'sys',text:'ChatWeb — chatweb.ai'},
+    // Verse 1 (24-67s) — リサーチ
+    {t:24,type:'user',text:'濱田優貴をネットで徹底的に検索して、どんな人物か調べて'},
+    {t:25,type:'tool',name:'🔍 Bash',file:'web search "濱田優貴 developer"',done:27},
+    {t:27,type:'tool',name:'🔍 Bash',file:'web search "yukihamada github"',done:29},
+    {t:29,type:'tool',name:'📖 Read',file:'github.com/yukihamada (52 repos)',done:31},
+    {t:31,type:'tool',name:'📖 Read',file:'twitter.com/yukihamada',done:33},
+    {t:33,type:'tool',name:'📖 Read',file:'yukihamada.jp',done:35},
+    {t:36,type:'text',text:'**濱田優貴** を調査しました。\\n\\n- 🌐 ChatWeb — ブラウザAI開発ターミナル\\n- 🤖 Elio — P2P分散AI\\n- 🔊 Koe — 群衆を楽器にするデバイス\\n- 🥋 JiuFlow — 柔術記録アプリ\\n- Rust + Fly.io が主力スタック\\n- 柔術・音楽・旅行が趣味\\n\\n**テクノロジーと創造性の交差点**で活動するクリエイターですね。'},
+    // Chorus (68-97s)
+    // Verse 2 (100-148s) — 実装 → フィードバック → 改善の高速ループ
+    {t:99,type:'user',text:'この情報をもとに、最高にカッコいいポートフォリオサイトを作って'},
+    {t:100,type:'tool',name:'✏️ Write',file:'index.html',done:102},
+    {t:102,type:'tool',name:'✏️ Write',file:'style.css',done:104},
+    {t:104,type:'tool',name:'⚡ Bash',file:'live-server --port=3000',done:105},
+    {t:106,type:'preview',html:'v1'},
+    {t:107,type:'text',text:'v1作成。プレビューを確認してください。'},
+    {t:110,type:'user',text:'シンプルすぎ。フォントもっと大きく、グラデーションつけて、SNSリンクも追加して'},
+    {t:111,type:'tool',name:'🔧 Edit',file:'index.html (hero)',done:112},
+    {t:112,type:'tool',name:'🔧 Edit',file:'style.css (gradient + links)',done:113},
+    {t:114,type:'preview',html:'v2'},
+    {t:115,type:'text',text:'v2完成。グラデーション、4rem、SNSリンク追加。'},
+    {t:118,type:'user',text:'いいね！ナビゲーション追加して、プロジェクト一覧もカード形式で並べて、About欄とフッターも'},
+    {t:119,type:'tool',name:'🔧 Edit',file:'index.html (+nav +projects +about +footer)',done:121},
+    {t:121,type:'tool',name:'🔧 Edit',file:'style.css (cards + nav + responsive)',done:123},
+    {t:124,type:'preview',html:'v3'},
+    {t:125,type:'text',text:'v3完成！ナビ・プロジェクトカード4枚・About・フッター追加。hover時のボーダーアニメーションも。'},
+    {t:128,type:'user',text:'スマホで見やすくして。あとフォントをInter、OGPも設定して'},
+    {t:129,type:'tool',name:'🔧 Edit',file:'style.css (@media mobile)',done:130},
+    {t:130,type:'tool',name:'🔧 Edit',file:'index.html (meta OGP)',done:131},
+    {t:132,type:'text',text:'レスポンシブ完了。OGP設定済み、Twitterカードも対応。'},
+    {t:134,type:'user',text:'セキュリティチェックして'},
+    {t:135,type:'tool',name:'🔍 Bash',file:'security audit (headers + CSP)',done:137},
+    {t:138,type:'text',text:'✅ XSS: なし\\n✅ CSP: 設定済み\\n✅ X-Frame-Options: DENY\\n✅ HTTPS: 強制\\n**スコア: A+**'},
+    // Bridge (150-179s) — デプロイ + ドメイン
+    {t:149,type:'user',text:'デプロイして'},
+    {t:150,type:'tool',name:'✏️ Write',file:'Dockerfile (multi-stage)',done:151},
+    {t:151,type:'tool',name:'✏️ Write',file:'fly.toml',done:152},
+    {t:152,type:'tool',name:'⚡ Bash',file:'fly deploy --remote-only',done:158},
+    {t:159,type:'text',text:'🚀 デプロイ完了！ https://yuki-hamada.fly.dev'},
+    {t:161,type:'user',text:'yukihamada.jp のドメインを割り当てて'},
+    {t:162,type:'tool',name:'⚡ Bash',file:'fly certs create yukihamada.jp',done:164},
+    {t:164,type:'tool',name:'⚡ Bash',file:'cloudflare DNS CNAME → fly.dev',done:166},
+    {t:167,type:'text',text:'✅ ドメイン設定完了\\n\\n🌐 **https://yukihamada.jp** で公開中\\nSSL証明書: 自動発行済み\\nDNS: Cloudflare CNAME設定済み'},
+    {t:170,type:'user',text:'Google Analyticsも入れて'},
+    {t:171,type:'tool',name:'🔧 Edit',file:'index.html (GA4 script)',done:172},
+    {t:173,type:'text',text:'GA4タグ追加。アクセス解析が有効になりました。'},
+    // Outro (181-215s) — シェア + 完成
+    {t:181,type:'user',text:'シェアリンクをコピー。友達に見せたい'},
+    {t:182,type:'text',text:'📋 https://yukihamada.jp\\n\\nリンクコピー済み！「これ俺のサイト」って送ってください 🎉'},
+    {t:190,type:'user',text:'ブログ機能も追加して。Markdown対応で'},
+    {t:191,type:'tool',name:'✏️ Write',file:'blog/index.html',done:192},
+    {t:192,type:'tool',name:'✏️ Write',file:'blog/first-post.md',done:193},
+    {t:193,type:'tool',name:'⚡ Bash',file:'fly deploy',done:196},
+    {t:197,type:'text',text:'ブログ追加 + 再デプロイ完了。\\nhttps://yukihamada.jp/blog/'},
+    {t:205,type:'user',text:'最高。ありがとう'},
+    {t:206,type:'text',text:'こちらこそ！素晴らしいサイトができましたね 🎉\\n\\nchatweb.ai でいつでも更新できます。'},
   ];
 
   // Render lyrics
@@ -2480,7 +2496,8 @@ h1{font-size:3rem;font-weight:900;background:linear-gradient(135deg,#a78bfa,#60a
       else if(ev.type==='text')chat.insertAdjacentHTML('beforeend',`<div class="dm a">${ev.text.replace(/\\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong style="color:#a78bfa">$1</strong>')}</div>`);
       else if(ev.type==='preview'){
         $('demo-pv').classList.add('on');
-        $('demo-iframe').srcdoc=HAMADA_SITE;
+        const sites={v1:SITE_V1,v2:SITE_V2,v3:SITE_V3};
+        $('demo-iframe').srcdoc=sites[ev.html]||SITE_V3;
       }
       chat.scrollTop=chat.scrollHeight;
     }
