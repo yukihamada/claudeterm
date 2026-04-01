@@ -421,19 +421,36 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .tut-bar .tut-next{background:var(--ac);color:#000;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
 .tut-bar .tut-skip{background:none;border:none;color:var(--dm);font-size:11px;cursor:pointer;flex-shrink:0}
 
+/* Header menu */
+.menu-btn{font-size:16px!important}
+.hd-menu{display:none;position:absolute;top:46px;right:8px;background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:4px;min-width:180px;z-index:50;box-shadow:var(--shadow);animation:.12s ease both fi}
+.hd-menu.on{display:block}
+.hm-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;background:none;border:none;color:var(--tx);font-size:12px;border-radius:8px;cursor:pointer;text-align:left;transition:background .1s}
+.hm-item:hover{background:var(--s2)}
+.hm-item span:first-child{width:20px;text-align:center;flex-shrink:0}
+.hm-sep{height:1px;background:var(--bd);margin:2px 8px}
+
+/* History panel */
+#history-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#history-modal.on{display:flex}
+.hist{width:min(420px,92vw);background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:10px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);max-height:80vh;overflow-y:auto}
+.hist h2{font-size:18px;font-weight:700;letter-spacing:-.03em}
+.hist-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .12s;font-size:12px}
+.hist-item:hover{border-color:var(--ac);background:rgba(167,139,250,.06)}
+.hist-item .hist-name{font-weight:600;flex:1}
+.hist-item .hist-date{color:var(--dm);font-size:10px;flex-shrink:0}
+.hist-item .hist-proj{color:var(--mu);font-size:10px;background:var(--s2);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.hist-item .hist-del{background:none;border:none;color:var(--dm);font-size:12px;cursor:pointer;padding:2px 4px;border-radius:4px;flex-shrink:0}
+.hist-item .hist-del:hover{color:var(--rd);background:rgba(248,113,113,.1)}
+
 /* Mobile header */
 @media(max-width:600px){
   .tabs{display:none}
-  .ms{display:none}
-  #fb{display:none}
-  .theme-btn{display:none}
-  .fb-btn{display:none}
   .lt{font-size:12px}
   #hd{gap:6px;padding:0 8px;height:48px}
   .cr{font-size:9px;padding:2px 7px}
   .ib{width:36px;height:36px;font-size:18px;border-radius:10px;-webkit-tap-highlight-color:transparent}
   .lg{width:20px;height:20px;border-radius:6px}
-  .user-btn{padding:6px 10px;font-size:11px;-webkit-tap-highlight-color:transparent}
 }
 </style></head><body>
 
@@ -495,18 +512,26 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div id="hd">
 <div class="lg"></div><span class="lt">ChatWeb</span>
 <div class="tabs" id="tabs"></div>
-<button class="ib" id="ab">+</button>
-<div class="ms"><button class="mb on" id="mc">Chat</button><button class="mb" id="mt">Terminal</button></div>
-<button class="ib" id="fb">&#128193;</button>
+<button class="ib" id="ab" title="New">+</button>
 <div class="tr">
-<button class="share-btn" id="cronbtn" title="Scheduled Tasks">&#9202;</button>
-<button class="share-btn" id="sharebtn" title="Share">&#8599;</button>
 <span class="cr" id="crd"></span>
 <span class="dt" id="dot"></span>
-<button class="ib fb-btn" id="fbbtn" title="Feedback">&#128172;</button>
-<button class="theme-btn" id="thm" title="Toggle theme">&#9790;</button>
-<button class="user-btn" id="ubtn"></button>
+<button class="ib menu-btn" id="menubtn" title="Menu">&#9776;</button>
 </div>
+</div>
+<!-- Dropdown menu -->
+<div id="hd-menu" class="hd-menu">
+<button id="mc" class="hm-item"><span>💬</span><span id="hm-chat"></span></button>
+<button id="mt" class="hm-item"><span>🖥</span><span id="hm-term"></span></button>
+<div class="hm-sep"></div>
+<button id="fb" class="hm-item"><span>📁</span><span id="hm-files"></span></button>
+<button id="sharebtn" class="hm-item"><span>↗</span><span id="hm-share"></span></button>
+<button id="cronbtn" class="hm-item"><span>⏲</span><span id="hm-cron"></span></button>
+<button id="fbbtn" class="hm-item"><span>💬</span><span id="hm-fb"></span></button>
+<button id="thm" class="hm-item"><span id="thm-ico">☾</span><span id="hm-theme"></span></button>
+<div class="hm-sep"></div>
+<button id="historybtn" class="hm-item"><span>📜</span><span id="hm-history"></span></button>
+<button id="ubtn" class="hm-item"><span>👤</span><span id="hm-settings"></span></button>
 </div>
 <div class="tut-bar" id="tut-bar">
   <span class="tut-step" id="tut-step"></span>
@@ -615,6 +640,15 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 
 <div id="pv"><div class="pvw"><div class="pvh"><span id="pp"></span><button id="pc">&times;</button></div><div class="pvb" id="pb"></div></div></div>
+
+<!-- Session history -->
+<div id="history-modal"><div class="hist">
+<h2 id="hist-title"></h2>
+<div id="hist-list"></div>
+<div class="row" style="display:flex;gap:8px;justify-content:flex-end">
+  <button class="bs bs-g" id="hist-close"></button>
+</div>
+</div></div>
 
 <!-- Cron (scheduled tasks) modal -->
 <div id="cron-modal"><div class="crn">
@@ -799,6 +833,7 @@ async function show(){
 
 // ── SETTINGS ──
 $('ubtn').onclick=()=>{
+  $('hd-menu').classList.remove('on');
   $('s-email').value=user.email;
   $('s-credits-label').textContent=isJa?'残高':'Balance';
   $('s-credits').value=fc(user.credits);
@@ -935,8 +970,43 @@ setTimeout(()=>{
 },10)}
 function render(){rC();rT();if(window.Prism)requestAnimationFrame(()=>Prism.highlightAll())}
 
-$('mc').onclick=()=>{mode='chat';$('mc').classList.add('on');$('mt').classList.remove('on');$('ct').className='view-chat'};
-$('mt').onclick=()=>{mode='term';$('mt').classList.add('on');$('mc').classList.remove('on');$('ct').className='view-term'};
+$('mc').onclick=()=>{mode='chat';$('ct').className='view-chat';$('hd-menu').classList.remove('on')};
+$('mt').onclick=()=>{mode='term';$('ct').className='view-term';$('hd-menu').classList.remove('on')};
+// Menu toggle
+$('menubtn').onclick=e=>{e.stopPropagation();$('hd-menu').classList.toggle('on')};
+document.addEventListener('click',e=>{if(!$('hd-menu').contains(e.target)&&e.target!==$('menubtn'))$('hd-menu').classList.remove('on')});
+// Menu labels
+$('hm-chat').textContent=isJa?'チャット':'Chat';
+$('hm-term').textContent=isJa?'ターミナル':'Terminal';
+$('hm-files').textContent=isJa?'ファイル':'Files';
+$('hm-share').textContent=isJa?'共有':'Share';
+$('hm-cron').textContent=isJa?'定期実行':'Scheduled';
+$('hm-fb').textContent=isJa?'フィードバック':'Feedback';
+$('hm-theme').textContent=isJa?'テーマ切替':'Toggle theme';
+$('hm-history').textContent=isJa?'履歴':'History';
+$('hm-settings').textContent=isJa?'設定':'Settings';
+// History
+$('historybtn').onclick=()=>{$('hd-menu').classList.remove('on');showHistory()};
+function showHistory(){
+  $('hist-title').textContent=isJa?'セッション履歴':'Session History';
+  $('hist-close').textContent=isJa?'閉じる':'Close';
+  const el=$('hist-list');
+  el.innerHTML=ss.map(s=>{
+    const d=s.created_at?new Date(s.created_at).toLocaleDateString():'';
+    return `<div class="hist-item" data-id="${s.id}">
+      <span class="hist-name">${esc(s.name)}</span>
+      ${s.project?`<span class="hist-proj">${esc(s.project)}</span>`:''}
+      <span class="hist-date">${d}</span>
+      <button class="hist-del" onclick="event.stopPropagation();dS('${s.id}');showHistory()">✕</button>
+    </div>`;
+  }).join('')||`<div style="text-align:center;color:var(--dm);font-size:12px;padding:16px">${isJa?'セッションがありません':'No sessions'}</div>`;
+  el.querySelectorAll('.hist-item').forEach(d=>{
+    d.onclick=()=>{sid=d.dataset.id;tU();lH(sid);$('history-modal').classList.remove('on')};
+  });
+  $('history-modal').classList.add('on');
+}
+$('hist-close').onclick=()=>$('history-modal').classList.remove('on');
+$('history-modal').onclick=e=>{if(e.target===$('history-modal'))$('history-modal').classList.remove('on')};
 
 // ── WS ──
 function connect(){const p=location.protocol==='https:'?'wss:':'ws:';
@@ -1039,7 +1109,7 @@ $('mg').oninput=function(){this.style.height='auto';this.style.height=Math.min(t
 // Feedback modal
 let fbCat='bug';
 document.querySelectorAll('.fb-cat').forEach(b=>{b.onclick=()=>{fbCat=b.dataset.c;document.querySelectorAll('.fb-cat').forEach(x=>x.classList.toggle('on',x===b))}});
-$('fbbtn').onclick=()=>{$('fb-msg').value='';$('fb-status').textContent='';$('fbmodal').classList.add('on');$('fb-msg').focus()};
+$('fbbtn').onclick=()=>{$('hd-menu').classList.remove('on');$('fb-msg').value='';$('fb-status').textContent='';$('fbmodal').classList.add('on');$('fb-msg').focus()};
 $('fb-close').onclick=()=>$('fbmodal').classList.remove('on');
 $('fbmodal').onclick=e=>{if(e.target===$('fbmodal'))$('fbmodal').classList.remove('on')};
 $('fb-send').onclick=async()=>{
@@ -1204,7 +1274,7 @@ function getSetupCtx(){
 }
 
 // Files
-let fp='';$('fb').onclick=()=>$('sb').classList.toggle('open');$('sc').onclick=()=>$('sb').classList.remove('open');
+let fp='';$('fb').onclick=()=>{$('sb').classList.toggle('open');$('hd-menu').classList.remove('on')};$('sc').onclick=()=>$('sb').classList.remove('open');
 async function lF(p){fp=p;$('sp').textContent='/'+(p||'');
 const r=await fetch(`/api/files${tq()}&path=${encodeURIComponent(p)}`);if(!r.ok)return;const fs=await r.json();
 const el=$('fl');el.innerHTML='';
@@ -1315,8 +1385,8 @@ if(f.name.match(/\.(js|ts|py|rs|go|json|yaml|toml|md|txt|html|css)$/i))rd.readAs
 
 // Theme
 (()=>{const lt=localStorage.getItem('ct_theme')==='light';if(lt)document.documentElement.classList.add('light')})();
-$('thm').onclick=()=>{const isL=document.documentElement.classList.toggle('light');localStorage.setItem('ct_theme',isL?'light':'dark');$('thm').textContent=isL?'☀':'☾'};
-if(localStorage.getItem('ct_theme')==='light')$('thm').textContent='☀';
+$('thm').onclick=()=>{const isL=document.documentElement.classList.toggle('light');localStorage.setItem('ct_theme',isL?'light':'dark');$('thm-ico').textContent=isL?'☀':'☾';$('hd-menu').classList.remove('on')};
+if(localStorage.getItem('ct_theme')==='light')$('thm-ico').textContent='☀';
 
 // ── Projects ──
 let projects=[];
@@ -1454,12 +1524,13 @@ $('crn-add').onclick=async()=>{
   $('crn-name').value='';$('crn-cmd').value='';
   await refreshCronList();
 };
-$('cronbtn').onclick=showCronModal;
+$('cronbtn').onclick=()=>{$('hd-menu').classList.remove('on');showCronModal()};
 $('crn-close').onclick=()=>$('cron-modal').classList.remove('on');
 $('cron-modal').onclick=e=>{if(e.target===$('cron-modal'))$('cron-modal').classList.remove('on')};
 
 // ── Share ──
 $('sharebtn').onclick=async()=>{
+  $('hd-menu').classList.remove('on');
   if(!sid)return;
   try{
     const r=await fetch(`/api/sessions/${sid}/share`+tq(),{method:'POST'});
