@@ -794,7 +794,11 @@ async fn create_share(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s):
         _ => {}
     }
     // Generate share ID
-    let share_id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    // 24-char random alphanumeric (144 bits of entropy, not enumerable)
+    let share_id: String = (0..24).map(|_| {
+        let c = rand::random::<u8>() % 36;
+        if c < 10 { (b'0' + c) as char } else { (b'a' + c - 10) as char }
+    }).collect();
     db.execute("UPDATE sessions SET share_id=?1 WHERE id=?2 AND user_id=?3",
         rusqlite::params![share_id, id, uid]).ok();
     let url = format!("{}/s/{}", s.base_url, share_id);
