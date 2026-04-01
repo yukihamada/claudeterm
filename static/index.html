@@ -583,6 +583,17 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <label id="s-onetime-label"></label>
 <div class="plan-grid" id="s-onetime-grid"></div>
 <div class="info" id="buy-msg"></div>
+<label id="s-ref-label"></label>
+<div id="s-ref-box" style="display:flex;gap:8px;align-items:center">
+  <input id="s-ref-url" disabled style="flex:1;font-size:11px;font-family:var(--m)">
+  <button class="bs bs-p" id="s-ref-copy" style="white-space:nowrap;padding:8px 12px;font-size:11px"></button>
+</div>
+<div class="info" id="s-ref-info"></div>
+<label id="s-ref-apply-label" style="display:none"></label>
+<div id="s-ref-apply-box" style="display:none;gap:8px">
+  <input id="s-ref-input" placeholder="ABC12345" style="flex:1;text-transform:uppercase">
+  <button class="bs bs-p" id="s-ref-apply-btn" style="white-space:nowrap;padding:8px 12px;font-size:11px"></button>
+</div>
 <div class="row">
 <button class="bs bs-g" id="s-close">Cancel</button>
 <button class="bs bs-p" id="s-save">Save</button>
@@ -835,6 +846,16 @@ async function show(){
   const lastSid=localStorage.getItem('ct_sid');
   sid=(ss.find(s=>s.id===lastSid)||ss[0])?.id;
   tU();if(sid)lH(sid);
+  // Auto-apply referral code if saved
+  const savedRef=localStorage.getItem('ct_ref');
+  if(savedRef){
+    localStorage.removeItem('ct_ref');
+    fetch('/api/referral/apply'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({code:savedRef})}).then(r=>r.json()).then(d=>{
+        if(d.ok){user._referred=true;
+          fetch('/api/auth/me?token='+encodeURIComponent(tk)).then(r=>r.json()).then(u=>{user.credits=u.credits;shCr()});}
+      }).catch(()=>{});
+  }
   // Handle pending share action after login
   const pendingShare=localStorage.getItem('ct_pending_share');
   if(pendingShare){
@@ -888,9 +909,53 @@ $('ubtn').onclick=()=>{
     $('s-onetime-label').textContent=isJa?'残高追加':'Add Balance';
     $('s-onetime-grid').innerHTML=`<div style="font-size:11px;color:var(--dm);padding:8px;text-align:center">${isJa?'月額プランに加入すると残高を追加で購入できます':'Subscribe to a monthly plan to purchase additional balance'}</div>`;
   }
+  // Referral section
+  $('s-ref-label').textContent=isJa?'友達を招待':'Invite Friends';
+  $('s-ref-copy').textContent=isJa?'コピー':'Copy';
+  $('s-ref-info').textContent='';
+  fetch('/api/referral/code'+tq()).then(r=>r.json()).then(d=>{
+    $('s-ref-url').value=d.url;
+    $('s-ref-info').textContent=isJa
+      ?`招待リンクを共有すると、お互いに${d.bonus}もらえます！ (${d.referrals}人招待済み)`
+      :`Share your link — both of you get ${d.bonus}! (${d.referrals} invited)`;
+  }).catch(()=>{});
+  $('s-ref-copy').onclick=()=>{
+    navigator.clipboard.writeText($('s-ref-url').value).then(()=>{
+      $('s-ref-copy').textContent='✓';setTimeout(()=>$('s-ref-copy').textContent=isJa?'コピー':'Copy',1500);
+    });
+  };
+  // Show "enter referral code" for users who haven't been referred
+  if(!user._referred){
+    $('s-ref-apply-label').textContent=isJa?'招待コードを入力':'Enter Referral Code';
+    $('s-ref-apply-label').style.display='';
+    $('s-ref-apply-box').style.display='flex';
+    $('s-ref-apply-btn').textContent=isJa?'適用':'Apply';
+  }
   $('settings').classList.add('on');
 };
 $('s-close').onclick=()=>$('settings').classList.remove('on');
+
+// Apply referral code
+$('s-ref-apply-btn').onclick=async()=>{
+  const code=$('s-ref-input').value.trim();
+  if(!code)return;
+  const r=await fetch('/api/referral/apply'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({code})});
+  const d=await r.json();
+  if(d.ok){
+    $('s-ref-apply-label').textContent=isJa?'✓ 招待ボーナス適用済み！':'✓ Referral bonus applied!';
+    $('s-ref-apply-box').style.display='none';
+    user._referred=true;
+    // Refresh credits
+    const me=await fetch('/api/auth/me?token='+encodeURIComponent(tk));
+    if(me.ok){const u=await me.json();user.credits=u.credits;shCr();$('s-credits').value=fc(u.credits);}
+  }else{
+    $('s-ref-apply-label').textContent=isJa
+      ?(d.error==='already_referred'?'既に招待済みです':'無効なコードです')
+      :(d.error==='already_referred'?'Already referred':'Invalid code');
+    $('s-ref-apply-label').style.color='var(--rd)';
+  }
+};
 
 // Buy credits (one-time)
 window.buyCredits=async function(amt){
@@ -1685,6 +1750,10 @@ initLanding();
 (async()=>{
   // Shared view: /s/:id — show read-only conversation, no login needed
   if(await checkSharedView())return;
+  // Save referral code from ?ref=CODE
+  const urlParams=new URLSearchParams(location.search);
+  const refCode=urlParams.get('ref');
+  if(refCode){localStorage.setItem('ct_ref',refCode.toUpperCase());history.replaceState({},'',location.pathname)}
   // Google OAuth callback: token returned in URL fragment
   const hash=new URLSearchParams(location.hash.slice(1));
   const googleToken=hash.get('google_token');

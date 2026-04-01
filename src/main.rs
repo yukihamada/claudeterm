@@ -58,6 +58,18 @@ fn init_db(path: &str) -> Connection {
     conn.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'", []).ok();
     conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT", []).ok();
     conn.execute("ALTER TABLE sessions ADD COLUMN share_id TEXT", []).ok();
+    conn.execute("ALTER TABLE users ADD COLUMN referral_code TEXT", []).ok();
+    conn.execute("ALTER TABLE users ADD COLUMN referred_by TEXT", []).ok();
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS referrals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inviter_id TEXT NOT NULL,
+            invitee_id TEXT NOT NULL,
+            bonus REAL DEFAULT 3.0,
+            created_at TEXT,
+            UNIQUE(invitee_id)
+        );
+    ").ok();
     conn.execute_batch("
         CREATE TABLE IF NOT EXISTS cron_jobs (
             id TEXT PRIMARY KEY,
@@ -225,6 +237,10 @@ async fn main() {
         .route("/api/share/:share_id/fork", post(fork_shared))
         .route("/api/share/:share_id/join", post(join_shared))
         .route("/s/:share_id", get(view_shared))
+        // Referral
+        .route("/api/referral/code", get(get_referral_code))
+        .route("/api/referral/apply", post(apply_referral))
+        .route("/r/:code", get(referral_redirect))
         // Cron
         .route("/api/cron", get(list_crons).post(create_cron))
         .route("/api/cron/:id", delete(delete_cron))
@@ -871,6 +887,95 @@ async fn list_feedback(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) 
         }))
     }).unwrap().filter_map(|r| r.ok()).collect();
     Json(rows).into_response()
+}
+
+// ── Referral ──
+
+const REFERRAL_BONUS: f64 = 3.0; // both inviter and invitee get $3
+
+/// Get or generate user's referral code
+async fn get_referral_code(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+
+    // Check existing code
+    let existing: Option<String> = db.query_row(
+        "SELECT referral_code FROM users WHERE id=?1", [&uid],
+        |r| r.get(0)).ok().flatten();
+
+    let code = if let Some(c) = existing {
+        c
+    } else {
+        // Generate 8-char code
+        let code: String = (0..8).map(|_| {
+            let c = rand::random::<u8>() % 36;
+            if c < 10 { (b'0' + c) as char } else { (b'A' + c - 10) as char }
+        }).collect();
+        db.execute("UPDATE users SET referral_code=?1 WHERE id=?2",
+            rusqlite::params![code, uid]).ok();
+        code
+    };
+
+    // Count successful referrals
+    let count: i64 = db.query_row(
+        "SELECT COUNT(*) FROM referrals WHERE inviter_id=?1", [&uid], |r| r.get(0)
+    ).unwrap_or(0);
+
+    let url = format!("{}/r/{}", s.base_url, code);
+    Json(serde_json::json!({
+        "code": code, "url": url, "referrals": count,
+        "bonus": format!("${:.0}", REFERRAL_BONUS)
+    })).into_response()
+}
+
+/// Apply referral code (called after signup)
+async fn apply_referral(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<serde_json::Value>) -> Response {
+    let (uid, _, _, _, _) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let code = match body.get("code").and_then(|c| c.as_str()) {
+        Some(c) if !c.is_empty() => c.to_uppercase(),
+        _ => return (StatusCode::BAD_REQUEST, "Missing code").into_response(),
+    };
+
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+
+    // Check if already referred
+    let already: bool = db.query_row(
+        "SELECT 1 FROM referrals WHERE invitee_id=?1", [&uid], |_| Ok(true)
+    ).unwrap_or(false);
+    if already {
+        return (StatusCode::CONFLICT, Json(serde_json::json!({"error":"already_referred"}))).into_response();
+    }
+
+    // Find inviter by referral code
+    let inviter: Option<String> = db.query_row(
+        "SELECT id FROM users WHERE referral_code=?1", [&code], |r| r.get(0)
+    ).ok();
+    let inviter_id = match inviter {
+        Some(id) if id != uid => id, // Can't refer yourself
+        _ => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error":"invalid_code"}))).into_response(),
+    };
+
+    // Apply bonus to both
+    let now = chrono::Utc::now().to_rfc3339();
+    db.execute("INSERT INTO referrals (inviter_id, invitee_id, bonus, created_at) VALUES (?1,?2,?3,?4)",
+        rusqlite::params![inviter_id, uid, REFERRAL_BONUS, now]).ok();
+    db.execute("UPDATE users SET credits = credits + ?1, referred_by = ?2 WHERE id = ?3",
+        rusqlite::params![REFERRAL_BONUS, inviter_id, uid]).ok();
+    db.execute("UPDATE users SET credits = credits + ?1 WHERE id = ?2",
+        rusqlite::params![REFERRAL_BONUS, inviter_id]).ok();
+
+    tracing::info!("Referral: {} invited {} (+${} each)", &inviter_id[..4], &uid[..4], REFERRAL_BONUS);
+    Json(serde_json::json!({"ok": true, "bonus": REFERRAL_BONUS})).into_response()
+}
+
+/// Redirect /r/:code → landing page with referral code in URL
+async fn referral_redirect(Path(code): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+    axum::response::Redirect::temporary(&format!("{}/?ref={}", s.base_url, code)).into_response()
 }
 
 // ── Cron ──
