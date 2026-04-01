@@ -650,9 +650,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div id="history-modal"><div class="hist">
 <h2 id="hist-title"></h2>
 <div id="hist-list"></div>
-<div class="row" style="display:flex;gap:8px;justify-content:flex-end">
-  <button class="bs bs-g" id="hist-close"></button>
-</div>
+<button class="pm-close" id="hist-close">&times;</button>
 </div></div>
 
 <!-- Cron (scheduled tasks) modal -->
@@ -678,9 +676,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
     <button class="bs bs-p" id="crn-add"></button>
   </div>
 </div>
-<div class="row" style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
-  <button class="bs bs-g" id="crn-close"></button>
-</div>
+<button class="pm-close" id="crn-close">&times;</button>
 </div></div>
 
 <!-- Project picker / merge modal -->
@@ -690,8 +686,18 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="prj-list" id="prj-list"></div>
 <div class="prj-section" id="prj-new-label"></div>
 <div class="prj-new">
-  <input id="prj-name" placeholder="my-app">
-  <button id="prj-create-btn"></button>
+  <div class="crn-row">
+    <input id="prj-name" placeholder="my-app">
+    <select id="prj-type">
+      <option value="general">General</option>
+      <option value="webapp">Web App</option>
+      <option value="mobile">Mobile</option>
+      <option value="api">API Server</option>
+      <option value="data">Data/ML</option>
+      <option value="devops">DevOps</option>
+    </select>
+  </div>
+  <button id="prj-create-btn" style="width:100%"></button>
 </div>
 <div class="prj-section" id="prj-merge-label"></div>
 <div class="prj-merge">
@@ -701,9 +707,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
   <button id="prj-merge-btn"></button>
 </div>
 <div class="prj-status" id="prj-status"></div>
-<div class="row" style="display:flex;gap:8px;justify-content:flex-end">
-  <button class="bs bs-g" id="prj-close"></button>
-</div>
+<button class="pm-close" id="prj-close">&times;</button>
 </div></div>
 
 <!-- Shared session view (public, no auth needed) -->
@@ -1020,7 +1024,6 @@ $('hm-settings').textContent=isJa?'設定':'Settings';
 $('historybtn').onclick=()=>{$('hd-menu').classList.remove('on');showHistory()};
 function showHistory(){
   $('hist-title').textContent=isJa?'セッション履歴':'Session History';
-  $('hist-close').textContent=isJa?'閉じる':'Close';
   const el=$('hist-list');
   el.innerHTML=ss.map(s=>{
     const d=s.created_at?new Date(s.created_at).toLocaleDateString():'';
@@ -1482,7 +1485,6 @@ async function showProjectPicker(){
   $('prj-from').innerHTML=opts;
   $('prj-to').innerHTML=opts;
   $('prj-merge-btn').textContent=isJa?'マージ':'Merge';
-  $('prj-close').textContent=isJa?'閉じる':'Close';
   $('prj-status').textContent='';
   $('proj-modal').classList.add('on');
 }
@@ -1492,8 +1494,9 @@ $('proj-modal').onclick=e=>{if(e.target===$('proj-modal'))$('proj-modal').classL
 $('prj-create-btn').onclick=async()=>{
   const name=$('prj-name').value.trim();
   if(!name){$('prj-status').textContent=isJa?'名前を入力してください':'Enter a name';return}
+  const ptype=$('prj-type').value;
   const r=await fetch('/api/projects'+tq(),{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({name})});
+    body:JSON.stringify({name,type:ptype})});
   if(r.ok){
     const d=await r.json();
     $('proj-modal').classList.remove('on');
@@ -1521,7 +1524,6 @@ async function showCronModal(){
   await loadProjects();
   $('crn-title').textContent=isJa?'定期実行':'Scheduled Tasks';
   $('crn-add').textContent=isJa?'追加':'Add';
-  $('crn-close').textContent=isJa?'閉じる':'Close';
   $('crn-name').placeholder=isJa?'タスク名':'Task name';
   $('crn-cmd').placeholder=isJa?'実行するコマンド（例: テストを実行して結果を報告）':'Command (e.g. Run tests and report results)';
   $('crn-proj').innerHTML='<option value="">'+(isJa?'ルート':'Root')+'</option>'+projects.map(p=>`<option value="${esc(p.path)}">${esc(p.name)}</option>`).join('');

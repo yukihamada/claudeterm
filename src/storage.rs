@@ -1,12 +1,7 @@
-//! Storage abstraction: local filesystem or S3/R2
+//! Storage abstraction: local filesystem or S3/R2 (with proper AWS SigV4)
 //!
-//! Configure R2 mode: set R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
-//! Without them: pure local filesystem (same as before).
-//!
-//! Architecture:
-//! - Local cache always used (Claude CLI needs local files)
-//! - R2 mode: sync local ↔ R2 before/after operations
-//! - This lets multiple VMs work on the same user data
+//! Set R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+//! to enable R2. Without them: pure local (zero overhead).
 
 use std::path::{Path, PathBuf};
 
@@ -20,6 +15,7 @@ pub struct Storage {
 pub struct R2Config {
     pub endpoint: String,
     pub bucket: String,
+    pub region: String,
     pub access_key: String,
     pub secret_key: String,
 }
@@ -34,7 +30,11 @@ impl Storage {
         ) {
             (Ok(e), Ok(b), Ok(a), Ok(s)) if !e.is_empty() => {
                 tracing::info!("Storage: R2 ({}/{}) + local cache", e, b);
-                Some(R2Config { endpoint: e, bucket: b, access_key: a, secret_key: s })
+                Some(R2Config {
+                    endpoint: e, bucket: b,
+                    region: std::env::var("R2_REGION").unwrap_or_else(|_| "auto".into()),
+                    access_key: a, secret_key: s,
+                })
             }
             _ => {
                 tracing::info!("Storage: local only (set R2_* env vars for cloud storage)");
@@ -53,29 +53,30 @@ impl Storage {
         else { self.user_dir(uid).join(project) }
     }
 
+    #[allow(dead_code)]
     pub fn is_r2(&self) -> bool { self.r2.is_some() }
 
-    /// Sync user's project FROM R2 → local cache (before Claude runs)
+    /// Pull from R2 → local cache (before Claude runs)
     pub async fn pull(&self, uid: &str, project: &str) {
         let Some(ref r2) = self.r2 else { return };
         let prefix = r2_prefix(uid, project);
         let local = self.project_dir(uid, project);
         std::fs::create_dir_all(&local).ok();
 
-        match r2_list_and_download(r2, &prefix, &local).await {
+        match r2_pull(r2, &prefix, &local).await {
             Ok(n) => { if n > 0 { tracing::debug!("R2 pull {}: {} files", prefix, n); } }
             Err(e) => tracing::error!("R2 pull {}: {}", prefix, e),
         }
     }
 
-    /// Sync user's project TO R2 (after Claude finishes / file changes)
+    /// Push local → R2 (after Claude finishes)
     pub async fn push(&self, uid: &str, project: &str) {
         let Some(ref r2) = self.r2 else { return };
         let prefix = r2_prefix(uid, project);
         let local = self.project_dir(uid, project);
         if !local.is_dir() { return; }
 
-        match r2_upload_dir(r2, &prefix, &local).await {
+        match r2_push(r2, &prefix, &local).await {
             Ok(n) => { if n > 0 { tracing::debug!("R2 push {}: {} files", prefix, n); } }
             Err(e) => tracing::error!("R2 push {}: {}", prefix, e),
         }
@@ -87,47 +88,50 @@ fn r2_prefix(uid: &str, project: &str) -> String {
     else { format!("u/{}/{}/", uid, project) }
 }
 
-/// List objects in R2 and download to local cache
-async fn r2_list_and_download(r2: &R2Config, prefix: &str, local: &Path) -> Result<usize, String> {
-    let client = reqwest::Client::new();
-    // Use S3 ListObjectsV2 (R2 is S3-compatible)
-    let url = format!("{}/{}?list-type=2&prefix={}", r2.endpoint, r2.bucket, urlencoding::encode(prefix));
-    let resp = client.get(&url)
-        .basic_auth(&r2.access_key, Some(&r2.secret_key))
-        .send().await.map_err(|e| e.to_string())?;
+fn make_bucket(r2: &R2Config) -> Result<s3::Bucket, String> {
+    let region = s3::Region::Custom {
+        region: r2.region.clone(),
+        endpoint: r2.endpoint.clone(),
+    };
+    let creds = s3::creds::Credentials::new(
+        Some(&r2.access_key), Some(&r2.secret_key), None, None, None
+    ).map_err(|e| e.to_string())?;
 
-    if !resp.status().is_success() {
-        return Err(format!("LIST {} → {}", prefix, resp.status()));
-    }
-    let body = resp.text().await.map_err(|e| e.to_string())?;
+    let bucket = s3::Bucket::new(&r2.bucket, region, creds)
+        .map_err(|e| e.to_string())?;
+    Ok(bucket.with_path_style())
+}
+
+async fn r2_pull(r2: &R2Config, prefix: &str, local: &Path) -> Result<usize, String> {
+    let bucket = make_bucket(r2)?;
+    let list = bucket.list(prefix.to_string(), None).await.map_err(|e| e.to_string())?;
     let mut count = 0;
 
-    for chunk in body.split("<Key>").skip(1) {
-        let key = chunk.split("</Key>").next().unwrap_or("");
-        if key.is_empty() || key.ends_with('/') { continue; }
-        let rel = key.strip_prefix(prefix).unwrap_or(key);
-        let local_path = local.join(rel);
+    for result in &list {
+        for obj in &result.contents {
+            let key = &obj.key;
+            if key.ends_with('/') { continue; }
+            let rel = key.strip_prefix(prefix).unwrap_or(key);
+            let local_path = local.join(rel);
 
-        if let Some(parent) = local_path.parent() {
-            std::fs::create_dir_all(parent).ok();
-        }
+            if let Some(parent) = local_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
 
-        let obj_url = format!("{}/{}/{}", r2.endpoint, r2.bucket, key);
-        let obj = client.get(&obj_url)
-            .basic_auth(&r2.access_key, Some(&r2.secret_key))
-            .send().await.map_err(|e| e.to_string())?;
-        if obj.status().is_success() {
-            let bytes = obj.bytes().await.map_err(|e| e.to_string())?;
-            std::fs::write(&local_path, &bytes).ok();
-            count += 1;
+            match bucket.get_object(key).await {
+                Ok(resp) => {
+                    std::fs::write(&local_path, resp.bytes()).ok();
+                    count += 1;
+                }
+                Err(e) => tracing::warn!("R2 GET {}: {}", key, e),
+            }
         }
     }
     Ok(count)
 }
 
-/// Upload local directory to R2
-async fn r2_upload_dir(r2: &R2Config, prefix: &str, local: &Path) -> Result<usize, String> {
-    let client = reqwest::Client::new();
+async fn r2_push(r2: &R2Config, prefix: &str, local: &Path) -> Result<usize, String> {
+    let bucket = make_bucket(r2)?;
     let mut files = Vec::new();
     walk_files(local, &mut files);
     let mut count = 0;
@@ -136,16 +140,11 @@ async fn r2_upload_dir(r2: &R2Config, prefix: &str, local: &Path) -> Result<usiz
         let rel = file.strip_prefix(local).unwrap().to_string_lossy().replace('\\', "/");
         let key = format!("{}{}", prefix, rel);
         let body = std::fs::read(file).map_err(|e| e.to_string())?;
-        let url = format!("{}/{}/{}", r2.endpoint, r2.bucket, key);
 
-        let resp = client.put(&url)
-            .basic_auth(&r2.access_key, Some(&r2.secret_key))
-            .header("content-type", "application/octet-stream")
-            .body(body)
-            .send().await.map_err(|e| e.to_string())?;
-
-        if resp.status().is_success() { count += 1; }
-        else { tracing::warn!("R2 PUT {} → {}", key, resp.status()); }
+        match bucket.put_object(&key, &body).await {
+            Ok(_) => count += 1,
+            Err(e) => tracing::warn!("R2 PUT {}: {}", key, e),
+        }
     }
     Ok(count)
 }
@@ -156,12 +155,10 @@ fn walk_files(dir: &Path, out: &mut Vec<PathBuf>) {
         let p = e.path();
         if p.is_dir() {
             let name = e.file_name().to_string_lossy().to_string();
-            // Skip build artifacts and hidden dirs
             if matches!(name.as_str(), "target"|"node_modules"|".git"|".cache"|"__pycache__")
                 || name.starts_with('.') { continue; }
             walk_files(&p, out);
         } else {
-            // Skip large files (>10MB)
             if e.metadata().map(|m| m.len()).unwrap_or(0) > 10_000_000 { continue; }
             out.push(p);
         }

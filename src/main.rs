@@ -640,14 +640,13 @@ async fn list_projects(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) 
     Json(projects).into_response()
 }
 
-#[derive(Deserialize)] struct CreateProjectReq { name: String }
+#[derive(Deserialize)] struct CreateProjectReq { name: String, #[serde(rename = "type")] project_type: Option<String> }
 
 async fn create_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     Json(body): Json<CreateProjectReq>) -> Response {
     let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
         Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
     };
-    // Sanitize name: only allow alphanumeric, dash, underscore
     let name: String = body.name.chars()
         .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
         .take(50).collect();
@@ -656,8 +655,16 @@ async fn create_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     }
     let dir = PathBuf::from(format!("{}/users/{}/{}", s.workdir, uid, name));
     std::fs::create_dir_all(&dir).ok();
-    // Write default CLAUDE.md
-    std::fs::write(dir.join("CLAUDE.md"), format!("# {}\n\nProject workspace.\n", name)).ok();
+
+    let claude_md = match body.project_type.as_deref().unwrap_or("general") {
+        "webapp" => format!("# {name}\n\n## Project Type: Web Application\n\n- Framework: React / Next.js / Vue (choose one)\n- Deploy target: Fly.io or Cloudflare Pages\n- Use TypeScript\n- Mobile-responsive design\n\n## Commands\n- `npm run dev` — development server\n- `npm run build` — production build\n- `fly deploy` — deploy to Fly.io\n"),
+        "mobile" => format!("# {name}\n\n## Project Type: Mobile App\n\n- iOS: Swift + SwiftUI\n- Android: Kotlin + Jetpack Compose\n- Use MVVM architecture\n- Support dark mode\n\n## Commands\n- `xcodebuild` — iOS build\n- `fastlane ios beta` — TestFlight upload\n"),
+        "api" => format!("# {name}\n\n## Project Type: API Server\n\n- Language: Rust (axum) or Node.js (Express)\n- Database: SQLite or PostgreSQL\n- RESTful API with JSON\n- Include OpenAPI spec\n\n## Commands\n- `cargo run` — start server\n- `cargo test` — run tests\n"),
+        "data" => format!("# {name}\n\n## Project Type: Data / ML\n\n- Language: Python\n- Libraries: pandas, numpy, matplotlib, scikit-learn\n- Use Jupyter notebooks for exploration\n- Clean, documented code\n\n## Commands\n- `python main.py` — run pipeline\n- `pytest` — run tests\n"),
+        "devops" => format!("# {name}\n\n## Project Type: DevOps / Infrastructure\n\n- Docker + docker-compose\n- CI/CD: GitHub Actions\n- Infrastructure: Terraform / Fly.io / AWS\n- Monitoring: health checks + alerts\n\n## Commands\n- `docker compose up` — local environment\n- `fly deploy` — deploy\n- `terraform apply` — infrastructure\n"),
+        _ => format!("# {name}\n\nProject workspace.\n"),
+    };
+    std::fs::write(dir.join("CLAUDE.md"), &claude_md).ok();
     Json(serde_json::json!({"name": name, "path": name})).into_response()
 }
 
