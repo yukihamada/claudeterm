@@ -321,6 +321,11 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .sv-author{font-size:11px;color:var(--mu)}
 .sv-home{font-size:12px;color:var(--ac);text-decoration:none;border:1px solid var(--ac);border-radius:8px;padding:5px 14px}
 .sv-msgs{display:flex;flex-direction:column;gap:20px}
+.sv-act-btn{padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .12s;display:flex;align-items:center;gap:8px}
+.sv-act-btn.primary{background:linear-gradient(135deg,var(--ac),var(--bl));color:#000}
+.sv-act-btn.primary:hover{opacity:.85}
+.sv-act-btn.secondary{background:var(--s2);border:1px solid var(--bd);color:var(--tx)}
+.sv-act-btn.secondary:hover{border-color:var(--ac);color:var(--ac)}
 
 /* Project picker */
 #proj-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
@@ -706,8 +711,9 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="sv-hd">
   <div class="sv-logo"></div>
   <div><div class="sv-title" id="sv-title"></div><div class="sv-author" id="sv-author"></div></div>
-  <a class="sv-home" href="/">ChatWebで始める</a>
+  <a class="sv-home" href="/" id="sv-home"></a>
 </div>
+<div class="sv-actions" id="sv-actions" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"></div>
 <div class="sv-msgs" id="sv-msgs"></div>
 </div></div>
 
@@ -825,8 +831,18 @@ async function show(){
   const lastSid=localStorage.getItem('ct_sid');
   sid=(ss.find(s=>s.id===lastSid)||ss[0])?.id;
   tU();if(sid)lH(sid);
+  // Handle pending share action after login
+  const pendingShare=localStorage.getItem('ct_pending_share');
+  if(pendingShare){
+    localStorage.removeItem('ct_pending_share');
+    try{
+      const ps=JSON.parse(pendingShare);
+      currentShareId=ps.shareId;
+      await joinOrFork(ps.action);
+    }catch{}
+  }
   // Show tutorial for first-time users (no token consumption)
-  if(!localStorage.getItem('ct_tutorial_done')){
+  else if(!localStorage.getItem('ct_tutorial_done')){
     setTimeout(startTutorial,800);
   }
 }
@@ -1558,16 +1574,18 @@ $('sharebtn').onclick=async()=>{
 };
 
 // Shared view: detect /s/:id URL
+let currentShareId=null;
 async function checkSharedView(){
   const m=location.pathname.match(/^\/s\/([a-zA-Z0-9-]+)/);
   if(!m)return false;
-  const shareId=m[1];
+  currentShareId=m[1];
   try{
-    const r=await fetch('/api/share/'+shareId);
+    const r=await fetch('/api/share/'+currentShareId);
     if(!r.ok)return false;
     const d=await r.json();
     $('sv-title').textContent=d.name||'Shared Session';
     $('sv-author').textContent=(isJa?'作成者: ':'by ')+d.author;
+    $('sv-home').textContent=isJa?'ChatWebで始める':'Start with ChatWeb';
     const el=$('sv-msgs');el.innerHTML='';
     (d.messages||[]).forEach(m=>{
       if(m.role==='user'){
@@ -1577,10 +1595,51 @@ async function checkSharedView(){
         el.insertAdjacentHTML('beforeend',`<div class="msg a"><div class="bb">${md(m.content||'')}</div></div>`);
       }
     });
+    // Action buttons
+    $('sv-actions').innerHTML=`
+      <button class="sv-act-btn primary" id="sv-join">
+        ${isJa?'🤝 共同編集する':'🤝 Collaborate'}
+      </button>
+      <button class="sv-act-btn secondary" id="sv-fork">
+        ${isJa?'📋 コピーして自分のフォルダで続ける':'📋 Fork to my workspace'}
+      </button>`;
+    $('sv-join').onclick=()=>joinOrFork('join');
+    $('sv-fork').onclick=()=>joinOrFork('fork');
     $('shared-view').classList.add('on');
     $('landing').classList.remove('on');
     return true;
   }catch{return false}
+}
+
+async function joinOrFork(action){
+  const tk=localStorage.getItem('ct_tk');
+  if(!tk){
+    // Not logged in — redirect to login, then come back
+    localStorage.setItem('ct_pending_share',JSON.stringify({action,shareId:currentShareId}));
+    $('shared-view').classList.remove('on');
+    showLogin();
+    return;
+  }
+  const url=`/api/share/${currentShareId}/${action}?token=${encodeURIComponent(tk)}`;
+  const r=await fetch(url,{method:'POST'});
+  if(!r.ok){
+    alert(isJa?'ログインが必要です。ログインしてからもう一度お試しください。':'Please log in first, then try again.');
+    return;
+  }
+  const d=await r.json();
+  // Navigate to the app with new session
+  $('shared-view').classList.remove('on');
+  // If already in app, just switch
+  if(user){
+    ss.unshift({id:d.session_id,name:d.name,created_at:new Date().toISOString(),project:d.project||''});
+    sid=d.session_id;tU();lH(sid);
+    history.replaceState({},'','/');
+  }else{
+    // Need to login first — store pending action
+    localStorage.setItem('ct_pending_session',d.session_id);
+    history.replaceState({},'','/');
+    location.reload();
+  }
 }
 
 // Boot

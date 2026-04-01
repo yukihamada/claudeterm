@@ -219,6 +219,8 @@ async fn main() {
         // Share
         .route("/api/sessions/:id/share", post(create_share))
         .route("/api/share/:share_id", get(get_shared))
+        .route("/api/share/:share_id/fork", post(fork_shared))
+        .route("/api/share/:share_id/join", post(join_shared))
         .route("/s/:share_id", get(view_shared))
         // Cron
         .route("/api/cron", get(list_crons).post(create_cron))
@@ -1091,6 +1093,108 @@ async fn view_shared(Path(share_id): Path<String>, State(s): State<Arc<AppState>
     }
     // Serve the main HTML — the frontend JS will detect /s/:id and render shared view
     Html(HTML).into_response()
+}
+
+/// Fork: copy shared session + files into user's own account
+async fn fork_shared(Path(share_id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    // Find source session
+    let src: Option<(String, String, String, String)> = db.query_row(
+        "SELECT s.id, s.name, s.project, s.user_id FROM sessions s WHERE s.share_id=?1",
+        [&share_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+    ).ok();
+    let (src_sid, src_name, src_project, src_uid) = match src {
+        Some(s) => s, None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    // Create new session for this user
+    let new_sid = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let new_name = format!("{} (fork)", src_name);
+    db.execute("INSERT INTO sessions (id,user_id,name,created_at,project) VALUES (?1,?2,?3,?4,?5)",
+        rusqlite::params![new_sid, uid, new_name, now, src_project]).ok();
+
+    // Copy messages
+    db.execute(
+        "INSERT INTO messages (session_id,role,content,timestamp) \
+         SELECT ?1,role,content,timestamp FROM messages WHERE session_id=?2 ORDER BY id",
+        rusqlite::params![new_sid, src_sid]).ok();
+
+    // Copy project files if they exist
+    if !src_project.is_empty() {
+        let src_dir = format!("{}/users/{}/{}", s.workdir, src_uid, src_project);
+        let dst_dir = format!("{}/users/{}/{}", s.workdir, uid, src_project);
+        if std::path::Path::new(&src_dir).is_dir() && src_uid != uid {
+            std::fs::create_dir_all(&dst_dir).ok();
+            fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) {
+                if let Ok(rd) = std::fs::read_dir(src) {
+                    for e in rd.flatten() {
+                        let s = e.path();
+                        let d = dst.join(e.file_name());
+                        if s.is_dir() {
+                            std::fs::create_dir_all(&d).ok();
+                            copy_recursive(&s, &d);
+                        } else if !d.exists() {
+                            std::fs::copy(&s, &d).ok();
+                        }
+                    }
+                }
+            }
+            copy_recursive(std::path::Path::new(&src_dir), std::path::Path::new(&dst_dir));
+        }
+    }
+
+    tracing::info!("Forked session {} → {} for user {}", src_sid, new_sid, &uid[..4]);
+    Json(serde_json::json!({
+        "session_id": new_sid, "name": new_name, "project": src_project
+    })).into_response()
+}
+
+/// Join: add user as collaborator to original shared session
+async fn join_shared(Path(share_id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    // Find original session
+    let src: Option<(String, String, String, String)> = db.query_row(
+        "SELECT s.id, s.name, s.project, s.user_id FROM sessions s WHERE s.share_id=?1",
+        [&share_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+    ).ok();
+    let (src_sid, src_name, src_project, src_uid) = match src {
+        Some(s) => s, None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    // If it's the owner, just return the session
+    if src_uid == uid {
+        return Json(serde_json::json!({
+            "session_id": src_sid, "name": src_name, "project": src_project, "own": true
+        })).into_response();
+    }
+
+    // Create a linked session pointing to the same project folder (shared workdir)
+    // This allows both users to see/edit the same files
+    let new_sid = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let collab_name = format!("{} (collab)", src_name);
+    // Store original owner's project path as project so workdir resolves to the same folder
+    let collab_project = format!("../{}/{}", src_uid, if src_project.is_empty() { "." } else { &src_project });
+    db.execute("INSERT INTO sessions (id,user_id,name,created_at,project) VALUES (?1,?2,?3,?4,?5)",
+        rusqlite::params![new_sid, uid, collab_name, now, collab_project]).ok();
+
+    // Copy existing messages so collaborator sees history
+    db.execute(
+        "INSERT INTO messages (session_id,role,content,timestamp) \
+         SELECT ?1,role,content,timestamp FROM messages WHERE session_id=?2 ORDER BY id",
+        rusqlite::params![new_sid, src_sid]).ok();
+
+    tracing::info!("User {} joined shared session {} as collab", &uid[..4], src_sid);
+    Json(serde_json::json!({
+        "session_id": new_sid, "name": collab_name, "project": collab_project
+    })).into_response()
 }
 
 // ── Admin Alert (Telegram notification) ──
