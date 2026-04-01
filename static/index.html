@@ -868,15 +868,22 @@ $('ubtn').onclick=()=>{
       <div class="plan-name">${p.id.charAt(0).toUpperCase()+p.id.slice(1)}</div>
       <div class="plan-detail">${fcv(p.value)}/${isJa?'月':'mo'}</div>
     </div>`).join('');
-  // Render one-time options
-  $('s-onetime-label').textContent=isJa?'残高追加（一回のみ）':'Add Balance (one-time)';
-  $('s-onetime-grid').innerHTML=ONEOFF.map((o,i)=>`
-    <div class="plan-card${i===1?' plan-popular':''}" onclick="buyCredits(${o.usd})">
-      ${i===1?'<div class="plan-badge">POPULAR</div>':''}
-      <div class="plan-price">${fcp(o.usd)}</div>
-      <div class="plan-name">${fcv(o.usd)}</div>
-      <div class="plan-detail">${o.turns} Sonnet</div>
-    </div>`).join('');
+  // One-time top-up: only for subscribers
+  const hasPlan=plan!=='free';
+  if(hasPlan){
+    $('s-onetime-label').textContent=isJa?'残高追加（一回のみ）':'Add Balance (one-time)';
+    $('s-onetime-grid').style.display='';
+    $('s-onetime-grid').innerHTML=ONEOFF.map((o,i)=>`
+      <div class="plan-card${i===1?' plan-popular':''}" onclick="buyCredits(${o.usd})">
+        ${i===1?'<div class="plan-badge">POPULAR</div>':''}
+        <div class="plan-price">${fcp(o.usd)}</div>
+        <div class="plan-name">${fcv(o.usd)}</div>
+        <div class="plan-detail">${o.turns} Sonnet</div>
+      </div>`).join('');
+  }else{
+    $('s-onetime-label').textContent=isJa?'残高追加':'Add Balance';
+    $('s-onetime-grid').innerHTML=`<div style="font-size:11px;color:var(--dm);padding:8px;text-align:center">${isJa?'月額プランに加入すると残高を追加で購入できます':'Subscribe to a monthly plan to purchase additional balance'}</div>`;
+  }
   $('settings').classList.add('on');
 };
 $('s-close').onclick=()=>$('settings').classList.remove('on');
@@ -930,10 +937,18 @@ function showPlansModal(){
       <div class="pm-credits">${fcv(p.value)}/${isJa?'月':'mo'}</div>
       <button class="pm-btn">${isJa?'始める':'Start'}</button>
     </div>`).join('');
-  $('pm-divider').textContent=isJa?'または一回だけ追加':'or add once';
-  $('pm-one').innerHTML=ONEOFF.map(o=>
-    `<button onclick="buyCredits(${o.usd});$('plans-modal').classList.remove('on')">${fcp(o.usd)} ${isJa?'追加':'add'}</button>`).join('');
-  $('pm-footer').innerHTML=`${isJa?'自分のAPIキーを使って無料で続ける →':'Use your own API key for free →'} <span onclick="$('plans-modal').classList.remove('on');$('ubtn').click()">${isJa?'設定を開く':'Open settings'}</span>`;
+  const userHasPlan=user?.plan&&user.plan!=='free';
+  if(userHasPlan){
+    $('pm-divider').textContent=isJa?'または一回だけ追加':'or add once';
+    $('pm-divider').style.display='';
+    $('pm-one').style.display='';
+    $('pm-one').innerHTML=ONEOFF.map(o=>
+      `<button onclick="buyCredits(${o.usd});document.getElementById('plans-modal').classList.remove('on')">${fcp(o.usd)} ${isJa?'追加':'add'}</button>`).join('');
+  }else{
+    $('pm-divider').style.display='none';
+    $('pm-one').style.display='none';
+  }
+  $('pm-footer').innerHTML=`${isJa?'自分のAPIキーを使って無料で続ける →':'Use your own API key for free →'} <span onclick="document.getElementById('plans-modal').classList.remove('on');document.getElementById('ubtn').click()">${isJa?'設定を開く':'Open settings'}</span>`;
   $('plans-modal').classList.add('on');
 }
 $('pm-close').onclick=()=>$('plans-modal').classList.remove('on');
@@ -1013,11 +1028,14 @@ function showHistory(){
       <span class="hist-name">${esc(s.name)}</span>
       ${s.project?`<span class="hist-proj">${esc(s.project)}</span>`:''}
       <span class="hist-date">${d}</span>
-      <button class="hist-del" onclick="event.stopPropagation();dS('${s.id}');showHistory()">✕</button>
+      <button class="hist-del" data-del="${s.id}">✕</button>
     </div>`;
   }).join('')||`<div style="text-align:center;color:var(--dm);font-size:12px;padding:16px">${isJa?'セッションがありません':'No sessions'}</div>`;
   el.querySelectorAll('.hist-item').forEach(d=>{
     d.onclick=()=>{sid=d.dataset.id;tU();lH(sid);$('history-modal').classList.remove('on')};
+  });
+  el.querySelectorAll('.hist-del[data-del]').forEach(btn=>{
+    btn.onclick=e=>{e.stopPropagation();dS(btn.dataset.del);showHistory()};
   });
   $('history-modal').classList.add('on');
 }
@@ -1347,7 +1365,6 @@ if(!h.m.length&&ms.length){
   });
 }
 render();showOB();}
-
 // ── Dashboard (replaces old onboarding) ──
 const CAPABILITIES=isJa?[
   {ico:'💻',title:'コードを書く',examples:['「Todoアプリを作って」','「このCSVをグラフにして」','「REST APIサーバーを作って」'],try:'Todoアプリを React で作ってください'},
@@ -1368,28 +1385,25 @@ const CAPABILITIES=isJa?[
 function showOB(){
   const wrap=$('ob-wrap');wrap.innerHTML='';
   const h=gH(sid);
-  // Only show dashboard when session has 0 user messages
   if(h.m.filter(m=>m.role==='user').length>0)return;
 
-  // Active sessions summary
   const activeSessions=ss.filter(s=>s.id!==sid);
   let summaryHtml='';
   if(activeSessions.length>0){
     const items=activeSessions.slice(0,3).map(s=>
-      `<div class="ob-session" onclick="sid='${s.id}';tU();lH(sid)">
+      `<div class="ob-session" data-sid="${s.id}">
         <span class="ob-s-name">${esc(s.name)}</span>
         ${s.project?`<span class="ob-s-proj">${esc(s.project)}</span>`:''}
       </div>`).join('');
     summaryHtml=`<div class="ob-sessions">
       <div class="ob-s-title">${isJa?'他のセッション':'Other Sessions'}</div>
       ${items}
-      ${activeSessions.length>3?`<div class="ob-s-more" onclick="showHistory()">${isJa?`他 ${activeSessions.length-3} 件...`:`${activeSessions.length-3} more...`}</div>`:''}
+      ${activeSessions.length>3?`<div class="ob-s-more" data-action="history">${isJa?`他 ${activeSessions.length-3} 件...`:`${activeSessions.length-3} more...`}</div>`:''}
     </div>`;
   }
 
-  // Capability cards
-  const cards=CAPABILITIES.map(c=>
-    `<div class="ob-cap" onclick="send('${esc(c.try)}')">
+  const cards=CAPABILITIES.map((c,i)=>
+    `<div class="ob-cap" data-try="${i}">
       <div class="ob-cap-ico">${c.ico}</div>
       <div class="ob-cap-body">
         <div class="ob-cap-title">${c.title}</div>
@@ -1403,6 +1417,17 @@ function showOB(){
       <div class="ob-dash-title">${isJa?'何ができる？そのまま聞いてみてください':'What can you do? Just ask.'}</div>
       <div class="ob-caps">${cards}</div>
     </div>`;
+
+  // Bind events via delegation (no inline onclick)
+  wrap.querySelectorAll('.ob-session[data-sid]').forEach(el=>{
+    el.onclick=()=>{sid=el.dataset.sid;tU();lH(sid)};
+  });
+  wrap.querySelectorAll('[data-action="history"]').forEach(el=>{
+    el.onclick=showHistory;
+  });
+  wrap.querySelectorAll('.ob-cap[data-try]').forEach(el=>{
+    el.onclick=()=>send(CAPABILITIES[parseInt(el.dataset.try)].try);
+  });
 }
 
 // D&D
