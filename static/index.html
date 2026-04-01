@@ -345,6 +345,32 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .prj-status{font-size:11px;color:var(--gn);min-height:16px}
 .prj-cur{font-size:11px;color:var(--mu);padding:2px 8px;background:var(--s2);border-radius:6px;display:inline-block}
 
+/* Cron */
+#cron-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#cron-modal.on{display:flex}
+.crn{width:min(500px,94vw);background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);max-height:85vh;overflow-y:auto}
+.crn h2{font-size:18px;font-weight:700;letter-spacing:-.03em}
+.crn-list{display:flex;flex-direction:column;gap:6px}
+.crn-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;font-size:12px}
+.crn-item.disabled{opacity:.5}
+.crn-item .crn-name{font-weight:700;flex:1;font-size:13px}
+.crn-item .crn-cmd{color:var(--mu);font-family:var(--m);font-size:11px;flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crn-item .crn-interval{color:var(--dm);font-size:10px;flex-shrink:0}
+.crn-item .crn-status{font-size:10px;padding:2px 6px;border-radius:4px;flex-shrink:0}
+.crn-item .crn-status.success{color:var(--gn);background:rgba(74,222,128,.1)}
+.crn-item .crn-status.error{color:var(--rd);background:rgba(248,113,113,.1)}
+.crn-item .crn-status.running{color:var(--yl);background:rgba(250,204,21,.1)}
+.crn-item .crn-status.pending{color:var(--dm);background:var(--s2)}
+.crn-acts{display:flex;gap:4px;flex-shrink:0}
+.crn-acts button{background:none;border:1px solid var(--bd);color:var(--mu);border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;display:grid;place-items:center}
+.crn-acts button:hover{background:var(--s2);color:var(--tx)}
+.crn-new{display:flex;flex-direction:column;gap:8px;padding-top:8px;border-top:1px solid var(--bd)}
+.crn-new input,.crn-new select{background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--tx);font-size:12px;outline:none;width:100%}
+.crn-new input:focus{border-color:var(--ac)}
+.crn-new .crn-row{display:flex;gap:8px}
+.crn-new .crn-row>*{flex:1}
+.crn-result{font-size:11px;color:var(--mu);background:var(--bg);border-radius:8px;padding:8px;max-height:80px;overflow-y:auto;font-family:var(--m);white-space:pre-wrap;display:none}
+
 /* ── LANDING PAGE ── */
 #landing{position:fixed;inset:0;background:var(--bg);z-index:310;overflow-y:auto;display:none}
 #landing.on{display:block}
@@ -473,6 +499,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="ms"><button class="mb on" id="mc">Chat</button><button class="mb" id="mt">Terminal</button></div>
 <button class="ib" id="fb">&#128193;</button>
 <div class="tr">
+<button class="share-btn" id="cronbtn" title="Scheduled Tasks">&#9202;</button>
 <button class="share-btn" id="sharebtn" title="Share">&#8599;</button>
 <span class="cr" id="crd"></span>
 <span class="dt" id="dot"></span>
@@ -588,6 +615,34 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 
 <div id="pv"><div class="pvw"><div class="pvh"><span id="pp"></span><button id="pc">&times;</button></div><div class="pvb" id="pb"></div></div></div>
+
+<!-- Cron (scheduled tasks) modal -->
+<div id="cron-modal"><div class="crn">
+<h2 id="crn-title"></h2>
+<div class="crn-list" id="crn-list"></div>
+<div class="crn-result" id="crn-result"></div>
+<div class="crn-new">
+  <div class="crn-row">
+    <input id="crn-name" placeholder="Test runner">
+    <select id="crn-interval">
+      <option value="300">5min</option>
+      <option value="1800">30min</option>
+      <option value="3600" selected>1h</option>
+      <option value="21600">6h</option>
+      <option value="43200">12h</option>
+      <option value="86400">24h</option>
+    </select>
+  </div>
+  <input id="crn-cmd" placeholder="Run tests and report results">
+  <div class="crn-row">
+    <select id="crn-proj"><option value="">Root</option></select>
+    <button class="bs bs-p" id="crn-add"></button>
+  </div>
+</div>
+<div class="row" style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+  <button class="bs bs-g" id="crn-close"></button>
+</div>
+</div></div>
 
 <!-- Project picker / merge modal -->
 <div id="proj-modal"><div class="prj">
@@ -1336,6 +1391,72 @@ $('prj-merge-btn').onclick=async()=>{
     $('prj-status').style.color='var(--gn)';
   }else{$('prj-status').textContent=isJa?'マージに失敗しました':'Merge failed';$('prj-status').style.color='var(--rd)'}
 };
+
+// ── Cron (Scheduled Tasks) ──
+const INTERVALS={300:'5min',1800:'30min',3600:'1h',21600:'6h',43200:'12h',86400:'24h'};
+async function showCronModal(){
+  await loadProjects();
+  $('crn-title').textContent=isJa?'定期実行':'Scheduled Tasks';
+  $('crn-add').textContent=isJa?'追加':'Add';
+  $('crn-close').textContent=isJa?'閉じる':'Close';
+  $('crn-name').placeholder=isJa?'タスク名':'Task name';
+  $('crn-cmd').placeholder=isJa?'実行するコマンド（例: テストを実行して結果を報告）':'Command (e.g. Run tests and report results)';
+  $('crn-proj').innerHTML='<option value="">'+(isJa?'ルート':'Root')+'</option>'+projects.map(p=>`<option value="${esc(p.path)}">${esc(p.name)}</option>`).join('');
+  $('crn-result').style.display='none';
+  await refreshCronList();
+  $('cron-modal').classList.add('on');
+}
+async function refreshCronList(){
+  const r=await fetch('/api/cron'+tq());
+  if(!r.ok)return;
+  const jobs=await r.json();
+  const el=$('crn-list');
+  if(!jobs.length){el.innerHTML=`<div style="text-align:center;color:var(--dm);font-size:12px;padding:12px">${isJa?'定期実行タスクはまだありません':'No scheduled tasks yet'}</div>`;return}
+  el.innerHTML=jobs.map(j=>`
+    <div class="crn-item${j.enabled?'':' disabled'}" data-id="${j.id}">
+      <span class="crn-name">${esc(j.name)}</span>
+      <span class="crn-cmd" title="${esc(j.command)}">${esc(j.command)}</span>
+      <span class="crn-interval">${INTERVALS[j.interval_secs]||j.interval_secs+'s'}</span>
+      <span class="crn-status ${j.last_status}">${j.last_status}</span>
+      <div class="crn-acts">
+        <button onclick="toggleCron('${j.id}')" title="${j.enabled?(isJa?'停止':'Pause'):(isJa?'再開':'Resume')}">${j.enabled?'⏸':'▶'}</button>
+        <button onclick="showCronResult('${j.id}')" title="${isJa?'結果':'Result'}">📋</button>
+        <button onclick="deleteCron('${j.id}')" title="${isJa?'削除':'Delete'}">🗑</button>
+      </div>
+    </div>`).join('');
+}
+window.toggleCron=async function(id){
+  await fetch('/api/cron/'+id+'/toggle'+tq(),{method:'POST'});
+  await refreshCronList();
+};
+window.deleteCron=async function(id){
+  if(!confirm(isJa?'このタスクを削除しますか？':'Delete this task?'))return;
+  await fetch('/api/cron/'+id+tq(),{method:'DELETE'});
+  await refreshCronList();
+};
+window.showCronResult=async function(id){
+  const r=await fetch('/api/cron'+tq());if(!r.ok)return;
+  const jobs=await r.json();
+  const j=jobs.find(x=>x.id===id);
+  if(!j)return;
+  const el=$('crn-result');
+  el.textContent=j.last_result||'(no result yet)';
+  el.style.display='block';
+};
+$('crn-add').onclick=async()=>{
+  const name=$('crn-name').value.trim();
+  const cmd=$('crn-cmd').value.trim();
+  const interval=parseInt($('crn-interval').value);
+  const proj=$('crn-proj').value;
+  if(!name||!cmd)return;
+  await fetch('/api/cron'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({name,command:cmd,interval_secs:interval,project:proj||null})});
+  $('crn-name').value='';$('crn-cmd').value='';
+  await refreshCronList();
+};
+$('cronbtn').onclick=showCronModal;
+$('crn-close').onclick=()=>$('cron-modal').classList.remove('on');
+$('cron-modal').onclick=e=>{if(e.target===$('cron-modal'))$('cron-modal').classList.remove('on')};
 
 // ── Share ──
 $('sharebtn').onclick=async()=>{

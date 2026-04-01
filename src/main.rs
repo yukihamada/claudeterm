@@ -57,6 +57,23 @@ fn init_db(path: &str) -> Connection {
     conn.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'", []).ok();
     conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT", []).ok();
     conn.execute("ALTER TABLE sessions ADD COLUMN share_id TEXT", []).ok();
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS cron_jobs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            command TEXT NOT NULL,
+            project TEXT DEFAULT '',
+            interval_secs INTEGER NOT NULL,
+            enabled INTEGER DEFAULT 1,
+            last_run INTEGER DEFAULT 0,
+            next_run INTEGER DEFAULT 0,
+            last_result TEXT DEFAULT '',
+            last_status TEXT DEFAULT 'pending',
+            created_at TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+    ").ok();
     conn
 }
 
@@ -203,9 +220,18 @@ async fn main() {
         .route("/api/sessions/:id/share", post(create_share))
         .route("/api/share/:share_id", get(get_shared))
         .route("/s/:share_id", get(view_shared))
+        // Cron
+        .route("/api/cron", get(list_crons).post(create_cron))
+        .route("/api/cron/:id", delete(delete_cron))
+        .route("/api/cron/:id/toggle", post(toggle_cron))
         // WebSocket
         .route("/ws", get(ws_handler))
-        .with_state(state);
+        .with_state(state.clone());
+
+    // ── Background cron scheduler ──
+    let cron_state = state.clone();
+    tokio::spawn(async move { cron_scheduler(cron_state).await });
+
     let addr = format!("0.0.0.0:{port}");
     tracing::info!("claudeterm v5 → http://{addr}");
     axum::serve(tokio::net::TcpListener::bind(&addr).await.unwrap(), app).await.unwrap();
@@ -833,6 +859,172 @@ async fn list_feedback(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) 
         }))
     }).unwrap().filter_map(|r| r.ok()).collect();
     Json(rows).into_response()
+}
+
+// ── Cron ──
+
+#[derive(Serialize)] struct CronDto {
+    id: String, name: String, command: String, project: String,
+    interval_secs: i64, enabled: bool, last_run: i64,
+    last_result: String, last_status: String, created_at: String,
+}
+
+#[derive(Deserialize)] struct CronCreateReq {
+    name: String, command: String, project: Option<String>, interval_secs: i64,
+}
+
+async fn list_crons(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let mut st = db.prepare(
+        "SELECT id,name,command,project,interval_secs,enabled,last_run,last_result,last_status,created_at FROM cron_jobs WHERE user_id=?1 ORDER BY created_at DESC"
+    ).unwrap();
+    let list: Vec<CronDto> = st.query_map([&uid], |r| Ok(CronDto {
+        id: r.get(0)?, name: r.get(1)?, command: r.get(2)?, project: r.get(3)?,
+        interval_secs: r.get(4)?, enabled: r.get::<_,i64>(5)? != 0,
+        last_run: r.get(6)?, last_result: r.get(7)?, last_status: r.get(8)?,
+        created_at: r.get(9)?,
+    })).unwrap().filter_map(|r| r.ok()).collect();
+    Json(list).into_response()
+}
+
+async fn create_cron(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<CronCreateReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    if body.command.trim().is_empty() || body.name.trim().is_empty() {
+        return (StatusCode::BAD_REQUEST, "name and command required").into_response();
+    }
+    // Min 5 min, max 7 days
+    let interval = body.interval_secs.max(300).min(604800);
+    let id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let now = chrono::Utc::now();
+    let now_ts = now.timestamp();
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute(
+        "INSERT INTO cron_jobs (id,user_id,name,command,project,interval_secs,next_run,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        rusqlite::params![id, uid, body.name.trim(), body.command.trim(),
+            body.project.as_deref().unwrap_or(""), interval, now_ts + interval, now.to_rfc3339()]
+    ).ok();
+    Json(serde_json::json!({"id": id, "ok": true})).into_response()
+}
+
+async fn delete_cron(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute("DELETE FROM cron_jobs WHERE id=?1 AND user_id=?2", rusqlite::params![id, uid]).ok();
+    StatusCode::NO_CONTENT.into_response()
+}
+
+async fn toggle_cron(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute("UPDATE cron_jobs SET enabled = 1 - enabled WHERE id=?1 AND user_id=?2",
+        rusqlite::params![id, uid]).ok();
+    let enabled: bool = db.query_row(
+        "SELECT enabled FROM cron_jobs WHERE id=?1", [&id], |r| Ok(r.get::<_,i64>(0)? != 0)
+    ).unwrap_or(false);
+    Json(serde_json::json!({"enabled": enabled})).into_response()
+}
+
+/// Background scheduler: checks every 30s for due cron jobs
+async fn cron_scheduler(state: Arc<AppState>) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(30)).await;
+
+        // Get all due jobs
+        let jobs: Vec<(String, String, String, String, i64)> = {
+            let now = chrono::Utc::now().timestamp();
+            let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+            let mut st = db.prepare(
+                "SELECT c.id, c.user_id, c.command, c.project, c.interval_secs \
+                 FROM cron_jobs c JOIN users u ON c.user_id = u.id \
+                 WHERE c.enabled=1 AND c.next_run <= ?1 AND u.credits > 0"
+            ).unwrap();
+            st.query_map([now], |r| Ok((
+                r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?
+            ))).unwrap().filter_map(|r| r.ok()).collect()
+        };
+
+        for (job_id, uid, command, project, interval) in jobs {
+            let state = state.clone();
+            let job_id = job_id.clone();
+            tokio::spawn(async move {
+                tracing::info!("Cron [{}] running for user {}: {}", job_id, &uid[..4], &command[..command.len().min(50)]);
+
+                // Mark as running
+                {
+                    let now = chrono::Utc::now().timestamp();
+                    let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                    db.execute("UPDATE cron_jobs SET last_run=?1, last_status='running', next_run=?2 WHERE id=?3",
+                        rusqlite::params![now, now + interval, job_id]).ok();
+                }
+
+                // Run command
+                let user_sandbox = format!("{}/users/{}", state.workdir, uid);
+                let workdir = if project.is_empty() {
+                    user_sandbox.clone()
+                } else {
+                    let w = format!("{}/{}", user_sandbox, project);
+                    if std::path::Path::new(&w).is_dir() { w } else { user_sandbox.clone() }
+                };
+
+                let mut cmd = Command::new(&state.command);
+                cmd.arg("-p").arg("--output-format").arg("stream-json")
+                    .arg("--dangerously-skip-permissions")
+                    .arg("--model").arg("claude-haiku-4-5-20251001")
+                    .arg(&command)
+                    .current_dir(&workdir)
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::null())
+                    .stdin(std::process::Stdio::null())
+                    .env("TERM", "dumb").env("NO_COLOR", "1")
+                    .env("CI", "1").env("DISABLE_AUTOUPDATE", "1");
+
+                let result = match cmd.output().await {
+                    Ok(output) => {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        // Extract assistant text from stream-json
+                        let mut text = String::new();
+                        for line in stdout.lines() {
+                            if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+                                if v.get("type").and_then(|t| t.as_str()) == Some("assistant") {
+                                    if let Some(ct) = v.get("message")
+                                        .and_then(|m| m.get("content"))
+                                        .and_then(|c| c.as_array()) {
+                                        for p in ct {
+                                            if p.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                                if let Some(t) = p.get("text").and_then(|t| t.as_str()) {
+                                                    text.push_str(t);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if text.is_empty() { text = "(no output)".to_string(); }
+                        (if output.status.success() { "success" } else { "error" }, text)
+                    }
+                    Err(e) => ("error", format!("Failed to run: {}", e)),
+                };
+
+                // Update result
+                let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                let truncated = if result.1.len() > 2000 { &result.1[..2000] } else { &result.1 };
+                db.execute("UPDATE cron_jobs SET last_status=?1, last_result=?2 WHERE id=?3",
+                    rusqlite::params![result.0, truncated, job_id]).ok();
+                tracing::info!("Cron [{}] done: {}", job_id, result.0);
+            });
+        }
+    }
 }
 
 // ── Share ──
