@@ -46,6 +46,11 @@ fn init_db(path: &str) -> Connection {
         CREATE TABLE IF NOT EXISTS otps (
             email TEXT PRIMARY KEY, code TEXT NOT NULL, expires_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT, category TEXT, message TEXT,
+            created_at TEXT, status TEXT DEFAULT 'pending'
+        );
     ").expect("init");
     // Add claude_sid column if missing (migration)
     conn.execute("ALTER TABLE sessions ADD COLUMN claude_sid TEXT", []).ok();
@@ -167,6 +172,9 @@ async fn main() {
         .route("/api/image", post(generate_image))
         // Admin alerts
         .route("/api/admin/alert", post(admin_alert))
+        // Feedback
+        .route("/api/feedback", post(submit_feedback))
+        .route("/api/feedback", get(list_feedback))
         // WebSocket
         .route("/ws", get(ws_handler))
         .with_state(state);
@@ -634,6 +642,66 @@ async fn admin_credit(State(s): State<Arc<AppState>>, Json(body): Json<AdminCred
     ).unwrap_or(0.0);
     tracing::info!("Admin credited {} ${} (now ${})", body.email, body.amount, new_credits);
     Json(serde_json::json!({"ok": true, "credits": new_credits})).into_response()
+}
+
+// ── Feedback ──
+
+#[derive(Deserialize)] struct FeedbackReq { category: String, message: String }
+
+async fn submit_feedback(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<FeedbackReq>) -> Response {
+    let email = auth_user(&s, q.token.as_deref())
+        .map(|(_, e, _, _)| e)
+        .unwrap_or_else(|| "anonymous".to_string());
+
+    if body.message.trim().is_empty() || body.message.len() > 2000 {
+        return (StatusCode::BAD_REQUEST, "invalid message").into_response();
+    }
+
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string();
+    {
+        let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+        db.execute(
+            "INSERT INTO feedback (user_email, category, message, created_at) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![email, body.category, body.message, now],
+        ).ok();
+    }
+
+    // Telegram notification
+    let bot_token = std::env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default();
+    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_else(|_| "1136442501".to_string());
+    let emoji = match body.category.as_str() { "bug" => "🐛", "feature" => "💡", _ => "💬" };
+    let text = format!(
+        "{} *Feedback — {}*\nFrom: `{}`\n\n{}\n\n_{}_",
+        emoji, body.category, email, body.message, now
+    );
+    if !bot_token.is_empty() {
+        let client = reqwest::Client::new();
+        let _ = client.post(format!("https://api.telegram.org/bot{}/sendMessage", bot_token))
+            .json(&serde_json::json!({"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}))
+            .send().await;
+    }
+    tracing::info!("Feedback [{}] from {}: {}", body.category, email, &body.message[..body.message.len().min(80)]);
+    Json(serde_json::json!({"ok": true})).into_response()
+}
+
+async fn list_feedback(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let admin_token = s.admin_token.as_deref().unwrap_or("");
+    if q.token.as_deref() != Some(admin_token) || admin_token.is_empty() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT id, user_email, category, message, created_at, status FROM feedback ORDER BY id DESC LIMIT 100"
+    ).unwrap();
+    let rows: Vec<serde_json::Value> = stmt.query_map([], |r| {
+        Ok(serde_json::json!({
+            "id": r.get::<_,i64>(0)?, "email": r.get::<_,String>(1)?,
+            "category": r.get::<_,String>(2)?, "message": r.get::<_,String>(3)?,
+            "created_at": r.get::<_,String>(4)?, "status": r.get::<_,String>(5)?
+        }))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    Json(rows).into_response()
 }
 
 // ── Admin Alert (Telegram notification) ──

@@ -148,6 +148,14 @@ button{font-family:var(--f);cursor:pointer}
 .cb-m{background:var(--s2);color:var(--mu);border:1px solid var(--bd)}.cb-m.rc{background:var(--rd);color:#fff;animation:bk .8s step-end infinite}
 .cb-m:hover{background:var(--s3);color:var(--tx)}
 
+/* Feedback modal */
+#fbmodal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#fbmodal.on{display:flex}
+.fb-btn{background:transparent;border:none;color:var(--mu);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:8px;transition:all .12s}
+.fb-btn:hover{background:var(--s2);color:var(--tx)}
+.fb-cat{padding:5px 12px;border-radius:99px;border:1.5px solid var(--bd);background:transparent;color:var(--dm);font-size:12px;cursor:pointer;transition:all .12s;font-family:var(--f)}
+.fb-cat.on{background:var(--ac);color:#000;border-color:var(--ac)}.fb-cat:hover:not(.on){border-color:var(--mu);color:var(--mu)}
+
 /* Setup wizard */
 #wizard{display:none;position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px}
 #wizard.on{display:flex}
@@ -266,6 +274,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="tr">
 <span class="cr" id="crd"></span>
 <span class="dt" id="dot"></span>
+<button class="ib fb-btn" id="fbbtn" title="Feedback">&#128172;</button>
 <button class="theme-btn" id="thm" title="Toggle theme">&#9790;</button>
 <button class="user-btn" id="ubtn"></button>
 </div>
@@ -339,6 +348,22 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div></div>
 
 <div id="pk"><div class="pl"><input id="pi" placeholder="Search..."><div class="pl-l" id="pll"></div></div></div>
+<!-- Feedback modal -->
+<div id="fbmodal"><div class="stw" style="width:min(400px,92vw)">
+<h2>&#128172; Feedback</h2>
+<div style="display:flex;gap:6px">
+<button class="fb-cat on" data-c="bug">🐛 Bug</button>
+<button class="fb-cat" data-c="feature">💡 Feature</button>
+<button class="fb-cat" data-c="other">💬 Other</button>
+</div>
+<label>Message<textarea id="fb-msg" style="background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:10px 12px;color:var(--tx);font-size:13px;font-family:var(--f);outline:none;resize:vertical;min-height:80px;width:100%;margin-top:5px;transition:border-color .15s" placeholder="Tell us what happened or what you'd like to see..."></textarea></label>
+<div class="info" id="fb-status"></div>
+<div class="row">
+<button class="bs bs-g" id="fb-close">Cancel</button>
+<button class="bs bs-p" id="fb-send">Send Feedback</button>
+</div>
+</div></div>
+
 <!-- Setup wizard -->
 <div id="wizard"><div class="wz">
 <div class="wz-hd"><div class="wz-ico" id="wz-ico">🌐</div><h2 id="wz-title">Project Setup</h2><p class="wz-sub" id="wz-desc"></p></div>
@@ -616,6 +641,25 @@ $('sd').onclick=()=>send();$('st').onclick=stop;
 $('mg').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send()}if(e.key==='Escape'&&busy)stop()};
 $('mg').oninput=function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'};
 document.querySelectorAll('.qa').forEach(b=>b.onclick=()=>send(b.dataset.q));
+
+// Feedback modal
+let fbCat='bug';
+document.querySelectorAll('.fb-cat').forEach(b=>{b.onclick=()=>{fbCat=b.dataset.c;document.querySelectorAll('.fb-cat').forEach(x=>x.classList.toggle('on',x===b))}});
+$('fbbtn').onclick=()=>{$('fb-msg').value='';$('fb-status').textContent='';$('fbmodal').classList.add('on');$('fb-msg').focus()};
+$('fb-close').onclick=()=>$('fbmodal').classList.remove('on');
+$('fbmodal').onclick=e=>{if(e.target===$('fbmodal'))$('fbmodal').classList.remove('on')};
+$('fb-send').onclick=async()=>{
+  const msg=$('fb-msg').value.trim();if(!msg){$('fb-status').textContent='Please enter a message.';return;}
+  $('fb-send').disabled=true;$('fb-status').textContent='Sending...';
+  try{
+    const r=await fetch('/api/feedback'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({category:fbCat,message:msg})});
+    if(r.ok){$('fb-status').textContent='✓ Thank you! We\'ll review your feedback.';
+      setTimeout(()=>$('fbmodal').classList.remove('on'),1500);
+    }else{$('fb-status').textContent='Failed to send. Please try again.';}
+  }catch(e){$('fb-status').textContent='Error: '+e.message;}
+  $('fb-send').disabled=false;
+};
 
 // Model pills
 document.querySelectorAll('.mp').forEach(b=>{b.onclick=()=>{
