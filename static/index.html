@@ -156,6 +156,15 @@ button{font-family:var(--f);cursor:pointer}
 .stw input:focus{border-color:var(--ac)}
 .stw .info{font-size:11px;color:var(--dm);line-height:1.6}
 .stw .row{display:flex;gap:8px;justify-content:flex-end}
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.plan-card{background:var(--bg);border:1.5px solid var(--bd);border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;transition:all .15s;position:relative;user-select:none}
+.plan-card:hover{border-color:var(--ac);background:rgba(167,139,250,.06)}
+.plan-card:active{transform:scale(.97)}
+.plan-popular{border-color:var(--ac)}
+.plan-badge{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:var(--ac);color:#000;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.04em}
+.plan-price{font-size:20px;font-weight:700;letter-spacing:-.04em;color:var(--tx)}
+.plan-name{font-size:11px;font-weight:600;color:var(--mu);margin:2px 0}
+.plan-detail{font-size:10px;color:var(--dm);line-height:1.4}
 .stw .bs{padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;border:none;transition:all .12s}
 .stw .bs-p{background:var(--ac);color:#000}.stw .bs-p:hover{opacity:.85}
 .stw .bs-g{background:var(--s3);color:var(--mu)}.stw .bs-g:hover{color:var(--tx)}
@@ -283,10 +292,23 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </label>
 <div class="info">Set your own API key to avoid using platform credits. Your key is stored securely and never shared.</div>
 <label>Buy Credits</label>
-<div style="display:flex;gap:6px;flex-wrap:wrap">
-<button class="bs bs-p" onclick="buyCredits(10)">$10</button>
-<button class="bs bs-p" onclick="buyCredits(25)">$25</button>
-<button class="bs bs-p" onclick="buyCredits(50)">$50</button>
+<div class="plan-grid">
+<div class="plan-card" onclick="buyCredits(10)">
+  <div class="plan-price">$10</div>
+  <div class="plan-name">Starter</div>
+  <div class="plan-detail">~200 Sonnet turns</div>
+</div>
+<div class="plan-card plan-popular" onclick="buyCredits(25)">
+  <div class="plan-badge">POPULAR</div>
+  <div class="plan-price">$25</div>
+  <div class="plan-name">Standard</div>
+  <div class="plan-detail">~500 Sonnet turns</div>
+</div>
+<div class="plan-card" onclick="buyCredits(50)">
+  <div class="plan-price">$50</div>
+  <div class="plan-name">Pro</div>
+  <div class="plan-detail">~1,000 Sonnet turns</div>
+</div>
 </div>
 <div class="info" id="buy-msg"></div>
 <div class="row">
