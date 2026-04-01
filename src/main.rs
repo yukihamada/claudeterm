@@ -142,6 +142,24 @@ async fn main() {
         .route("/manifest.json", get(|| async {
             (StatusCode::OK, [("content-type","application/manifest+json")], MANIFEST)
         }))
+        .route("/og.png", get(|| async {
+            // SVG served as og image (Twitter/OGP accept SVG via content-type)
+            let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#09090b"/><stop offset="1" stop-color="#1a1040"/></linearGradient>
+<linearGradient id="ac" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
+<rect width="1200" height="630" fill="url(#bg)"/>
+<rect x="80" y="80" width="80" height="80" rx="22" fill="url(#ac)"/>
+<text x="108" y="147" font-size="56" font-family="system-ui" fill="white" font-weight="bold">C</text>
+<text x="190" y="142" font-size="60" font-family="system-ui" fill="white" font-weight="700" letter-spacing="-2">ChatWeb</text>
+<text x="80" y="260" font-size="36" font-family="system-ui" fill="#a1a1aa">AI Development Terminal</text>
+<text x="80" y="320" font-size="28" font-family="system-ui" fill="#52525b">Claude Code in your browser — code, build, and deploy</text>
+<text x="80" y="380" font-size="28" font-family="system-ui" fill="#52525b">with AI assistance. Free to start.</text>
+<rect x="80" y="450" width="200" height="52" rx="12" fill="url(#ac)"/>
+<text x="130" y="484" font-size="24" font-family="system-ui" fill="black" font-weight="600">Try Free</text>
+<text x="80" y="570" font-size="22" font-family="system-ui" fill="#3f3f46">chatweb.ai</text>
+</svg>"#;
+            (StatusCode::OK, [("content-type","image/svg+xml"),("cache-control","public, max-age=86400")], svg)
+        }))
         // Auth
         .route("/api/auth/login", post(login))
         .route("/api/auth/verify", post(verify_otp))
