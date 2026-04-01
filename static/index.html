@@ -91,7 +91,7 @@ button{font-family:var(--f);cursor:pointer}
 #cv{flex:1;overflow-y:auto;padding:28px 20px;display:flex;flex-direction:column;gap:24px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
 .msg{max-width:min(720px,94%);animation:.15s cubic-bezier(.16,1,.3,1) both fi}
 .msg.u{align-self:flex-end}.msg.a{align-self:flex-start;width:100%}
-.bb{padding:14px 18px;border-radius:18px;font-size:14.5px;line-height:1.8;word-break:break-word}
+.bb{padding:14px 18px;border-radius:18px;font-size:14.5px;line-height:1.8;overflow-wrap:break-word;word-break:normal}
 .msg.u .bb{background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;border-bottom-right-radius:5px;box-shadow:0 2px 12px rgba(167,139,250,.25);display:inline-block;max-width:min(560px,90%);float:right}
 .msg.a .bb{background:transparent;color:var(--tx);border:none;padding-left:0;padding-right:0}
 .msg.a .bb p{margin:.8em 0}.msg.a .bb p:first-child{margin-top:0}.msg.a .bb p:last-child{margin-bottom:0}
@@ -231,26 +231,26 @@ button{font-family:var(--f);cursor:pointer}
 .tpc:hover{border-color:var(--ac);background:var(--s1);transform:translateY(-2px);box-shadow:0 4px 20px rgba(167,139,250,.15)}
 .tpc-icon{font-size:24px}.tpc-name{font-size:14px;font-weight:600}.tpc-desc{font-size:11px;color:var(--mu);line-height:1.4}
 
-/* Onboarding banner */
-.ob{margin:8px 16px 0;border-radius:14px;border:1px solid var(--bd);background:var(--s2);overflow:hidden;animation:.3s cubic-bezier(.16,1,.3,1) both fi;flex-shrink:0}
-.ob-hd{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer}
-.ob-icon{font-size:20px;flex-shrink:0}
-.ob-title{font-size:13px;font-weight:600;flex:1}
-.ob-toggle{font-size:11px;color:var(--mu);background:none;border:none;cursor:pointer;padding:2px 8px;border-radius:6px;transition:all .1s}
-.ob-toggle:hover{background:var(--s3);color:var(--tx)}
-.ob-body{padding:0 16px 14px;display:flex;flex-direction:column;gap:8px}
-.ob-row{display:flex;align-items:flex-start;gap:10px;font-size:12px;line-height:1.5}
-.ob-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px}
-.ob-dot.ok{background:var(--gn)}.ob-dot.warn{background:var(--yl)}.ob-dot.info{background:var(--bl)}
-.ob-label{color:var(--tx);font-weight:500}
-.ob-sub{color:var(--mu);font-size:11px}
-.ob-actions{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
-.ob-btn{font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);color:var(--mu);cursor:pointer;transition:all .1s}
-.ob-btn:hover{border-color:var(--ac);color:var(--ac)}
-.ob-btn.primary{background:var(--ac);color:#000;border-color:var(--ac)}.ob-btn.primary:hover{opacity:.85}
-.ob-footer{display:flex;align-items:center;justify-content:flex-end;padding:8px 16px;border-top:1px solid var(--bd);margin-top:4px}
-.ob-dismiss{font-size:11px;color:var(--dm);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:6px}
-.ob-dismiss:hover{color:var(--mu);background:var(--s3)}
+/* Dashboard */
+#ob-wrap{flex-shrink:0}
+.ob-sessions{margin:10px 16px 0;padding:10px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:12px}
+.ob-s-title{font-size:11px;font-weight:700;color:var(--mu);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.ob-session{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px;transition:background .1s}
+.ob-session:hover{background:var(--s3)}
+.ob-s-name{font-weight:600;color:var(--tx);flex:1}
+.ob-s-proj{font-size:10px;color:var(--mu);background:var(--bg);padding:1px 6px;border-radius:4px}
+.ob-s-more{font-size:11px;color:var(--ac);cursor:pointer;padding:4px 8px;text-align:center}
+.ob-dash{margin:10px 16px 0}
+.ob-dash-title{font-size:13px;font-weight:700;color:var(--mu);margin-bottom:10px;text-align:center}
+.ob-caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+@media(max-width:480px){.ob-caps{grid-template-columns:1fr 1fr}}
+.ob-cap{display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--s1);border:1px solid var(--bd);border-radius:12px;cursor:pointer;transition:all .15s}
+.ob-cap:hover{border-color:var(--ac);background:rgba(167,139,250,.05);transform:translateY(-1px)}
+.ob-cap:active{transform:none}
+.ob-cap-ico{font-size:20px;flex-shrink:0;line-height:1.2}
+.ob-cap-title{font-size:13px;font-weight:700;margin-bottom:4px}
+.ob-cap-examples{display:flex;flex-direction:column;gap:2px}
+.ob-cap-examples span{font-size:10px;color:var(--mu);line-height:1.4}
 
 /* Prism overrides */
 code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5px;background:none;text-shadow:none}
@@ -1332,49 +1332,61 @@ if(!h.m.length&&ms.length){
 }
 render();showOB();}
 
-// ── Onboarding banner ──
-const OB_TIPS={
-  webapp:{icon:'🚀',title:isJa?'Webアプリ開発':'Web App Development',items:[
-    {dot:'info',label:isJa?'デプロイ（Fly.io）':'Deploy to Fly.io',sub:isJa?'fly auth login でログインが必要':'Run fly auth login first',action:'fly auth login',actionLabel:'Setup'},
-    {dot:'warn',label:isJa?'カスタムドメイン':'Custom domain',sub:isJa?'ドメインのCNAME設定が必要':'Requires DNS CNAME configuration'},
-    {dot:'ok',label:isJa?'APIキーなしでも動作':'Works without API key',sub:isJa?'残高消費あり / 自分のキーでコスト削減':'Uses platform balance / cheaper with your own key'},
-  ]},
-  mobile:{icon:'📱',title:isJa?'モバイルアプリ開発':'Mobile App Development',items:[
-    {dot:'warn',label:isJa?'App Store リリースには Apple Developer アカウント必要':'Apple Developer account required for App Store ($99/yr)',sub:'developer.apple.com'},
-    {dot:'info',label:'Xcode + fastlane',sub:isJa?'証明書・プロビジョニングをfastlaneで管理':'Manage certs & provisioning with fastlane'},
-    {dot:'ok',label:isJa?'ビルド・テストは無制限':'Build & test without limits'},
-  ]},
-  devops:{icon:'⚙️',title:'DevOps',items:[
-    {dot:'info',label:isJa?'クラウド認証情報を設定':'Set cloud credentials',sub:'AWS_ACCESS_KEY / GCP_KEY / fly auth login'},
-    {dot:'ok',label:isJa?'CI/CD・Dockerビルド対応':'CI/CD and Docker builds supported'},
-  ]},
-  data:{icon:'📊',title:isJa?'データ分析':'Data Analysis',items:[
-    {dot:'info',label:isJa?'DB接続情報をプロジェクトに置いてください':'Put DB credentials in your project .env'},
-    {dot:'ok',label:'Python / pandas / SQL対応'},
-  ]},
-  general:{icon:'🧠',title:isJa?'クイックスタート':'Quick Start',items:[
-    {dot:'ok',label:isJa?'今すぐ使えます':'Ready to use — ask Claude anything'},
-    {dot:'info',label:isJa?'自分のAPIキーを設定すると残高を使わずに利用可能':'Add your Anthropic API key in Settings to skip balance usage',action:'settings',actionLabel:isJa?'設定':'Settings'},
-  ]},
-};
+// ── Dashboard (replaces old onboarding) ──
+const CAPABILITIES=isJa?[
+  {ico:'💻',title:'コードを書く',examples:['「Todoアプリを作って」','「このCSVをグラフにして」','「REST APIサーバーを作って」'],try:'Todoアプリを React で作ってください'},
+  {ico:'🐛',title:'バグ修正',examples:['エラーメッセージを貼るだけ','「テストが落ちてるので直して」','「このコードをレビューして」'],try:'このプロジェクトのコードをレビューして改善点を教えてください'},
+  {ico:'🚀',title:'デプロイ',examples:['「Fly.ioにデプロイして」','「Dockerfileを作って」','「GitHub Actionsを設定して」'],try:'このプロジェクトを Fly.io にデプロイしてください'},
+  {ico:'📱',title:'モバイル開発',examples:['「SwiftでiOSアプリを作って」','「App Storeに提出して」','「UIを改善して」'],try:'シンプルなメモアプリを Swift で作ってください'},
+  {ico:'🎨',title:'画像生成',examples:['「/image ロゴデザイン」','「/image アプリのモックアップ」','「/image アイコン」'],try:'/image モダンなWebアプリのロゴ、グラデーション、ミニマル'},
+  {ico:'📊',title:'データ分析',examples:['「このデータを分析して」','「SQLクエリを書いて」','「レポートを作って」'],try:'Pythonでサンプルデータを生成してグラフを作ってください'},
+]:[
+  {ico:'💻',title:'Write Code',examples:['"Build me a todo app"','"Convert this CSV to a chart"','"Create a REST API server"'],try:'Build a todo app in React'},
+  {ico:'🐛',title:'Fix Bugs',examples:['Paste any error message','"Fix the failing tests"','"Review this code"'],try:'Review this project and suggest improvements'},
+  {ico:'🚀',title:'Deploy',examples:['"Deploy to Fly.io"','"Create a Dockerfile"','"Set up GitHub Actions"'],try:'Deploy this project to Fly.io'},
+  {ico:'📱',title:'Mobile Dev',examples:['"Build an iOS app in Swift"','"Submit to App Store"','"Improve the UI"'],try:'Build a simple notes app in Swift'},
+  {ico:'🎨',title:'Generate Images',examples:['"Logo design"','"App mockup"','"Icon design"'],try:'/image modern web app logo, gradient, minimal'},
+  {ico:'📊',title:'Data Analysis',examples:['"Analyze this data"','"Write SQL queries"','"Generate a report"'],try:'Generate sample data in Python and create a chart'},
+];
+
 function showOB(){
   const wrap=$('ob-wrap');wrap.innerHTML='';
-  const s=ss.find(x=>x.id===sid);if(!s)return;
-  const tmpl=s.project||'general';
-  const tips=OB_TIPS[tmpl]||OB_TIPS.general;
-  const dismissKey='ob_dismiss_'+tmpl;
-  if(localStorage.getItem(dismissKey)==='1')return;
   const h=gH(sid);
-  // Only show if session is new (0 messages) or user hasn't dismissed
-  if(h.m.filter(m=>m.role==='user').length>2)return;
+  // Only show dashboard when session has 0 user messages
+  if(h.m.filter(m=>m.role==='user').length>0)return;
 
-  const div=document.createElement('div');div.className='ob';
-  const rows=tips.items.map(it=>{
-    const act=it.action?`<button class="ob-btn${it.action==='settings'?'':' primary'}" onclick="${it.action==='settings'?"$('ubtn').click()":it.action==='fly auth login'?`send('fly auth login')`:`send('${it.action}')`}">${esc(it.actionLabel||'Run')}</button>`:'';
-    return`<div class="ob-row"><div class="ob-dot ${it.dot}"></div><div><div class="ob-label">${esc(it.label)}</div><div class="ob-sub">${esc(it.sub||'')} ${act}</div></div></div>`;
-  }).join('');
-  div.innerHTML=`<div class="ob-hd"><span class="ob-icon">${tips.icon}</span><span class="ob-title">${esc(tips.title)}</span><button class="ob-toggle" onclick="this.closest('.ob').querySelector('.ob-body').style.display=this.closest('.ob').querySelector('.ob-body').style.display==='none'?'flex':'none'">${isJa?'▼ 詳細':'▼ Details'}</button></div><div class="ob-body" style="display:flex">${rows}<div class="ob-footer"><button class="ob-dismiss" onclick="localStorage.setItem('${dismissKey}','1');this.closest('.ob').remove()">${isJa?'今後は表示しない':'Don\'t show again'}</button></div></div>`;
-  wrap.appendChild(div);
+  // Active sessions summary
+  const activeSessions=ss.filter(s=>s.id!==sid);
+  let summaryHtml='';
+  if(activeSessions.length>0){
+    const items=activeSessions.slice(0,3).map(s=>
+      `<div class="ob-session" onclick="sid='${s.id}';tU();lH(sid)">
+        <span class="ob-s-name">${esc(s.name)}</span>
+        ${s.project?`<span class="ob-s-proj">${esc(s.project)}</span>`:''}
+      </div>`).join('');
+    summaryHtml=`<div class="ob-sessions">
+      <div class="ob-s-title">${isJa?'他のセッション':'Other Sessions'}</div>
+      ${items}
+      ${activeSessions.length>3?`<div class="ob-s-more" onclick="showHistory()">${isJa?`他 ${activeSessions.length-3} 件...`:`${activeSessions.length-3} more...`}</div>`:''}
+    </div>`;
+  }
+
+  // Capability cards
+  const cards=CAPABILITIES.map(c=>
+    `<div class="ob-cap" onclick="send('${esc(c.try)}')">
+      <div class="ob-cap-ico">${c.ico}</div>
+      <div class="ob-cap-body">
+        <div class="ob-cap-title">${c.title}</div>
+        <div class="ob-cap-examples">${c.examples.map(e=>`<span>${e}</span>`).join('')}</div>
+      </div>
+    </div>`).join('');
+
+  wrap.innerHTML=`
+    ${summaryHtml}
+    <div class="ob-dash">
+      <div class="ob-dash-title">${isJa?'何ができる？そのまま聞いてみてください':'What can you do? Just ask.'}</div>
+      <div class="ob-caps">${cards}</div>
+    </div>`;
 }
 
 // D&D
