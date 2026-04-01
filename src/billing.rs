@@ -46,7 +46,7 @@ pub async fn create_checkout_session(
         ("cancel_url", &format!("{}/billing/cancel", base_url)),
         ("customer_email", user_email),
         ("line_items[0][price_data][currency]", "usd"),
-        ("line_items[0][price_data][product_data][name]", "Claude Code Credits"),
+        ("line_items[0][price_data][product_data][name]", "ChatWeb Credits"),
         ("line_items[0][price_data][unit_amount]", &price_usd.to_string()),
         ("line_items[0][quantity]", "1"),
         ("metadata[user_token]", user_token),

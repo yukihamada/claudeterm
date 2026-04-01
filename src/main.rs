@@ -158,7 +158,11 @@ async fn main() {
         // Billing
         .route("/api/billing/checkout", post(create_checkout))
         .route("/api/billing/webhook", post(stripe_webhook))
+        .route("/billing/webhook", post(stripe_webhook))
         .route("/billing/success", get(billing_success))
+        .route("/billing/cancel", get(billing_cancel))
+        // Admin
+        .route("/api/admin/credit", post(admin_credit))
         // Image generation
         .route("/api/image", post(generate_image))
         // Admin alerts
@@ -603,7 +607,33 @@ async fn stripe_webhook(State(s): State<Arc<AppState>>, body: String) -> Respons
 }
 
 async fn billing_success(Query(q): Query<TokenQ>) -> Html<&'static str> {
-    Html("<html><body style='background:#09090b;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh'><div style='text-align:center'><h1>Payment successful!</h1><p>Credits have been added to your account.</p><a href='/' style='color:#a78bfa'>Back to app</a></div></body></html>")
+    Html("<html><body style='background:#09090b;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100dvh'><div style='text-align:center;max-width:400px;padding:24px'><div style='font-size:48px;margin-bottom:16px'>✅</div><h1 style='font-size:24px;font-weight:700;margin-bottom:8px'>Payment successful!</h1><p style='color:#a1a1aa;margin-bottom:24px'>Credits have been added to your account.</p><a href='/' style='background:#a78bfa;color:#000;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600'>Back to ChatWeb</a></div></body></html>")
+}
+
+async fn billing_cancel() -> Html<&'static str> {
+    Html("<html><body style='background:#09090b;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100dvh'><div style='text-align:center;max-width:400px;padding:24px'><div style='font-size:48px;margin-bottom:16px'>❌</div><h1 style='font-size:24px;font-weight:700;margin-bottom:8px'>Payment cancelled</h1><p style='color:#a1a1aa;margin-bottom:24px'>No charge was made. You can try again from the settings.</p><a href='/' style='background:#a78bfa;color:#000;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600'>Back to ChatWeb</a></div></body></html>")
+}
+
+#[derive(Deserialize)] struct AdminCreditReq { token: String, email: String, amount: f64 }
+
+async fn admin_credit(State(s): State<Arc<AppState>>, Json(body): Json<AdminCreditReq>) -> Response {
+    let admin_token = s.admin_token.as_deref().unwrap_or("");
+    if body.token != admin_token || admin_token.is_empty() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let rows = db.execute(
+        "UPDATE users SET credits = credits + ?1 WHERE email = ?2",
+        rusqlite::params![body.amount, body.email],
+    ).unwrap_or(0);
+    if rows == 0 {
+        return (StatusCode::NOT_FOUND, "user not found").into_response();
+    }
+    let new_credits: f64 = db.query_row(
+        "SELECT credits FROM users WHERE email = ?1", [&body.email], |r| r.get(0)
+    ).unwrap_or(0.0);
+    tracing::info!("Admin credited {} ${} (now ${})", body.email, body.amount, new_credits);
+    Json(serde_json::json!({"ok": true, "credits": new_credits})).into_response()
 }
 
 // ── Admin Alert (Telegram notification) ──
