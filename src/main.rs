@@ -141,6 +141,7 @@ async fn main() {
         .route("/api/auth/login", post(login))
         .route("/api/auth/verify", post(verify_otp))
         .route("/api/auth/google", get(google_oauth_start))
+        .route("/auth/google/callback", get(google_oauth_callback))
         .route("/api/auth/google/callback", get(google_oauth_callback))
         .route("/api/auth/local-login", get(local_login))
         .route("/api/auth/me", get(me))
@@ -222,7 +223,7 @@ async fn login(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Valu
 /// even when BASE_URL is chatweb.ai), falling back to BASE_URL.
 fn google_redirect_uri(base_url: &str) -> String {
     let base = std::env::var("GOOGLE_REDIRECT_URI").unwrap_or_else(|_| base_url.to_string());
-    format!("{}/api/auth/google/callback", base)
+    format!("{}/auth/google/callback", base)
 }
 
 async fn google_oauth_start(State(s): State<Arc<AppState>>) -> Response {
