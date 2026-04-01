@@ -583,6 +583,8 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <label id="s-onetime-label"></label>
 <div class="plan-grid" id="s-onetime-grid"></div>
 <div class="info" id="buy-msg"></div>
+<label>Language / 言語</label>
+<div id="s-lang" style="display:flex;gap:4px;flex-wrap:wrap"></div>
 <label id="s-ref-label"></label>
 <div id="s-ref-box" style="display:flex;gap:8px;align-items:center">
   <input id="s-ref-url" disabled style="flex:1;font-size:11px;font-family:var(--m)">
@@ -696,19 +698,10 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div id="prj-cur-wrap"></div>
 <div class="prj-list" id="prj-list"></div>
 <div class="prj-section" id="prj-new-label"></div>
-<div class="prj-new">
-  <div class="crn-row">
-    <input id="prj-name" placeholder="my-app">
-    <select id="prj-type">
-      <option value="general">General</option>
-      <option value="webapp">Web App</option>
-      <option value="mobile">Mobile</option>
-      <option value="api">API Server</option>
-      <option value="data">Data/ML</option>
-      <option value="devops">DevOps</option>
-    </select>
-  </div>
-  <button id="prj-create-btn" style="width:100%"></button>
+<div class="prj-new" style="flex-direction:column;gap:10px">
+  <input id="prj-name" placeholder="my-app" style="width:100%">
+  <div id="prj-types" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+  <button id="prj-create-btn" style="width:100%;background:var(--ac);color:#000;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer"></button>
 </div>
 <div class="prj-section" id="prj-merge-label"></div>
 <div class="prj-merge">
@@ -739,18 +732,23 @@ let tk='',user=null,ss=[],sid=null,ws=null,busy=false,mode='chat';
 const H={},DG=/rm\s+-rf|git\s+push|reset\s+--hard|drop\s+table|force/i;
 const $=id=>document.getElementById(id);
 
-// i18n
-const isJa=navigator.language?.startsWith('ja');
-const L={
-  think:isJa?'考えています...':'Thinking...',
-  stopped:isJa?'停止しました':'Stopped',
-  noCredits:isJa?'残高がありません。設定からAPIキーを追加してください。':'No balance remaining. Add your API key in settings.',
-  free:isJa?'無料でお試し — ¥450分付き':'Free to start — $3 included',
-  ph:isJa?'Claudeに何でも聞いてください... (Cmd+K)':'Message Claude... (Cmd+K)',
-  signin:isJa?'はじめる':'Get started',
-  summary:isJa?'まとめ':'Summary',
+// i18n — switchable language
+let lang=localStorage.getItem('ct_lang')||(navigator.language?.startsWith('ja')?'ja':navigator.language?.startsWith('zh')?'zh':navigator.language?.startsWith('ko')?'ko':'en');
+let isJa=lang==='ja';
+const T={
+  ja:{think:'考えています...',stopped:'停止しました',noCredits:'残高がありません。設定からAPIキーを追加してください。',
+    free:'無料でお試し — ¥450分付き',ph:'Claudeに何でも聞いてください... (Cmd+K)',signin:'はじめる',summary:'まとめ'},
+  en:{think:'Thinking...',stopped:'Stopped',noCredits:'No balance remaining. Add your API key in settings.',
+    free:'Free to start — $3 included',ph:'Message Claude... (Cmd+K)',signin:'Get started',summary:'Summary'},
+  zh:{think:'思考中...',stopped:'已停止',noCredits:'余额不足，请在设置中添加API密钥。',
+    free:'免费试用 — 赠送$3',ph:'向Claude发送消息... (Cmd+K)',signin:'开始使用',summary:'摘要'},
+  ko:{think:'생각하는 중...',stopped:'중지됨',noCredits:'잔액이 없습니다. 설정에서 API 키를 추가하세요.',
+    free:'무료 체험 — $3 포함',ph:'Claude에게 메시지... (Cmd+K)',signin:'시작하기',summary:'요약'},
 };
-function fc(usd){if(isJa){return'¥'+Math.round(usd*150).toLocaleString()}return'$'+usd.toFixed(usd<1?4:2)}
+function t(key){return(T[lang]||T.en)[key]||(T.en[key]||key)}
+const L=new Proxy({},{get:(_,k)=>t(k)});
+function setLang(l){lang=l;isJa=l==='ja';localStorage.setItem('ct_lang',l);location.reload()}
+function fc(usd){if(lang==='ja'){return'¥'+Math.round(usd*150).toLocaleString()}if(lang==='zh'){return'¥'+Math.round(usd*7.2).toFixed(0)}if(lang==='ko'){return'₩'+Math.round(usd*1350).toLocaleString()}return'$'+usd.toFixed(usd<1?4:2)}
 
 function gH(s){if(!H[s])H[s]={m:[],ed:0,wr:0,fs:{}};return H[s]}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -909,6 +907,11 @@ $('ubtn').onclick=()=>{
     $('s-onetime-label').textContent=isJa?'残高追加':'Add Balance';
     $('s-onetime-grid').innerHTML=`<div style="font-size:11px;color:var(--dm);padding:8px;text-align:center">${isJa?'月額プランに加入すると残高を追加で購入できます':'Subscribe to a monthly plan to purchase additional balance'}</div>`;
   }
+  // Language selector
+  const LANGS=[{id:'ja',label:'日本語'},{id:'en',label:'English'},{id:'zh',label:'中文'},{id:'ko',label:'한국어'}];
+  $('s-lang').innerHTML=LANGS.map(l=>
+    `<button class="mp${l.id===lang?' on':''}" onclick="setLang('${l.id}')" style="font-size:12px">${l.label}</button>`
+  ).join('');
   // Referral section
   $('s-ref-label').textContent=isJa?'友達を招待':'Invite Friends';
   $('s-ref-copy').textContent=isJa?'コピー':'Copy';
@@ -1542,8 +1545,29 @@ async function showProjectPicker(){
   });
   // New project
   $('prj-new-label').textContent=isJa?'新規プロジェクト':'New Project';
-  $('prj-create-btn').textContent=isJa?'作成':'Create';
+  $('prj-create-btn').textContent=isJa?'作成して開始':'Create & Start';
   $('prj-name').value='';
+  // Project type pills
+  const PTYPES=[
+    {id:'general',ico:'🧠',label:isJa?'汎用':'General'},
+    {id:'webapp',ico:'🌐',label:'Web App'},
+    {id:'mobile',ico:'📱',label:'Mobile'},
+    {id:'api',ico:'⚡',label:'API'},
+    {id:'data',ico:'📊',label:'Data/ML'},
+    {id:'devops',ico:'⚙️',label:'DevOps'},
+  ];
+  let selectedType='general';
+  $('prj-types').innerHTML=PTYPES.map(p=>
+    `<button class="mp${p.id==='general'?' on':''}" data-pt="${p.id}" style="font-size:11px;padding:5px 10px">${p.ico} ${p.label}</button>`
+  ).join('');
+  $('prj-types').querySelectorAll('.mp').forEach(btn=>{
+    btn.onclick=()=>{
+      $('prj-types').querySelectorAll('.mp').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      selectedType=btn.dataset.pt;
+    };
+  });
+  window._selectedProjType=()=>selectedType;
   // Merge selects
   $('prj-merge-label').textContent=isJa?'フォルダをマージ':'Merge Folders';
   const opts=projects.map(p=>`<option value="${esc(p.path)}">${esc(p.name)}</option>`).join('');
@@ -1559,7 +1583,7 @@ $('proj-modal').onclick=e=>{if(e.target===$('proj-modal'))$('proj-modal').classL
 $('prj-create-btn').onclick=async()=>{
   const name=$('prj-name').value.trim();
   if(!name){$('prj-status').textContent=isJa?'名前を入力してください':'Enter a name';return}
-  const ptype=$('prj-type').value;
+  const ptype=window._selectedProjType?window._selectedProjType():'general';
   const r=await fetch('/api/projects'+tq(),{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({name,type:ptype})});
   if(r.ok){
