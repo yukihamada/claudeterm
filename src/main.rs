@@ -52,8 +52,10 @@ fn init_db(path: &str) -> Connection {
             created_at TEXT, status TEXT DEFAULT 'pending'
         );
     ").expect("init");
-    // Add claude_sid column if missing (migration)
+    // Migrations
     conn.execute("ALTER TABLE sessions ADD COLUMN claude_sid TEXT", []).ok();
+    conn.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'", []).ok();
+    conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT", []).ok();
     conn
 }
 
@@ -74,7 +76,7 @@ struct AppState {
 
 #[derive(Deserialize)] struct TokenQ { token: Option<String> }
 #[derive(Deserialize)] struct FileQ { token: Option<String>, path: Option<String> }
-#[derive(Serialize)] struct UserDto { id: String, email: String, credits: f64, has_api_key: bool }
+#[derive(Serialize)] struct UserDto { id: String, email: String, credits: f64, has_api_key: bool, plan: String }
 #[derive(Serialize, Clone)] struct SessionDto { id: String, name: String, created_at: String, project: String }
 #[derive(Serialize)] struct FileEntry { name: String, is_dir: bool, size: u64 }
 #[derive(Serialize)] struct ProjectEntry { name: String, path: String }
@@ -96,13 +98,14 @@ fn build_sandbox_profile(user_sandbox: &str) -> String {
 "#, user_sandbox = user_sandbox)
 }
 
-fn get_user(db: &Connection, token: &str) -> Option<(String, String, f64, Option<String>)> {
-    db.query_row("SELECT id, email, credits, api_key FROM users WHERE token=?1", [token], |r|
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_,Option<String>>(3)?))
+fn get_user(db: &Connection, token: &str) -> Option<(String, String, f64, Option<String>, String)> {
+    db.query_row(
+        "SELECT id, email, credits, api_key, COALESCE(plan,'free') FROM users WHERE token=?1",
+        [token], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_,Option<String>>(3)?, r.get::<_,String>(4)?))
     ).ok()
 }
 
-fn auth_user(state: &AppState, token: Option<&str>) -> Option<(String, String, f64, Option<String>)> {
+fn auth_user(state: &AppState, token: Option<&str>) -> Option<(String, String, f64, Option<String>, String)> {
     let t = token?;
     if t.is_empty() { return None; }
     let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
@@ -144,7 +147,7 @@ async fn main() {
         }))
         .route("/og.png", get(|| async {
             // SVG served as og image (Twitter/OGP accept SVG via content-type)
-            let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+            let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
 <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#09090b"/><stop offset="1" stop-color="#1a1040"/></linearGradient>
 <linearGradient id="ac" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
 <rect width="1200" height="630" fill="url(#bg)"/>
@@ -157,7 +160,7 @@ async fn main() {
 <rect x="80" y="450" width="200" height="52" rx="12" fill="url(#ac)"/>
 <text x="130" y="484" font-size="24" font-family="system-ui" fill="black" font-weight="600">Try Free</text>
 <text x="80" y="570" font-size="22" font-family="system-ui" fill="#3f3f46">chatweb.ai</text>
-</svg>"#;
+</svg>"##;
             (StatusCode::OK, [("content-type","image/svg+xml"),("cache-control","public, max-age=86400")], svg)
         }))
         // Auth
@@ -180,6 +183,7 @@ async fn main() {
         .route("/api/templates", get(list_templates))
         // Billing
         .route("/api/billing/checkout", post(create_checkout))
+        .route("/api/billing/subscribe", post(create_subscription))
         .route("/api/billing/webhook", post(stripe_webhook))
         .route("/billing/webhook", post(stripe_webhook))
         .route("/billing/success", get(billing_success))
@@ -457,8 +461,8 @@ async fn local_login(Query(q): Query<LocalLoginQ>, State(s): State<Arc<AppState>
 
 async fn me(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
     match auth_user(&s, q.token.as_deref()) {
-        Some((id, email, credits, api_key)) => Json(UserDto {
-            id, email, credits, has_api_key: api_key.is_some()
+        Some((id, email, credits, api_key, plan)) => Json(UserDto {
+            id, email, credits, has_api_key: api_key.is_some(), plan
         }).into_response(),
         None => StatusCode::UNAUTHORIZED.into_response(),
     }
@@ -623,11 +627,31 @@ async fn create_checkout(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>
 }
 
 async fn stripe_webhook(State(s): State<Arc<AppState>>, body: String) -> Response {
-    if let Some((user_token, credits)) = billing::parse_webhook_event(&body) {
-        let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
-        db.execute("UPDATE users SET credits = credits + ?1 WHERE token = ?2",
-            rusqlite::params![credits, user_token]).ok();
-        tracing::info!("Credits added: {} for token {}", credits, &user_token[..8]);
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    match billing::parse_webhook_action(&body) {
+        Some(billing::WebhookAction::OneTimeCredits { token, credits }) => {
+            db.execute("UPDATE users SET credits = credits + ?1 WHERE token = ?2",
+                rusqlite::params![credits, token]).ok();
+            tracing::info!("One-time +${} credits", credits);
+        }
+        Some(billing::WebhookAction::SubscriptionStarted { token, plan, customer_id }) => {
+            let credits = billing::plan_credits(&plan);
+            db.execute(
+                "UPDATE users SET credits = credits + ?1, plan = ?2, stripe_customer_id = ?3 WHERE token = ?4",
+                rusqlite::params![credits, plan, customer_id, token]).ok();
+            tracing::info!("Subscription {} started: +${} credits", plan, credits);
+        }
+        Some(billing::WebhookAction::SubscriptionRenewed { customer_id }) => {
+            let plan: String = db.query_row(
+                "SELECT COALESCE(plan,'starter') FROM users WHERE stripe_customer_id = ?1",
+                [&customer_id], |r| r.get(0)
+            ).unwrap_or_else(|_| "starter".to_string());
+            let credits = billing::plan_credits(&plan);
+            db.execute("UPDATE users SET credits = credits + ?1 WHERE stripe_customer_id = ?2",
+                rusqlite::params![credits, customer_id]).ok();
+            tracing::info!("Subscription {} renewed: +${} credits", plan, credits);
+        }
+        None => {}
     }
     StatusCode::OK.into_response()
 }
@@ -641,6 +665,27 @@ async fn billing_cancel() -> Html<&'static str> {
 }
 
 #[derive(Deserialize)] struct AdminCreditReq { token: String, email: String, amount: f64 }
+
+// ── Subscription ──
+
+#[derive(Deserialize)] struct SubscribeReq { plan: String }
+
+async fn create_subscription(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<SubscribeReq>) -> Response {
+    let (_, email, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let stripe_key = match &s.stripe_key {
+        Some(k) => k, None => return (StatusCode::SERVICE_UNAVAILABLE, "Payments not configured").into_response(),
+    };
+    let token = q.token.unwrap_or_default();
+    match billing::create_subscription_checkout(stripe_key, &email, &token, &body.plan, &s.base_url).await {
+        Ok(url) => Json(serde_json::json!({"url": url})).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
+    }
+}
+
+// ── Admin ──
 
 async fn admin_credit(State(s): State<Arc<AppState>>, Json(body): Json<AdminCreditReq>) -> Response {
     let admin_token = s.admin_token.as_deref().unwrap_or("");
@@ -669,7 +714,7 @@ async fn admin_credit(State(s): State<Arc<AppState>>, Json(body): Json<AdminCred
 async fn submit_feedback(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     Json(body): Json<FeedbackReq>) -> Response {
     let email = auth_user(&s, q.token.as_deref())
-        .map(|(_, e, _, _)| e)
+        .map(|(_, e, _, _, _)| e)
         .unwrap_or_else(|| "anonymous".to_string());
 
     if body.message.trim().is_empty() || body.message.len() > 2000 {
@@ -794,7 +839,7 @@ async fn generate_image(State(s): State<Arc<AppState>>, Json(body): Json<ImageRe
 async fn ws_handler(ws: WebSocketUpgrade, Query(q): Query<TokenQ>, State(state): State<Arc<AppState>>) -> Response {
     let user = auth_user(&state, q.token.as_deref());
     if user.is_none() { return StatusCode::UNAUTHORIZED.into_response(); }
-    let (uid, _email, credits, api_key) = user.unwrap();
+    let (uid, _email, credits, api_key, _plan) = user.unwrap();
     ws.on_upgrade(move |socket| handle_ws(socket, state, uid, credits, api_key))
 }
 
@@ -822,7 +867,7 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 // Check credits
                 if credits <= 0.0 {
                     let _ = ws.send(Message::Text(serde_json::json!({
-                        "type":"error","text":"No credits remaining. Please add your own API key in settings, or purchase more credits."
+                        "type":"no_credits"
                     }).to_string().into())).await;
                     continue;
                 }

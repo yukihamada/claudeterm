@@ -255,6 +255,59 @@ button{font-family:var(--f);cursor:pointer}
 /* Prism overrides */
 code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5px;background:none;text-shadow:none}
 
+/* ── PLANS MODAL ── */
+#plans-modal{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#plans-modal.on{display:flex}
+.pm{width:min(580px,96vw);background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:28px 24px;display:flex;flex-direction:column;gap:18px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);max-height:92vh;overflow-y:auto;position:relative}
+.pm-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--dm);font-size:18px;cursor:pointer;width:28px;height:28px;border-radius:6px;display:grid;place-items:center}
+.pm-close:hover{background:var(--s2);color:var(--tx)}
+.pm-hd{text-align:center}.pm-hd .pm-emoji{font-size:36px;margin-bottom:8px}
+.pm-hd h2{font-size:22px;font-weight:800;letter-spacing:-.04em;margin-bottom:6px}
+.pm-hd p{font-size:13px;color:var(--mu);line-height:1.6}
+.pm-plans{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:480px){.pm-plans{grid-template-columns:1fr}}
+.pm-card{background:var(--bg);border:2px solid var(--bd);border-radius:14px;padding:16px 12px;text-align:center;cursor:pointer;transition:all .15s;position:relative;display:flex;flex-direction:column;gap:4px}
+.pm-card:hover{border-color:var(--ac);transform:translateY(-2px);box-shadow:0 8px 24px rgba(167,139,250,.2)}
+.pm-card.featured{border-color:var(--ac);background:rgba(167,139,250,.05)}
+.pm-card .pm-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--ac),var(--bl));color:#000;font-size:9px;font-weight:800;padding:2px 10px;border-radius:99px;white-space:nowrap}
+.pm-card .pm-name{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em}
+.pm-card .pm-price{font-size:30px;font-weight:800;letter-spacing:-.04em;color:var(--tx);line-height:1}
+.pm-card .pm-per{font-size:11px;color:var(--dm);margin-top:-2px}
+.pm-card .pm-credits{font-size:12px;color:var(--gn);font-weight:600;margin:4px 0 10px}
+.pm-card .pm-btn{background:linear-gradient(135deg,var(--ac),var(--bl));color:#000;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s;width:100%}
+.pm-card .pm-btn:hover{opacity:.85}
+.pm-divider{display:flex;align-items:center;gap:8px;color:var(--dm);font-size:11px}.pm-divider::before,.pm-divider::after{content:'';flex:1;height:1px;background:var(--bd)}
+.pm-one{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.pm-one button{background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--tx);cursor:pointer;transition:all .12s}
+.pm-one button:hover{border-color:var(--ac);color:var(--ac)}
+.pm-footer{text-align:center;font-size:11px;color:var(--dm)}
+.pm-footer a,.pm-footer span{color:var(--ac);cursor:pointer;text-decoration:none}
+
+/* ── WELCOME MODAL ── */
+#welcome{display:none;position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#welcome.on{display:flex}
+.wlc{width:min(480px,94vw);background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:28px 24px;display:flex;flex-direction:column;gap:16px;animation:.25s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow)}
+.wlc-logo{width:52px;height:52px;border-radius:14px;margin:0 auto;background:linear-gradient(135deg,var(--ac),var(--bl));box-shadow:0 6px 24px rgba(167,139,250,.35)}
+.wlc h2{font-size:22px;font-weight:800;letter-spacing:-.04em;text-align:center;margin-top:-4px}
+.wlc>.wlc-sub{font-size:13px;color:var(--mu);text-align:center;line-height:1.6;margin-top:-8px}
+.wlc-feats{display:flex;flex-direction:column;gap:8px}
+.wlc-feat{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--bg);border-radius:10px;border:1px solid var(--bd)}
+.wlc-feat-ico{font-size:20px;flex-shrink:0;line-height:1.3}
+.wlc-feat h4{font-size:13px;font-weight:700;margin-bottom:2px}
+.wlc-feat p{font-size:11px;color:var(--mu);line-height:1.5;margin:0}
+.wlc-start{background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .12s;width:100%}
+.wlc-start:hover{opacity:.9}
+.wlc-links{display:flex;justify-content:center;gap:20px}
+.wlc-links button{background:none;border:none;color:var(--ac);font-size:12px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* ── SETTINGS: plan section ── */
+.s-plan-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--mu)}
+.s-plan-badge{font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:var(--s3);color:var(--tx);border:1px solid var(--bd)}
+.s-plan-badge.starter{background:rgba(96,165,250,.15);color:var(--bl);border-color:var(--bl)}
+.s-plan-badge.pro{background:rgba(167,139,250,.15);color:var(--ac);border-color:var(--ac)}
+.s-plan-badge.power{background:rgba(251,191,36,.12);color:var(--yl);border-color:var(--yl)}
+.sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+
 /* Mobile header */
 @media(max-width:600px){
   .tabs{display:none}
@@ -339,27 +392,47 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div id="settings"><div class="stw">
 <h2>Settings</h2>
 <label>Email<input id="s-email" disabled></label>
-<label>Credits remaining<input id="s-credits" disabled></label>
+<div class="s-plan-row"><span>現在のプラン</span><span class="s-plan-badge" id="s-plan">Free</span></div>
+<label>Credits<input id="s-credits" disabled></label>
 <label>Anthropic API Key (optional)
 <input id="s-key" type="password" placeholder="sk-ant-...">
 </label>
 <div class="info">Set your own API key to avoid using platform credits. Your key is stored securely and never shared.</div>
-<label>Buy Credits</label>
+<label>月額プラン</label>
+<div class="sub-grid">
+<div class="plan-card" onclick="subscribe('starter');$('settings').classList.remove('on')">
+  <div class="plan-price" style="font-size:17px">$9<span style="font-size:11px;font-weight:400">/月</span></div>
+  <div class="plan-name">Starter</div>
+  <div class="plan-detail">10 credits/月</div>
+</div>
+<div class="plan-card plan-popular" onclick="subscribe('pro');$('settings').classList.remove('on')">
+  <div class="plan-badge">人気</div>
+  <div class="plan-price" style="font-size:17px">$29<span style="font-size:11px;font-weight:400">/月</span></div>
+  <div class="plan-name">Pro</div>
+  <div class="plan-detail">35 credits/月</div>
+</div>
+<div class="plan-card" onclick="subscribe('power');$('settings').classList.remove('on')">
+  <div class="plan-price" style="font-size:17px">$79<span style="font-size:11px;font-weight:400">/月</span></div>
+  <div class="plan-name">Power</div>
+  <div class="plan-detail">100 credits/月</div>
+</div>
+</div>
+<label>クレジット追加（一回のみ）</label>
 <div class="plan-grid">
 <div class="plan-card" onclick="buyCredits(10)">
   <div class="plan-price">$10</div>
-  <div class="plan-name">Starter</div>
+  <div class="plan-name">10 credits</div>
   <div class="plan-detail">~200 Sonnet turns</div>
 </div>
 <div class="plan-card plan-popular" onclick="buyCredits(25)">
   <div class="plan-badge">POPULAR</div>
   <div class="plan-price">$25</div>
-  <div class="plan-name">Standard</div>
+  <div class="plan-name">25 credits</div>
   <div class="plan-detail">~500 Sonnet turns</div>
 </div>
 <div class="plan-card" onclick="buyCredits(50)">
   <div class="plan-price">$50</div>
-  <div class="plan-name">Pro</div>
+  <div class="plan-name">50 credits</div>
   <div class="plan-detail">~1,000 Sonnet turns</div>
 </div>
 </div>
@@ -387,19 +460,68 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 </div></div>
 
-<!-- Setup wizard -->
-<div id="wizard"><div class="wz">
-<div class="wz-hd"><div class="wz-ico" id="wz-ico">🌐</div><h2 id="wz-title">Project Setup</h2><p class="wz-sub" id="wz-desc"></p></div>
-<div id="wz-keys"></div>
-<div class="wz-skip" id="wz-skip-note"></div>
-<div class="wz-btns"><button class="wz-sk" id="wz-skip">Skip for now</button><button class="wz-sv" id="wz-save">Save & Continue</button></div>
-</div></div>
+<!-- Plans modal (credit exhaustion / upgrade) -->
+<div id="plans-modal">
+<div class="pm">
+<button class="pm-close" id="pm-close">&times;</button>
+<div class="pm-hd">
+  <div class="pm-emoji">🎉</div>
+  <h2 id="pm-title">ありがとうございます！</h2>
+  <p id="pm-sub">クレジットを使い切りました。続けるには月額プランかクレジット追加をご検討ください。</p>
+</div>
+<div class="pm-plans">
+  <div class="pm-card" onclick="subscribe('starter')">
+    <div class="pm-name">Starter</div>
+    <div class="pm-price">$9</div>
+    <div class="pm-per">/月</div>
+    <div class="pm-credits">10 credits/月</div>
+    <button class="pm-btn">始める</button>
+  </div>
+  <div class="pm-card featured" onclick="subscribe('pro')">
+    <div class="pm-badge">人気</div>
+    <div class="pm-name">Pro</div>
+    <div class="pm-price">$29</div>
+    <div class="pm-per">/月</div>
+    <div class="pm-credits">35 credits/月</div>
+    <button class="pm-btn">始める</button>
+  </div>
+  <div class="pm-card" onclick="subscribe('power')">
+    <div class="pm-name">Power</div>
+    <div class="pm-price">$79</div>
+    <div class="pm-per">/月</div>
+    <div class="pm-credits">100 credits/月</div>
+    <button class="pm-btn">始める</button>
+  </div>
+</div>
+<div class="pm-divider">または一回だけ追加</div>
+<div class="pm-one">
+  <button onclick="buyCredits(10);$('plans-modal').classList.remove('on')">$10 追加</button>
+  <button onclick="buyCredits(25);$('plans-modal').classList.remove('on')">$25 追加</button>
+  <button onclick="buyCredits(50);$('plans-modal').classList.remove('on')">$50 追加</button>
+</div>
+<div class="pm-footer">自分のAPIキーを使って無料で続ける → <span onclick="$('plans-modal').classList.remove('on');$('ubtn').click()">設定を開く</span></div>
+</div>
+</div>
 
-<!-- Template picker -->
-<div id="tp" style="display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);align-items:center;justify-content:center">
-<div style="width:min(500px,92vw);background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:24px;animation:.15s ease both fi;max-height:80vh;overflow-y:auto">
-<h2 style="font-size:18px;font-weight:700;margin-bottom:16px" id="tp-title">New Session</h2>
-<div id="tp-list" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+<!-- Welcome modal (first time only) -->
+<div id="welcome">
+<div class="wlc">
+  <div class="wlc-logo"></div>
+  <h2>ChatWebへようこそ！</h2>
+  <p class="wlc-sub">ブラウザで動く Claude Code 開発ターミナルです。<br>インストール不要・今すぐ始められます。</p>
+  <div class="wlc-feats">
+    <div class="wlc-feat"><div class="wlc-feat-ico">🌐</div><div><h4>Webアプリを作る</h4><p>React / Next.js / Rust などを書いて Fly.io に1コマンドでデプロイ</p></div></div>
+    <div class="wlc-feat"><div class="wlc-feat-ico">📱</div><div><h4>iOSアプリを作る</h4><p>Swiftのコードを書き、App Storeへの提出までAIがサポート</p></div></div>
+    <div class="wlc-feat"><div class="wlc-feat-ico">🤖</div><div><h4>AIに何でも相談</h4><p>設計・レビュー・デバッグ・学習。Claude Code がコードを書いて実行</p></div></div>
+    <div class="wlc-feat"><div class="wlc-feat-ico">⚙️</div><div><h4>インフラ・DevOps</h4><p>Fly.io / Cloudflare / AWS のデプロイ・設定をAIが自動化</p></div></div>
+  </div>
+  <div class="wlc-footer">
+    <button class="wlc-start" id="wlc-start">さっそく始める →</button>
+    <div class="wlc-links">
+      <button onclick="$('welcome').classList.remove('on');$('ubtn').click()">設定を開く</button>
+      <button onclick="$('welcome').classList.remove('on');$('fbbtn').click()">フィードバック</button>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -452,6 +574,8 @@ function shCr(){
   if(!user)return;const c=user.credits;
   const el=$('crd');el.textContent=fc(c);
   el.className='cr '+(c>3?'cr-ok':c>0?'cr-low':'cr-out');
+  el.style.cursor='pointer';el.title='クレジットを追加';
+  el.onclick=showPlansModal;
 }
 
 // ── LOGIN ──
@@ -501,26 +625,43 @@ $('otp').oninput=()=>{if($('otp').value.length===6)doLogin()};
 
 async function checkToken(t){
   const r=await fetch('/api/auth/me?token='+encodeURIComponent(t));
-  if(!r.ok)return false;user=await r.json();tk=t;return true;
+  if(!r.ok)return false;user=await r.json();tk=t;
+  // Sync latest plan/credits from server
+  if(user.plan&&user.plan!=='free')shCr();
+  return true;
 }
 
 async function show(){
   $('login').style.display='none';$('app').style.display='flex';
   $('ubtn').textContent=user.email.split('@')[0];
-  shCr();connect();lF('');await loadTemplates();
+  shCr();connect();lF('');
   const r=await fetch('/api/sessions'+tq());if(r.ok)ss=await r.json();
   if(!ss.length)await cS('Session 1');
   // Restore last active session across reloads
   const lastSid=localStorage.getItem('ct_sid');
   sid=(ss.find(s=>s.id===lastSid)||ss[0])?.id;
   tU();if(sid)lH(sid);
+  // Show welcome modal once for new users
+  if(!localStorage.getItem('ct_welcomed')){
+    setTimeout(()=>$('welcome').classList.add('on'),800);
+    localStorage.setItem('ct_welcomed','1');
+  }
 }
 
 // ── SETTINGS ──
-$('ubtn').onclick=()=>{$('s-email').value=user.email;$('s-credits').value='$'+user.credits.toFixed(4);
-  $('s-key').value='';$('settings').classList.add('on')};
+$('ubtn').onclick=()=>{
+  $('s-email').value=user.email;
+  $('s-credits').value=fc(user.credits);
+  $('s-key').value='';
+  const plan=user.plan||'free';
+  const el=$('s-plan');
+  el.textContent=plan.charAt(0).toUpperCase()+plan.slice(1);
+  el.className='s-plan-badge'+(plan!=='free'?' '+plan:'');
+  $('settings').classList.add('on');
+};
 $('s-close').onclick=()=>$('settings').classList.remove('on');
-// Buy credits via Stripe
+
+// Buy credits (one-time)
 window.buyCredits=async function(amt){
   $('buy-msg').textContent='Redirecting to payment...';
   const r=await fetch('/api/billing/checkout'+tq(),{method:'POST',headers:{'content-type':'application/json'},
@@ -531,11 +672,29 @@ window.buyCredits=async function(amt){
   else $('buy-msg').textContent=d.error||'Error';
 };
 
+// Subscribe (monthly)
+window.subscribe=async function(plan){
+  const r=await fetch('/api/billing/subscribe'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({plan})});
+  if(!r.ok){alert('Payment not available. Please try again.');return}
+  const d=await r.json();
+  if(d.url)window.location.href=d.url;
+};
+
 $('s-save').onclick=async()=>{const k=$('s-key').value.trim();
   await fetch('/api/auth/apikey'+tq(),{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({api_key:k})});
   user.has_api_key=!!k;$('settings').classList.remove('on')};
 $('settings').onclick=e=>{if(e.target===$('settings'))$('settings').classList.remove('on')};
+
+// Plans modal
+function showPlansModal(){$('plans-modal').classList.add('on')}
+$('pm-close').onclick=()=>$('plans-modal').classList.remove('on');
+$('plans-modal').onclick=e=>{if(e.target===$('plans-modal'))$('plans-modal').classList.remove('on')};
+
+// Welcome modal
+$('wlc-start').onclick=()=>$('welcome').classList.remove('on');
+$('welcome').onclick=e=>{if(e.target===$('welcome'))$('welcome').classList.remove('on')};
 
 // ── RENDER ──
 function rC(){const h=gH(sid);const el=$('cv');el.innerHTML='';
@@ -602,13 +761,13 @@ if(ev.type==='done'||ev.type==='stopped'){
   // Update credits from server
   if(ev.credits!==undefined&&user){user.credits=ev.credits;shCr()}
   setB(false);render();asid=null;return}
+if(ev.type==='no_credits'){
+  h.m.push({role:'system',text:isJa?'クレジットを使い切りました 🎉 ありがとうございます！':'Credits exhausted — thank you for using ChatWeb! 🎉'});
+  setB(false);render();asid=null;
+  setTimeout(showPlansModal,300);return}
 if(ev.type==='error'){
   const errText=ev.text||'Error';
   h.m.push({role:'assistant',html:md(errText),text:errText,st:false});
-  // If out of credits, show buy prompt
-  if(errText.toLowerCase().includes('no credits')||errText.toLowerCase().includes('credit')){
-    h.m.push({role:'system',text:isJa?'クレジットがなくなりました。設定からクレジットを購入するかAPIキーを設定してください。':'Out of credits. Buy more or set your API key in settings.'});
-  }
   setB(false);render();asid=null;return}
 if(ev.type==='system')return;
 
@@ -808,25 +967,9 @@ function tU(){$('tabs').innerHTML='';ss.forEach(s=>{const d=document.createEleme
 d.innerHTML=`<span>${esc(s.name)}</span><span class="x">x</span>`;
 d.querySelector('span').onclick=()=>{sid=s.id;tU();lH(s.id)};
 d.querySelector('.x').onclick=e=>{e.stopPropagation();dS(s.id)};$('tabs').appendChild(d)})}
-$('ab').onclick=showTemplatePicker;
-let templates=[];
-async function loadTemplates(){
-  const r=await fetch('/api/templates');if(r.ok)templates=await r.json();
-}
-function showTemplatePicker(){
-  const el=$('tp-list');el.innerHTML='';
-  $('tp-title').textContent=isJa?'新しいセッション':'New Session';
-  templates.forEach(t=>{
-    const d=document.createElement('div');d.className='tpc';
-    d.innerHTML=`<span class="tpc-icon">${t.icon}</span><span class="tpc-name">${isJa?t.name_ja:t.name}</span><span class="tpc-desc">${isJa?t.description_ja:t.description}</span>`;
-    d.onclick=()=>{$('tp').style.display='none';const n=isJa?t.name_ja:t.name;if(WIZ_DEFS[t.id])showWizard(t.id,()=>cS(n,t.id));else cS(n,t.id)};
-    el.appendChild(d);
-  });
-  $('tp').style.display='flex';
-}
-$('tp').onclick=e=>{if(e.target===$('tp'))$('tp').style.display='none'};
-async function cS(n,tmpl){const r=await fetch('/api/sessions'+tq(),{method:'POST',headers:{'content-type':'application/json'},
-body:JSON.stringify({name:n||'Session '+(ss.length+1),template:tmpl||'general'})});if(!r.ok)return;const s=await r.json();ss.unshift(s);sid=s.id;tU();render();showOB();}
+$('ab').onclick=()=>cS();
+async function cS(n){const r=await fetch('/api/sessions'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+body:JSON.stringify({name:n||'Session '+(ss.length+1),template:'general'})});if(!r.ok)return;const s=await r.json();ss.unshift(s);sid=s.id;tU();render();showOB();}
 async function dS(id){await fetch('/api/sessions/'+id+tq(),{method:'DELETE'});ss=ss.filter(s=>s.id!==id);delete H[id];
 if(sid===id){if(ss.length){sid=ss[0].id;lH(sid)}else await cS()}tU()}
 async function lH(s){sid=s;localStorage.setItem('ct_sid',s);const r=await fetch(`/api/sessions/${s}/messages${tq()}`);if(!r.ok){render();showOB();return}
