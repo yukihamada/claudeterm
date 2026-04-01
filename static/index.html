@@ -407,7 +407,19 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .hm-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;background:none;border:none;color:var(--tx);font-size:12px;border-radius:8px;cursor:pointer;text-align:left;transition:background .1s}
 .hm-item:hover{background:var(--s2)}
 .hm-item span:first-child{width:20px;text-align:center;flex-shrink:0}
+.hm-item .hm-key{margin-left:auto;font-size:10px;color:var(--dm);font-family:var(--m);background:var(--bg);padding:1px 5px;border-radius:4px;border:1px solid var(--bd);flex-shrink:0}
 .hm-sep{height:1px;background:var(--bd);margin:2px 8px}
+
+/* Shortcuts modal */
+#shortcuts-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#shortcuts-modal.on{display:flex}
+.sc-modal{width:min(400px,92vw);background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:4px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);position:relative;max-height:80vh;overflow-y:auto}
+.sc-modal h2{font-size:18px;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
+.sc-row{display:flex;align-items:center;padding:6px 0;font-size:12px}
+.sc-row .sc-label{flex:1;color:var(--tx)}
+.sc-row .sc-keys{display:flex;gap:3px}
+.sc-row .sc-key{font-size:10px;font-family:var(--m);background:var(--bg);color:var(--mu);padding:3px 7px;border-radius:5px;border:1px solid var(--bd);min-width:20px;text-align:center}
+.sc-section{font-size:10px;font-weight:700;color:var(--dm);text-transform:uppercase;letter-spacing:.06em;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd)}
 
 /* History panel */
 #history-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
@@ -500,17 +512,19 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 <!-- Dropdown menu -->
 <div id="hd-menu" class="hd-menu">
-<button id="mc" class="hm-item"><span>💬</span><span id="hm-chat"></span></button>
-<button id="mt" class="hm-item"><span>🖥</span><span id="hm-term"></span></button>
+<button id="mc" class="hm-item"><span>💬</span><span id="hm-chat"></span><span class="hm-key">1</span></button>
+<button id="mt" class="hm-item"><span>🖥</span><span id="hm-term"></span><span class="hm-key">2</span></button>
 <div class="hm-sep"></div>
-<button id="fb" class="hm-item"><span>📁</span><span id="hm-files"></span></button>
-<button id="sharebtn" class="hm-item"><span>↗</span><span id="hm-share"></span></button>
+<button id="fb" class="hm-item"><span>📁</span><span id="hm-files"></span><span class="hm-key">⌘B</span></button>
+<button id="sharebtn" class="hm-item"><span>↗</span><span id="hm-share"></span><span class="hm-key">⌘⇧S</span></button>
 <button id="cronbtn" class="hm-item"><span>⏲</span><span id="hm-cron"></span></button>
 <button id="fbbtn" class="hm-item"><span>💬</span><span id="hm-fb"></span></button>
-<button id="thm" class="hm-item"><span id="thm-ico">☾</span><span id="hm-theme"></span></button>
+<button id="thm" class="hm-item"><span id="thm-ico">☾</span><span id="hm-theme"></span><span class="hm-key">⌘D</span></button>
 <div class="hm-sep"></div>
-<button id="historybtn" class="hm-item"><span>📜</span><span id="hm-history"></span></button>
-<button id="ubtn" class="hm-item"><span>👤</span><span id="hm-settings"></span></button>
+<button id="historybtn" class="hm-item"><span>📜</span><span id="hm-history"></span><span class="hm-key">⌘H</span></button>
+<button id="ubtn" class="hm-item"><span>👤</span><span id="hm-settings"></span><span class="hm-key">⌘,</span></button>
+<div class="hm-sep"></div>
+<button id="shortcutsbtn" class="hm-item"><span>⌨</span><span id="hm-shortcuts"></span><span class="hm-key">?</span></button>
 </div>
 <div class="tut-bar" id="tut-bar">
   <span class="tut-step" id="tut-step"></span>
@@ -632,6 +646,13 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 
 <div id="pv"><div class="pvw"><div class="pvh"><span id="pp"></span><button id="pc">&times;</button></div><div class="pvb" id="pb"></div></div></div>
+
+<!-- Shortcuts modal -->
+<div id="shortcuts-modal"><div class="sc-modal">
+<button class="pm-close" id="sc-close">&times;</button>
+<h2 id="sc-title"></h2>
+<div id="sc-list"></div>
+</div></div>
 
 <!-- Session history -->
 <div id="history-modal"><div class="hist">
@@ -1062,6 +1083,46 @@ $('hm-fb').textContent=isJa?'フィードバック':'Feedback';
 $('hm-theme').textContent=isJa?'テーマ切替':'Toggle theme';
 $('hm-history').textContent=isJa?'履歴':'History';
 $('hm-settings').textContent=isJa?'設定':'Settings';
+$('hm-shortcuts').textContent=isJa?'ショートカット':'Shortcuts';
+
+// Shortcuts modal
+const isMac=navigator.platform?.includes('Mac');
+const MOD=isMac?'⌘':'Ctrl';
+const SHORTCUTS=[
+  {section:isJa?'一般':'General',items:[
+    {keys:[MOD,'K'],label:isJa?'コマンドパレット':'Command palette'},
+    {keys:[MOD,'N'],label:isJa?'新しいセッション':'New session'},
+    {keys:['Esc'],label:isJa?'停止 / モーダルを閉じる':'Stop / Close modal'},
+    {keys:['?'],label:isJa?'ショートカット一覧':'Show shortcuts'},
+  ]},
+  {section:isJa?'ナビゲーション':'Navigation',items:[
+    {keys:['1'],label:isJa?'チャットビュー':'Chat view'},
+    {keys:['2'],label:isJa?'ターミナルビュー':'Terminal view'},
+    {keys:[MOD,'B'],label:isJa?'ファイルパネル':'Files panel'},
+    {keys:[MOD,'H'],label:isJa?'履歴':'History'},
+    {keys:[MOD,','],label:isJa?'設定':'Settings'},
+  ]},
+  {section:isJa?'アクション':'Actions',items:[
+    {keys:['Enter'],label:isJa?'メッセージ送信':'Send message'},
+    {keys:['Shift','Enter'],label:isJa?'改行':'New line'},
+    {keys:[MOD,'Shift','S'],label:isJa?'共有':'Share session'},
+    {keys:[MOD,'D'],label:isJa?'テーマ切替':'Toggle theme'},
+  ]},
+];
+function showShortcuts(){
+  $('hd-menu').classList.remove('on');
+  $('sc-title').textContent=isJa?'キーボードショートカット':'Keyboard Shortcuts';
+  $('sc-list').innerHTML=SHORTCUTS.map(s=>
+    `<div class="sc-section">${s.section}</div>`+
+    s.items.map(i=>
+      `<div class="sc-row"><span class="sc-label">${i.label}</span><span class="sc-keys">${i.keys.map(k=>`<span class="sc-key">${k}</span>`).join('')}</span></div>`
+    ).join('')
+  ).join('');
+  $('shortcuts-modal').classList.add('on');
+}
+$('shortcutsbtn').onclick=showShortcuts;
+$('sc-close').onclick=()=>$('shortcuts-modal').classList.remove('on');
+$('shortcuts-modal').onclick=e=>{if(e.target===$('shortcuts-modal'))$('shortcuts-modal').classList.remove('on')};
 // History
 $('historybtn').onclick=()=>{$('hd-menu').classList.remove('on');showHistory()};
 function showHistory(){
@@ -1383,7 +1444,44 @@ $('pi').oninput=()=>{ps=0;rP()};
 $('pi').onkeydown=e=>{const c=$('pll').children;if(e.key==='ArrowDown'){ps=Math.min(ps+1,c.length-1);rP();e.preventDefault()}
 if(e.key==='ArrowUp'){ps=Math.max(ps-1,0);rP();e.preventDefault()}if(e.key==='Enter'){c[ps]?.click();e.preventDefault()}if(e.key==='Escape')hP()};
 $('pk').onclick=e=>{if(e.target===$('pk'))hP()};
-document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();sP()}});
+document.addEventListener('keydown',e=>{
+  const mod=e.metaKey||e.ctrlKey;
+  const inInput=e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA';
+  // Cmd+K: command palette
+  if(mod&&e.key==='k'){e.preventDefault();sP();return}
+  // Cmd+N: new session
+  if(mod&&e.key==='n'&&!inInput){e.preventDefault();showProjectPicker();return}
+  // Cmd+B: files panel
+  if(mod&&e.key==='b'&&!inInput){e.preventDefault();$('fb').click();return}
+  // Cmd+H: history
+  if(mod&&e.key==='h'&&!inInput){e.preventDefault();showHistory();return}
+  // Cmd+,: settings
+  if(mod&&e.key===','){e.preventDefault();$('ubtn').click();return}
+  // Cmd+D: theme toggle
+  if(mod&&e.key==='d'&&!inInput){e.preventDefault();$('thm').click();return}
+  // Cmd+Shift+S: share
+  if(mod&&e.shiftKey&&e.key==='S'){e.preventDefault();$('sharebtn').click();return}
+  // ?: shortcuts (when not in input)
+  if(e.key==='?'&&!inInput){e.preventDefault();showShortcuts();return}
+  // 1/2: view switch (when not in input)
+  if(!inInput&&!mod){
+    if(e.key==='1'){$('mc').click();return}
+    if(e.key==='2'){$('mt').click();return}
+  }
+  // Esc: close modals
+  if(e.key==='Escape'){
+    if($('shortcuts-modal').classList.contains('on')){$('shortcuts-modal').classList.remove('on');return}
+    if($('settings').classList.contains('on')){$('settings').classList.remove('on');return}
+    if($('history-modal').classList.contains('on')){$('history-modal').classList.remove('on');return}
+    if($('proj-modal').classList.contains('on')){$('proj-modal').classList.remove('on');return}
+    if($('cron-modal').classList.contains('on')){$('cron-modal').classList.remove('on');return}
+    if($('plans-modal').classList.contains('on')){$('plans-modal').classList.remove('on');return}
+    if($('fbmodal').classList.contains('on')){$('fbmodal').classList.remove('on');return}
+    if($('pk').classList.contains('on')){hP();return}
+    if($('hd-menu').classList.contains('on')){$('hd-menu').classList.remove('on');return}
+    if(busy)stop();
+  }
+});
 
 // Sessions
 function tU(){$('tabs').innerHTML='';ss.forEach(s=>{const d=document.createElement('button');d.className='tab'+(s.id===sid?' on':'');
