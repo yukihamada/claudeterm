@@ -2354,10 +2354,17 @@ function startMusicDemo(){
   </div>`;
   document.body.appendChild(ov);
 
-  const audio=new Audio('/demo-song.mp3');
+  let audio=null;
   const chat=$('demo-chat');
   const lyricsEl=$('demo-lyrics');
   let playing=false;
+
+  function ensureAudio(){
+    if(!audio){audio=new Audio('/demo-song.mp3');audio.preload='auto';
+      audio.onended=()=>{playing=false;$('demo-play-btn').textContent='↻'};
+    }
+    return audio;
+  }
 
   // Lyrics synced to demo events
   const LYRICS=[
@@ -2534,22 +2541,41 @@ function startMusicDemo(){
 
   // Playback controls
   $('demo-play-btn').onclick=()=>{
-    if(!playing){audio.play();playing=true;$('demo-play-btn').textContent='⏸';tick()}
-    else{audio.pause();playing=false;$('demo-play-btn').textContent='▶'}
+    const a=ensureAudio();
+    if(!playing){
+      a.play().then(()=>{
+        playing=true;$('demo-play-btn').textContent='⏸';tick();
+      }).catch(e=>{
+        console.error('Audio play failed:',e);
+        // Fallback: run demo without audio (simulate time)
+        playing=true;$('demo-play-btn').textContent='⏸';
+        let fakeTime=0;
+        const fakeInterval=setInterval(()=>{
+          if(!playing){clearInterval(fakeInterval);return}
+          fakeTime+=0.1;
+          $('demo-fill').style.width=(fakeTime/205*100)+'%';
+          $('demo-time').textContent=Math.floor(fakeTime/60)+':'+String(Math.floor(fakeTime%60)).padStart(2,'0');
+          updateLyrics(fakeTime);
+          updateChat(fakeTime);
+          if(fakeTime>=205){playing=false;clearInterval(fakeInterval);$('demo-play-btn').textContent='↻'}
+        },100);
+      });
+    } else{a.pause();playing=false;$('demo-play-btn').textContent='▶'}
   };
   $('demo-bar').onclick=e=>{
+    const a=ensureAudio();
     const rect=$('demo-bar').getBoundingClientRect();
     const pct=(e.clientX-rect.left)/rect.width;
-    audio.currentTime=pct*audio.duration;
+    a.currentTime=pct*(a.duration||205);
     // Reset chat for seek-back
-    if(audio.currentTime<(EVENTS[lastEventIdx]?.t||0)){
+    if(a.currentTime<(EVENTS[lastEventIdx]?.t||0)){
       chat.innerHTML='';lastEventIdx=-1;$('demo-pv').classList.remove('on');
-      updateChat(audio.currentTime);
+      updateChat(a.currentTime);
     }
   };
 
   function tick(){
-    if(!playing)return;
+    if(!playing||!audio)return;
     const t=audio.currentTime;
     const d=audio.duration||205;
     $('demo-fill').style.width=(t/d*100)+'%';
@@ -2559,7 +2585,6 @@ function startMusicDemo(){
     if(!audio.ended)requestAnimationFrame(tick);
     else{playing=false;$('demo-play-btn').textContent='▶'}
   }
-  audio.onended=()=>{playing=false;$('demo-play-btn').textContent='↻'};
   // Show initial lyrics
   updateLyrics(0);
 }
