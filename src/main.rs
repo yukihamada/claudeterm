@@ -865,7 +865,6 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 cmd.arg("-p").arg("--output-format").arg("stream-json")
                     .arg("--verbose").arg("--dangerously-skip-permissions")
                     .arg("--model").arg(model)
-                    .arg("--effort").arg(effort)
                     .arg(&cm.text);
                 if let Some(ref sid) = claude_sid { cmd.arg("--resume").arg(sid); }
                 cmd.current_dir(&workdir)
