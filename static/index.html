@@ -32,7 +32,7 @@ button{font-family:var(--f);cursor:pointer}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--s3);border-radius:2px}
 
 /* ── LOGIN ── */
-#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:300}
+#login{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:300}
 .lc{width:min(360px,90vw);display:flex;flex-direction:column;gap:18px;animation:.45s cubic-bezier(.16,1,.3,1) both fi}
 @keyframes fi{from{opacity:0;transform:translateY(16px)}}
 .lc-logo{width:56px;height:56px;border-radius:16px;margin:0 auto;background:linear-gradient(135deg,var(--ac),var(--bl));box-shadow:0 8px 32px rgba(167,139,250,.35)}
@@ -308,6 +308,56 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .s-plan-badge.power{background:rgba(251,191,36,.12);color:var(--yl);border-color:var(--yl)}
 .sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 
+/* ── LANDING PAGE ── */
+#landing{position:fixed;inset:0;background:var(--bg);z-index:310;overflow-y:auto;display:none}
+#landing.on{display:block}
+.ld{max-width:720px;margin:0 auto;padding:40px 20px 60px}
+.ld-hero{text-align:center;padding:48px 0 36px}
+.ld-logo{width:64px;height:64px;border-radius:18px;margin:0 auto 20px;background:linear-gradient(135deg,var(--ac),var(--bl));box-shadow:0 8px 36px rgba(167,139,250,.4);display:grid;place-items:center;font-size:28px;font-weight:900;color:#fff}
+.ld h1{font-size:clamp(28px,5vw,42px);font-weight:900;letter-spacing:-.05em;line-height:1.1;margin-bottom:12px}
+.ld h1 span{background:linear-gradient(135deg,var(--ac),var(--bl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.ld-sub{font-size:clamp(14px,2.5vw,18px);color:var(--mu);line-height:1.6;max-width:480px;margin:0 auto 28px}
+.ld-cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.ld-cta .bp{padding:14px 32px;font-size:16px;border-radius:14px}
+.ld-demo-btn{background:var(--s2);color:var(--tx);border:1.5px solid var(--bd);border-radius:14px;padding:14px 28px;font-size:16px;font-weight:600;cursor:pointer;transition:all .15s}
+.ld-demo-btn:hover{border-color:var(--ac);color:var(--ac)}
+.ld-section{margin-top:48px}
+.ld-section h2{font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:20px;text-align:center}
+.ld-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.ld-card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:18px 16px;transition:all .15s}
+.ld-card:hover{border-color:var(--ac);transform:translateY(-2px)}
+.ld-card-ico{font-size:24px;margin-bottom:8px}
+.ld-card h3{font-size:14px;font-weight:700;margin-bottom:4px}
+.ld-card p{font-size:12px;color:var(--mu);line-height:1.5}
+.ld-demo{background:var(--s1);border:1px solid var(--bd);border-radius:16px;overflow:hidden;margin-top:48px}
+.ld-demo-hd{padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mu)}
+.ld-demo-hd .dt{width:7px;height:7px;border-radius:50%;background:var(--gn);box-shadow:0 0 6px var(--gn)}
+.ld-demo-body{padding:16px;display:flex;flex-direction:column;gap:12px;min-height:180px}
+.ld-demo-msg{max-width:85%;animation:.3s cubic-bezier(.16,1,.3,1) both fi}
+.ld-demo-msg.u{align-self:flex-end;background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;padding:10px 14px;border-radius:14px 14px 4px 14px;font-size:13px}
+.ld-demo-msg.a{align-self:flex-start;color:var(--tx);font-size:13px;line-height:1.7}
+.ld-demo-msg.a code{background:var(--s2);padding:1px 5px;border-radius:4px;font-family:var(--m);font-size:11px}
+.ld-demo-msg.t{align-self:flex-start;font-size:11px;color:var(--mu);background:var(--s2);padding:4px 10px;border-radius:6px;font-family:var(--m)}
+.ld-demo-type{font-size:12px;color:var(--dm);padding-left:4px}
+.ld-bottom{text-align:center;margin-top:48px}
+.ld-bottom .bp{padding:14px 40px;font-size:16px;border-radius:14px}
+.ld-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:48px}
+@media(max-width:480px){.ld-prices{grid-template-columns:1fr}}
+.ld-pr{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:18px 12px;text-align:center;position:relative}
+.ld-pr.pop{border-color:var(--ac)}
+.ld-pr h3{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.ld-pr .price{font-size:28px;font-weight:800;letter-spacing:-.04em}.ld-pr .per{font-size:11px;color:var(--dm)}
+.ld-pr .val{font-size:12px;color:var(--gn);font-weight:600;margin:6px 0}
+.ld-pr .turns{font-size:10px;color:var(--dm)}
+
+/* ── TUTORIAL ── */
+.tut-bar{display:none;background:linear-gradient(135deg,rgba(167,139,250,.12),rgba(96,165,250,.08));border:1px solid rgba(167,139,250,.25);border-radius:10px;padding:8px 12px;margin:0 16px 8px;align-items:center;gap:8px;font-size:12px;color:var(--mu);flex-shrink:0}
+.tut-bar.on{display:flex}
+.tut-bar .tut-step{font-weight:700;color:var(--ac)}
+.tut-bar .tut-text{flex:1}
+.tut-bar .tut-next{background:var(--ac);color:#000;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0}
+.tut-bar .tut-skip{background:none;border:none;color:var(--dm);font-size:11px;cursor:pointer;flex-shrink:0}
+
 /* Mobile header */
 @media(max-width:600px){
   .tabs{display:none}
@@ -324,6 +374,41 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 }
 </style></head><body>
 
+<!-- Landing page (shown before login) -->
+<div id="landing" class="on"><div class="ld">
+<div class="ld-hero">
+  <div class="ld-logo">C</div>
+  <h1><span>ChatWeb</span></h1>
+  <div class="ld-sub" id="ld-sub"></div>
+  <div class="ld-cta">
+    <a href="#" class="bp" id="ld-start"></a>
+    <button class="ld-demo-btn" id="ld-try"></button>
+  </div>
+</div>
+
+<!-- Live demo -->
+<div class="ld-demo">
+  <div class="ld-demo-hd"><span class="dt"></span> <span id="ld-demo-label"></span></div>
+  <div class="ld-demo-body" id="ld-demo-body"></div>
+</div>
+
+<div class="ld-section">
+  <h2 id="ld-feat-title"></h2>
+  <div class="ld-grid" id="ld-feats"></div>
+</div>
+
+<!-- Pricing -->
+<div class="ld-section">
+  <h2 id="ld-price-title"></h2>
+  <div class="ld-prices" id="ld-prices"></div>
+</div>
+
+<div class="ld-bottom">
+  <a href="#" class="bp" id="ld-start2"></a>
+</div>
+</div></div>
+
+<!-- Login modal -->
 <div id="login"><div class="lc">
 <div class="lc-logo"></div><h1>ChatWeb</h1>
 <div class="lc-s">AI-powered development terminal</div>
@@ -357,6 +442,12 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button class="theme-btn" id="thm" title="Toggle theme">&#9790;</button>
 <button class="user-btn" id="ubtn"></button>
 </div>
+</div>
+<div class="tut-bar" id="tut-bar">
+  <span class="tut-step" id="tut-step"></span>
+  <span class="tut-text" id="tut-text"></span>
+  <button class="tut-next" id="tut-next"></button>
+  <button class="tut-skip" id="tut-skip"></button>
 </div>
 <div id="mn">
 <div id="sb"><div class="sbh"><span id="sp">/</span><button id="sc">&times;</button></div><div id="fl"></div></div>
@@ -574,7 +665,7 @@ async function checkToken(t){
 }
 
 async function show(){
-  $('login').style.display='none';$('app').style.display='flex';
+  $('landing').classList.remove('on');$('login').style.display='none';$('app').style.display='flex';
   $('ubtn').textContent=user.email.split('@')[0];
   shCr();connect();lF('');
   const r=await fetch('/api/sessions'+tq());if(r.ok)ss=await r.json();
@@ -583,10 +674,9 @@ async function show(){
   const lastSid=localStorage.getItem('ct_sid');
   sid=(ss.find(s=>s.id===lastSid)||ss[0])?.id;
   tU();if(sid)lH(sid);
-  // Show welcome modal once for new users
-  if(!localStorage.getItem('ct_welcomed')){
-    setTimeout(()=>$('welcome').classList.add('on'),800);
-    localStorage.setItem('ct_welcomed','1');
+  // Show tutorial for first-time users (no token consumption)
+  if(!localStorage.getItem('ct_tutorial_done')){
+    setTimeout(startTutorial,800);
   }
 }
 
@@ -862,55 +952,134 @@ r.onresult=e=>{let i='';fn='';for(let j=0;j<e.results.length;j++){if(e.results[j
 r.onend=()=>{rc=false;$('mi').classList.remove('rc')};r.onerror=r.onend;
 $('mi').style.display='grid';$('mi').onclick=()=>{if(rc){r.stop();return}rc=true;$('mi').classList.add('rc');fn='';r.start()}}
 
-// ── Setup Wizard ──
-const WIZ_DEFS={
-  webapp:{ico:'🌐',title:'Web App Setup',desc:'APIキーを設定すると1クリックでデプロイできます。スキップしてもChatWebの環境で開発できます。',
-    skip:'<b>スキップしても使えること:</b> Node.js / Bun / Python / Rust がインストール済み。Fly.io CLIでデプロイ可能。',
-    keys:[
-      {id:'CF_API_TOKEN',label:'Cloudflare API Token',hint:'dash.cloudflare.com → Profile → API Tokens',url:'https://dash.cloudflare.com/profile/api-tokens',ph:'token...'},
-      {id:'CF_ACCOUNT_ID',label:'Cloudflare Account ID',hint:'ダッシュボード右サイドバーに表示',ph:'abc123...'},
-      {id:'GITHUB_TOKEN',label:'GitHub Token (optional)',hint:'github.com → Settings → Developer settings → Tokens',url:'https://github.com/settings/tokens',ph:'ghp_...'},
-    ]},
-  mobile:{ico:'📱',title:'Mobile App Setup',desc:'App Store / Play Store への提出に必要なキーを設定します。',
-    skip:'<b>スキップしても使えること:</b> Xcode / Android Studio インストール済み。ローカルビルド・テストは可能。App Store提出にはキーが必要。',
-    keys:[
-      {id:'APPLE_TEAM_ID',label:'Apple Developer Team ID',hint:'developer.apple.com → Account → Membership',url:'https://developer.apple.com/account',ph:'ABC123DEF'},
-      {id:'ASC_KEY_ID',label:'App Store Connect API Key ID',hint:'appstoreconnect.apple.com → Users & Access → Keys',url:'https://appstoreconnect.apple.com/access/api',ph:'5KT46G9Y29'},
-      {id:'ASC_ISSUER_ID',label:'App Store Connect Issuer ID',hint:'同じページの上部に表示',ph:'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'},
-      {id:'BUNDLE_ID',label:'App Bundle ID',hint:'例: com.yourcompany.appname',ph:'com.company.app'},
-    ]},
-  automation:{ico:'⚙️',title:'DevOps Setup',desc:'クラウドプロバイダーのキーを設定するとCI/CDが自動化されます。',
-    skip:'<b>スキップしても使えること:</b> Docker / kubectl / Terraform / fly CLI インストール済み。ChatWebの共有認証で基本操作可能。',
-    keys:[
-      {id:'FLY_API_TOKEN',label:'Fly.io API Token',hint:'fly.io → Dashboard → Access Tokens',url:'https://fly.io/user/personal_access_tokens',ph:'fo1_...'},
-      {id:'AWS_ACCESS_KEY_ID',label:'AWS Access Key ID (optional)',hint:'AWS Console → IAM → Users → Security credentials',ph:'AKIA...'},
-      {id:'AWS_SECRET_ACCESS_KEY',label:'AWS Secret Access Key (optional)',hint:'Access Key IDと同時に生成',ph:''},
-    ]},
-};
-let wizPendingFn=null;
-function showWizard(tmplId,onDone){
-  const def=WIZ_DEFS[tmplId];if(!def){onDone&&onDone();return;}
-  wizPendingFn=onDone;
-  $('wz-ico').textContent=def.ico;$('wz-title').textContent=def.title;
-  $('wz-desc').textContent=def.desc;$('wz-skip-note').innerHTML=def.skip;
-  const saved=JSON.parse(localStorage.getItem('cw_keys')||'{}');
-  $('wz-keys').innerHTML=def.keys.map(k=>`
-    <div class="wz-key">
-      <label>${k.label}</label>
-      <div class="hint">${k.url?`<a href="${k.url}" target="_blank" rel="noopener">取得方法</a> —`:''}${esc(k.hint)}</div>
-      <input id="wk-${k.id}" type="password" placeholder="${k.ph}" value="${esc(saved[k.id]||'')}">
-    </div>`).join('');
-  $('wizard').classList.add('on');
+// ── Landing page ──
+const LD_FEATS=isJa?[
+  {ico:'💻',t:'コードを書く',d:'Claude CodeがReact / Python / Rust など何でも書いて実行。ファイル編集もお任せ。'},
+  {ico:'🚀',t:'ワンクリックデプロイ',d:'作ったWebアプリをFly.ioやCloudflareに即公開。コマンド1つ。'},
+  {ico:'🐛',t:'バグ修正・レビュー',d:'エラーを貼るだけでAIが原因特定→修正→テストまで自動で実行。'},
+  {ico:'📱',t:'モバイルアプリ開発',d:'Swift / Kotlinのコードを書き、ビルド・テスト・App Store提出まで。'},
+  {ico:'🎨',t:'画像生成',d:'/image コマンドでAI画像を生成。デザインモックやアイコン作成に。'},
+  {ico:'⚙️',t:'インフラ自動化',d:'Docker / CI/CD / AWS / Terraform をAIが設定・デプロイ。'},
+]:[
+  {ico:'💻',t:'Write Code',d:'Claude Code writes & runs React, Python, Rust — anything. Edits files for you.'},
+  {ico:'🚀',t:'One-Click Deploy',d:'Ship your web app to Fly.io or Cloudflare with a single command.'},
+  {ico:'🐛',t:'Fix Bugs',d:'Paste an error, AI finds the cause, fixes it, and runs tests automatically.'},
+  {ico:'📱',t:'Mobile Apps',d:'Write Swift / Kotlin, build, test, and submit to App Store.'},
+  {ico:'🎨',t:'Generate Images',d:'Use /image to create AI images for mockups, icons, and designs.'},
+  {ico:'⚙️',t:'DevOps',d:'AI sets up Docker, CI/CD, AWS, Terraform and deploys for you.'},
+];
+const LD_DEMO=isJa?[
+  {type:'u',text:'Todoアプリを作って'},
+  {type:'t',text:'Write → src/App.tsx'},
+  {type:'a',text:'Todoアプリを作成しました！\n\n・追加・完了・削除機能\n・<code>localStorage</code> で永続化\n・レスポンシブ対応'},
+  {type:'u',text:'Fly.ioにデプロイして'},
+  {type:'t',text:'Bash → fly deploy --remote-only'},
+  {type:'a',text:'デプロイ完了！\nhttps://todo-app.fly.dev で公開されました。'},
+]:[
+  {type:'u',text:'Build me a todo app'},
+  {type:'t',text:'Write → src/App.tsx'},
+  {type:'a',text:'Created a Todo app!\n\n- Add, complete, delete tasks\n- Persisted with <code>localStorage</code>\n- Fully responsive'},
+  {type:'u',text:'Deploy to Fly.io'},
+  {type:'t',text:'Bash → fly deploy --remote-only'},
+  {type:'a',text:'Deployed!\nLive at https://todo-app.fly.dev'},
+];
+
+function initLanding(){
+  $('ld-sub').textContent=isJa
+    ?'ブラウザだけでコードを書いて、実行して、デプロイ。\nClaude Code がすべてサポートします。'
+    :'Write code, run it, deploy — all in your browser.\nPowered by Claude Code.';
+  $('ld-start').textContent=isJa?'無料で始める →':'Start Free →';
+  $('ld-start').onclick=e=>{e.preventDefault();showLogin()};
+  $('ld-try').textContent=isJa?'デモを見る':'Watch Demo';
+  // Add gift text below CTA
+  const giftEl=document.createElement('div');
+  giftEl.style.cssText='text-align:center;margin-top:12px;font-size:13px;color:var(--gn)';
+  giftEl.textContent=isJa?'🎁 今なら¥450分プレゼント（ログインするだけ！）':'🎁 $3 free — just sign in!';
+  document.querySelector('.ld-cta').after(giftEl);
+  $('ld-try').onclick=()=>{playDemo(0)};
+  $('ld-start2').textContent=isJa?'今すぐ始める — 無料':'Get Started — Free';
+  $('ld-start2').onclick=e=>{e.preventDefault();showLogin()};
+  $('ld-demo-label').textContent=isJa?'ライブデモ':'Live Demo';
+  $('ld-feat-title').textContent=isJa?'何ができる？':'What can you do?';
+  $('ld-feats').innerHTML=LD_FEATS.map(f=>`<div class="ld-card"><div class="ld-card-ico">${f.ico}</div><h3>${f.t}</h3><p>${f.d}</p></div>`).join('');
+  $('ld-price-title').textContent=isJa?'料金':'Pricing';
+  $('ld-prices').innerHTML=PLANS.map(p=>`
+    <div class="ld-pr${p.popular?' pop':''}">
+      ${p.popular?`<div class="pm-badge" style="top:-9px">${isJa?'人気':'POPULAR'}</div>`:''}
+      <h3>${p.id.charAt(0).toUpperCase()+p.id.slice(1)}</h3>
+      <div class="price">${fcp(p.usd)}</div><div class="per">/${isJa?'月':'mo'}</div>
+      <div class="val">${fcv(p.value)}/${isJa?'月':'mo'}</div>
+      <div class="turns">${p.turns} Sonnet</div>
+    </div>`).join('')
+    +`<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--gn);margin-top:4px">${isJa?'無料で'+fcv(3)+'付き':'Free '+fcv(3)+' included'}</div>`;
 }
-$('wz-skip').onclick=()=>{$('wizard').classList.remove('on');wizPendingFn&&wizPendingFn();wizPendingFn=null;};
-$('wz-save').onclick=()=>{
-  const def=WIZ_DEFS[Object.keys(WIZ_DEFS).find(k=>WIZ_DEFS[k].title===$('wz-title').textContent)||'webapp'];
-  if(!def){$('wizard').classList.remove('on');wizPendingFn&&wizPendingFn();wizPendingFn=null;return;}
-  const saved=JSON.parse(localStorage.getItem('cw_keys')||'{}');
-  def.keys.forEach(k=>{const v=document.getElementById('wk-'+k.id)?.value.trim();if(v)saved[k.id]=v;});
-  localStorage.setItem('cw_keys',JSON.stringify(saved));
-  $('wizard').classList.remove('on');wizPendingFn&&wizPendingFn();wizPendingFn=null;
-};
+function showLogin(){
+  $('landing').classList.remove('on');
+  $('login').style.display='flex';
+  setTimeout(()=>$('em').focus(),100);
+}
+function playDemo(i){
+  const el=$('ld-demo-body');
+  if(i===0)el.innerHTML='';
+  if(i>=LD_DEMO.length)return;
+  const d=LD_DEMO[i];
+  const cls=d.type==='u'?'u':d.type==='t'?'t':'a';
+  const div=document.createElement('div');div.className='ld-demo-msg '+cls;
+  div.innerHTML=d.text.replace(/\n/g,'<br>');
+  el.appendChild(div);el.scrollTop=el.scrollHeight;
+  setTimeout(()=>playDemo(i+1),d.type==='u'?800:d.type==='t'?600:1200);
+}
+
+// ── Tutorial (no token consumption) ──
+const TUT_STEPS=isJa?[
+  {step:'1/5',text:'ここにメッセージを入力してClaudeに指示します。試しに「Hello」と入力してみましょう。',next:'次へ',action:'highlight-input'},
+  {step:'2/5',text:'Claudeがコードを書くと、ツールの実行状況がリアルタイムで表示されます。',next:'次へ',action:'show-tool-demo'},
+  {step:'3/5',text:'モデルを切り替えられます。⚡Fast は安い＆速い、◆Max は高品質。普段は Auto でOK。',next:'次へ',action:'highlight-pills'},
+  {step:'4/5',text:'右上の残高をタップするとプラン選択画面が開きます。自分のAPIキーを使えば無料！',next:'次へ',action:'highlight-credits'},
+  {step:'5/5',text:'準備完了！何でも聞いてみてください。「Todoアプリを作って」「このバグを直して」など。',next:'始める！',action:'done'},
+]:[
+  {step:'1/5',text:'Type your message here to instruct Claude. Try typing "Hello"!',next:'Next',action:'highlight-input'},
+  {step:'2/5',text:'When Claude writes code, you\'ll see tool executions in real-time.',next:'Next',action:'show-tool-demo'},
+  {step:'3/5',text:'Switch models: ⚡Fast is cheap & quick, ◆Max is high quality. Auto works great.',next:'Next',action:'highlight-pills'},
+  {step:'4/5',text:'Tap your balance to see plans. Use your own API key to skip charges!',next:'Next',action:'highlight-credits'},
+  {step:'5/5',text:'You\'re all set! Try asking: "Build me a todo app" or "Fix this bug".',next:'Let\'s go!',action:'done'},
+];
+let tutStep=0,tutActive=false;
+function startTutorial(){
+  tutStep=0;tutActive=true;
+  showTutStep();
+}
+function showTutStep(){
+  if(tutStep>=TUT_STEPS.length){endTutorial();return}
+  const s=TUT_STEPS[tutStep];
+  $('tut-bar').classList.add('on');
+  $('tut-step').textContent=s.step;
+  $('tut-text').textContent=s.text;
+  $('tut-next').textContent=s.next;
+  // Visual hints
+  document.querySelectorAll('.tut-hl').forEach(e=>e.classList.remove('tut-hl'));
+  if(s.action==='highlight-input')$('mg').classList.add('tut-hl');
+  if(s.action==='highlight-pills')document.querySelectorAll('.mp').forEach(e=>e.classList.add('tut-hl'));
+  if(s.action==='highlight-credits')$('crd').classList.add('tut-hl');
+  if(s.action==='show-tool-demo'){
+    const h=gH(sid);
+    h.m.push({role:'user',text:isJa?'Hello! ChatWebへようこそ':'Hello! Welcome to ChatWeb'});
+    h.m.push({role:'tool',name:'Read',file:'CLAUDE.md',dH:'',dg:false,dt:'{"file_path":"CLAUDE.md"}',dn:true,er:false});
+    h.m.push({role:'assistant',text:isJa?'こんにちは！ChatWebへようこそ。何でもお手伝いします。コードを書いたり、バグを直したり、デプロイしたり — 何でも聞いてください！':'Hello! Welcome to ChatWeb. I can help with anything — write code, fix bugs, deploy apps. Just ask!',
+      html:md(isJa?'こんにちは！ChatWebへようこそ。何でもお手伝いします。コードを書いたり、バグを直したり、デプロイしたり — 何でも聞いてください！':'Hello! Welcome to ChatWeb. I can help with anything — write code, fix bugs, deploy apps. Just ask!'),st:false});
+    render();
+  }
+}
+function endTutorial(){
+  tutActive=false;
+  $('tut-bar').classList.remove('on');
+  document.querySelectorAll('.tut-hl').forEach(e=>e.classList.remove('tut-hl'));
+  localStorage.setItem('ct_tutorial_done','1');
+}
+$('tut-next').onclick=()=>{tutStep++;showTutStep()};
+$('tut-skip').onclick=endTutorial;
+$('tut-skip').textContent=isJa?'スキップ':'Skip';
+
 function getSetupCtx(){
   const keys=JSON.parse(localStorage.getItem('cw_keys')||'{}');
   const e=Object.entries(keys).filter(([,v])=>v);
@@ -1039,6 +1208,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('data:text/java
 $('lc-free').textContent=L.free;
 $('go').textContent=L.signin;$('er').style.color='var(--rd)';
 $('mg').placeholder=L.ph;
+// Tut highlight style
+const tutStyle=document.createElement('style');
+tutStyle.textContent='.tut-hl{outline:2px solid var(--ac)!important;outline-offset:2px;animation:thl .8s ease infinite}@keyframes thl{50%{outline-color:var(--bl)}}';
+document.head.appendChild(tutStyle);
+// Init landing
+initLanding();
 
 (async()=>{
   // Google OAuth callback: token returned in URL fragment
@@ -1053,7 +1228,11 @@ $('mg').placeholder=L.ph;
     if(r.ok){const d=await r.json();if(d.token){localStorage.setItem('ct_tk',d.token);history.replaceState({},'',location.pathname);}}
   }
   const t=localStorage.getItem('ct_tk')||'';
-  if(t&&await checkToken(t))show();else $('em').focus();
+  if(t&&await checkToken(t)){$('landing').classList.remove('on');show();}
+  else{
+    // No token — show landing page (already visible by default)
+    $('landing').classList.add('on');
+  }
 })();
 })();
 </script>
