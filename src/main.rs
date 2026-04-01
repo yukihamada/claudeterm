@@ -23,6 +23,7 @@ use tokio::{
 
 const HTML: &str = include_str!("../static/index.html");
 const MANIFEST: &str = include_str!("../static/manifest.json");
+const DEMO_SONG: &[u8] = include_bytes!("../static/demo-song.mp3");
 const INITIAL_CREDITS: f64 = 3.0;
 const COST_MULTIPLIER: f64 = 1.3; // 30% margin on API costs
 
@@ -217,6 +218,10 @@ async fn main() {
         .route("/manifest.json", get(|| async {
             (StatusCode::OK, [("content-type","application/manifest+json")], MANIFEST)
         }))
+        .route("/demo-song.mp3", get(|| async {
+            (StatusCode::OK, [("content-type","audio/mpeg"),("cache-control","public, max-age=604800")], DEMO_SONG)
+        }))
+        .route("/demo", get(|_: Query<TokenQ>| async { Html(HTML) }))
         .route("/og.png", get(|| async {
             // SVG served as og image (Twitter/OGP accept SVG via content-type)
             let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">

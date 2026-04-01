@@ -2040,32 +2040,13 @@ async function showProjectPicker(){
       cS((proj||'Session '+(ss.length+1)),proj);
     };
   });
-  // New project
-  $('prj-new-label').textContent=isJa?'新規プロジェクト':'New Project';
-  $('prj-create-btn').textContent=isJa?'作成して開始':'Create & Start';
+  // New project (name + create)
+  $('prj-new-label').textContent=isJa?'空のプロジェクト':'Empty Project';
+  $('prj-create-btn').textContent=isJa?'作成':'Create';
   $('prj-name').value='';
-  // Project type pills
-  const PTYPES=[
-    {id:'general',ico:'🧠',label:isJa?'汎用':'General'},
-    {id:'webapp',ico:'🌐',label:'Web App'},
-    {id:'mobile',ico:'📱',label:'Mobile'},
-    {id:'api',ico:'⚡',label:'API'},
-    {id:'data',ico:'📊',label:'Data/ML'},
-    {id:'devops',ico:'⚙️',label:'DevOps'},
-  ];
-  let selectedType='general';
-  $('prj-types').innerHTML=PTYPES.map(p=>
-    `<button class="mp${p.id==='general'?' on':''}" data-pt="${p.id}" style="font-size:11px;padding:5px 10px">${p.ico} ${p.label}</button>`
-  ).join('');
-  $('prj-types').querySelectorAll('.mp').forEach(btn=>{
-    btn.onclick=()=>{
-      $('prj-types').querySelectorAll('.mp').forEach(b=>b.classList.remove('on'));
-      btn.classList.add('on');
-      selectedType=btn.dataset.pt;
-    };
-  });
-  window._selectedProjType=()=>selectedType;
-  // Template starters
+  $('prj-types').style.display='none'; // Hidden, use templates instead
+  window._selectedProjType=()=>'general';
+  // Template starters (replaces type pills)
   const TEMPLATES=[
     {id:'react-todo',ico:'✅',name:'Todo App',desc:'React + Vite'},
     {id:'nextjs-blog',ico:'📝',name:'Blog',desc:'Next.js'},
@@ -2326,6 +2307,215 @@ async function joinOrFork(action){
   }
 }
 
+// ── Music Demo (/demo) ──
+function startMusicDemo(){
+  // Hide everything, show demo overlay
+  document.querySelectorAll('#landing,#login,#app').forEach(e=>e.style.display='none');
+  const ov=document.createElement('div');
+  ov.id='demo-ov';
+  ov.innerHTML=`
+  <style>
+  #demo-ov{position:fixed;inset:0;background:#09090b;color:#f4f4f5;font-family:var(--f);display:flex;flex-direction:column;z-index:9999;overflow:hidden}
+  .demo-top{flex:1;display:flex;overflow:hidden;min-height:0}
+  .demo-chat{flex:1;display:flex;flex-direction:column;padding:16px;overflow-y:auto;gap:12px}
+  .demo-preview{flex:1;display:none;border-left:1px solid #27272a;background:#fff}
+  .demo-preview.on{display:flex}
+  .demo-preview iframe{flex:1;border:none}
+  .demo-lyrics{height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;border-top:1px solid #27272a;background:rgba(9,9,11,.95);backdrop-filter:blur(20px);flex-shrink:0}
+  .demo-lyric{font-size:clamp(14px,3vw,20px);font-weight:700;color:#a1a1aa;text-align:center;line-height:1.5;transition:color .3s,transform .3s}
+  .demo-lyric.active{color:#a78bfa;transform:scale(1.05)}
+  .demo-lyric.done{color:#52525b}
+  .demo-ctrl{display:flex;align-items:center;justify-content:center;gap:12px;padding:10px;border-top:1px solid #27272a;flex-shrink:0}
+  .demo-play{background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#000;border:none;border-radius:99px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer}
+  .demo-play:hover{opacity:.85}
+  .demo-time{font-size:11px;color:#71717a;font-family:var(--m)}
+  .demo-bar{flex:1;height:4px;background:#27272a;border-radius:99px;overflow:hidden;max-width:300px;cursor:pointer}
+  .demo-fill{height:100%;background:linear-gradient(90deg,#a78bfa,#60a5fa);width:0%;transition:width .3s linear}
+  .dm{max-width:min(600px,90%);animation:.2s ease both fi}
+  .dm.u{align-self:flex-end;background:linear-gradient(135deg,#a78bfa,#818cf8);color:#fff;padding:10px 16px;border-radius:16px 16px 4px 16px;font-size:13px}
+  .dm.a{align-self:flex-start;color:#f4f4f5;font-size:13px;line-height:1.7}
+  .dm.a code{background:#18181b;padding:1px 5px;border-radius:4px;font-family:var(--m);font-size:11px}
+  .dm.s{align-self:flex-start;font-size:10px;color:#52525b;display:flex;align-items:center;gap:4px}
+  .dm.t{align-self:flex-start;background:#18181b;border:1px solid #27272a;border-radius:8px;padding:6px 10px;font-size:11px;color:#a1a1aa;display:flex;gap:6px;align-items:center}
+  .dm.t .ok{color:#4ade80}
+  @media(max-width:640px){.demo-preview{display:none!important}.demo-chat{padding:10px}.demo-lyrics{height:80px}}
+  </style>
+  <div class="demo-top">
+    <div class="demo-chat" id="demo-chat"></div>
+    <div class="demo-preview" id="demo-pv"><iframe id="demo-iframe" sandbox="allow-scripts"></iframe></div>
+  </div>
+  <div class="demo-lyrics" id="demo-lyrics"></div>
+  <div class="demo-ctrl">
+    <button class="demo-play" id="demo-play-btn">▶ ${isJa?'再生':'Play'}</button>
+    <span class="demo-time" id="demo-time">0:00</span>
+    <div class="demo-bar" id="demo-bar"><div class="demo-fill" id="demo-fill"></div></div>
+    <span class="demo-time" id="demo-dur">3:25</span>
+    <a href="/" style="color:#a78bfa;font-size:12px;text-decoration:none;margin-left:8px">${isJa?'ChatWebを使う':'Use ChatWeb'}</a>
+  </div>`;
+  document.body.appendChild(ov);
+
+  const audio=new Audio('/demo-song.mp3');
+  const chat=$('demo-chat');
+  const lyricsEl=$('demo-lyrics');
+  let playing=false;
+
+  // Lyrics with timestamps (seconds)
+  const LYRICS=[
+    {t:0,l:''},
+    {t:2,l:'もう準備はできてるね 画面の前に座ろう'},
+    {t:7,l:'空白のチャット欄 さあ何を語ろう'},
+    {t:12,l:'カーソルが点滅 君の合図を待ってる'},
+    {t:17,l:'思考をコードに変える AIが隣で立ってる'},
+    {t:24,l:'まずは君のこと、AIに教えよう'},
+    {t:29,l:'ネットに君の軌跡やSNSがあるなら'},
+    {t:34,l:'チャットにこう打って'},
+    {t:37,l:'「私の名前を、ウェブで徹底的に検索して」'},
+    {t:45,l:'Claudeが君の過去、作品、呟きを拾い上げる'},
+    {t:51,l:'「あなたは、こんなクリエイターですね？」'},
+    {t:56,l:'画面に並ぶ、君自身の歴史とスタイル'},
+    {t:62,l:'君の強み、AIがしっかり見つけるから'},
+    {t:68,l:'言葉がコードに、ブラウザがセカイに'},
+    {t:73,l:'話すだけで形になる 想像を超えていけ'},
+    {t:79,l:'「作りたい」その衝動だけで 今日から君も Creator'},
+    {t:86,l:'何もない画面に 夢を描き出すナビゲーター'},
+    {t:92,l:'ChatWeb — 一緒に、君の場所を作ろう'},
+    {t:100,l:'君の輪郭が見えたら、次はこう指示しよう'},
+    {t:106,l:'「検索結果をもとに、私に一番似合うポートフォリオを作って」'},
+    {t:115,l:'index.html が息をして、君の色に染まる'},
+    {t:121,l:'右のプレビュー、ほら、もう君のサイトが動いてる'},
+    {t:128,l:'次は君の番、ワガママにオーダーして'},
+    {t:133,l:'「もっとカッコよく」「スマホで見やすく直して」'},
+    {t:139,l:'気になるとこは、全部AIに投げちゃえ'},
+    {t:144,l:'「直して」の一言で、瞬時に変わる軌跡'},
+    {t:150,l:'さあ、形になったら いよいよ世界へ'},
+    {t:156,l:'チャット欄に、最後の魔法を打ち込んで'},
+    {t:161,l:'「デプロイして」'},
+    {t:164,l:'🚀 deploy 30秒で開くゲート'},
+    {t:169,l:'セキュリティA+ 完璧なアップデート'},
+    {t:174,l:'URLが発行されたら、ミッション・コンプリート'},
+    {t:181,l:'画面に出たそのリンク、コピーして'},
+    {t:186,l:'さっそく友達やフォロワーにシェアしよう'},
+    {t:191,l:'「これ俺のサイト」 驚く顔が目に浮かぶ'},
+    {t:197,l:'最初の一行は 「作りたい」 だけでいい'},
+    {t:201,l:'あとは AI が、ずっと隣を走るから'},
+    {t:205,l:'難しくない 怖くない'},
+    {t:208,l:'今日から君も Creator'},
+    {t:212,l:'chatweb.ai'},
+  ];
+
+  // Chat events synced to music (simulated conversation)
+  const HAMADA_SITE=`<html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#f5f5f5}
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;background:linear-gradient(135deg,#1a1040,#09090b)}
+h1{font-size:3rem;font-weight:900;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
+.sub{font-size:1.1rem;color:#a1a1aa;margin-bottom:32px;max-width:500px;line-height:1.7}
+.links{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.links a{color:#a78bfa;border:1px solid #a78bfa;padding:8px 20px;border-radius:99px;text-decoration:none;font-size:.9rem;transition:all .15s}
+.links a:hover{background:#a78bfa;color:#000}
+.section{padding:60px 20px;max-width:700px;margin:0 auto}
+.section h2{font-size:1.5rem;font-weight:700;margin-bottom:16px;color:#a78bfa}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.card{background:#111;border:1px solid #222;border-radius:12px;padding:20px}
+.card h3{font-size:1rem;margin-bottom:6px}.card p{color:#888;font-size:.85rem;line-height:1.5}
+</style></head><body>
+<div class="hero"><h1>Yuki Hamada</h1><p class="sub">Creator / Developer / Explorer<br>テクノロジーと創造性の交差点で、未来を作る。</p>
+<div class="links"><a href="#">GitHub</a><a href="#">X (Twitter)</a><a href="#">Projects</a></div></div>
+<div class="section"><h2>Projects</h2><div class="grid">
+<div class="card"><h3>ChatWeb</h3><p>AIが動くブラウザ開発ターミナル</p></div>
+<div class="card"><h3>Elio</h3><p>P2P分散AIアシスタント</p></div>
+<div class="card"><h3>Koe</h3><p>群衆を楽器にするデバイス</p></div>
+<div class="card"><h3>JiuFlow</h3><p>柔術の技術を記録・分析</p></div>
+</div></div></body></html>`;
+
+  const EVENTS=[
+    {t:2,type:'sys',text:'ChatWeb — AI Development Terminal'},
+    {t:24,type:'user',text:'僕は濱田優貴。ネットで徹底的に検索して、どんな人物か調べて。'},
+    {t:26,type:'sys',text:'✦ Claude Sonnet'},
+    {t:27,type:'tool',name:'Bash',file:'web search "濱田優貴"',done:30},
+    {t:31,type:'tool',name:'Read',file:'search results (12 sources)',done:34},
+    {t:37,type:'text',text:'濱田優貴さんについて調査しました。\\n\\n**プロフィール:**\\n- Creator / Developer / Explorer\\n- ChatWeb、Elio、Koe Device、JiuFlowなど複数のプロダクトを開発\\n- Rust + Fly.io を中心とした技術スタック\\n- 柔術・音楽・旅行が好き\\n\\nあなたは**テクノロジーと創造性の交差点**で活動するクリエイターですね。'},
+    {t:100,type:'user',text:'検索結果をもとに、僕に一番似合うポートフォリオサイトを作って。ミニマルで、プロジェクトが映えるデザインで。'},
+    {t:103,type:'sys',text:'✦ Claude Sonnet'},
+    {t:104,type:'tool',name:'Write',file:'index.html',done:108},
+    {t:109,type:'tool',name:'Write',file:'style.css',done:112},
+    {t:113,type:'tool',name:'Bash',file:'live-server --port=3000',done:115},
+    {t:116,type:'preview'},
+    {t:118,type:'text',text:'ポートフォリオサイトを作成しました！\\n\\n- ヒーロー: グラデーション背景に名前とタグライン\\n- プロジェクトカード: ChatWeb, Elio, Koe, JiuFlow\\n- レスポンシブ対応\\n\\nプレビューで確認してください。修正があれば言ってください。'},
+    {t:128,type:'user',text:'もっとカッコよくして。フォントを大きく、余白をたっぷり。スマホでも見やすく直して。'},
+    {t:131,type:'tool',name:'Edit',file:'index.html (hero section)',done:134},
+    {t:135,type:'tool',name:'Edit',file:'style.css (responsive)',done:138},
+    {t:139,type:'text',text:'修正しました。フォント3rem→4rem、セクション間の余白を80pxに、モバイル時のパディングも増やしました。'},
+    {t:150,type:'user',text:'完璧。デプロイして。'},
+    {t:152,type:'sys',text:'✦ Claude Sonnet'},
+    {t:153,type:'tool',name:'Write',file:'Dockerfile',done:155},
+    {t:156,type:'tool',name:'Bash',file:'fly deploy --remote-only',done:163},
+    {t:164,type:'text',text:'🚀 デプロイ完了！\\n\\nhttps://yuki-hamada.fly.dev\\n\\nセキュリティヘッダーも設定済み。スコアA+です。'},
+    {t:181,type:'user',text:'共有リンクをコピーして。友達に見せたい。'},
+    {t:183,type:'text',text:'リンクをコピーしました！\\n\\n📋 https://yuki-hamada.fly.dev\\n\\n「これ俺のサイト」って送ってください 🎉'},
+  ];
+
+  // Render lyrics
+  function updateLyrics(time){
+    let idx=0;
+    for(let i=LYRICS.length-1;i>=0;i--){if(time>=LYRICS[i].t){idx=i;break}}
+    const show=LYRICS.slice(Math.max(0,idx-1),idx+2);
+    lyricsEl.innerHTML=show.map((ly,i)=>{
+      const cls=i===Math.min(1,idx)?'active':(i<Math.min(1,idx)?'done':'');
+      return`<div class="demo-lyric ${cls}">${ly.l}</div>`;
+    }).join('');
+  }
+
+  // Render chat events
+  let lastEventIdx=-1;
+  function updateChat(time){
+    for(let i=lastEventIdx+1;i<EVENTS.length;i++){
+      if(time<EVENTS[i].t)break;
+      const ev=EVENTS[i];lastEventIdx=i;
+      if(ev.type==='user')chat.insertAdjacentHTML('beforeend',`<div class="dm u">${ev.text}</div>`);
+      else if(ev.type==='sys')chat.insertAdjacentHTML('beforeend',`<div class="dm s">● ${ev.text}</div>`);
+      else if(ev.type==='tool'){
+        const id='dtool'+i;
+        chat.insertAdjacentHTML('beforeend',`<div class="dm t" id="${id}"><span>🔨</span><span>${ev.name}</span><span style="color:#52525b;font-size:10px">${ev.file}</span><span class="ok" style="display:none">✓</span><span style="color:#facc15">...</span></div>`);
+        if(ev.done){setTimeout(()=>{const el=document.getElementById(id);if(el){el.querySelector('.ok').style.display='';el.lastElementChild.style.display='none'}},((ev.done-ev.t)*1000))}
+      }
+      else if(ev.type==='text')chat.insertAdjacentHTML('beforeend',`<div class="dm a">${ev.text.replace(/\\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong style="color:#a78bfa">$1</strong>')}</div>`);
+      else if(ev.type==='preview'){
+        $('demo-pv').classList.add('on');
+        $('demo-iframe').srcdoc=HAMADA_SITE;
+      }
+      chat.scrollTop=chat.scrollHeight;
+    }
+  }
+
+  // Playback controls
+  $('demo-play-btn').onclick=()=>{
+    if(!playing){audio.play();playing=true;$('demo-play-btn').textContent='⏸';tick()}
+    else{audio.pause();playing=false;$('demo-play-btn').textContent='▶'}
+  };
+  $('demo-bar').onclick=e=>{
+    const rect=$('demo-bar').getBoundingClientRect();
+    const pct=(e.clientX-rect.left)/rect.width;
+    audio.currentTime=pct*audio.duration;
+    // Reset chat for seek-back
+    if(audio.currentTime<(EVENTS[lastEventIdx]?.t||0)){
+      chat.innerHTML='';lastEventIdx=-1;$('demo-pv').classList.remove('on');
+      updateChat(audio.currentTime);
+    }
+  };
+
+  function tick(){
+    if(!playing)return;
+    const t=audio.currentTime;
+    const d=audio.duration||205;
+    $('demo-fill').style.width=(t/d*100)+'%';
+    $('demo-time').textContent=Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
+    updateLyrics(t);
+    updateChat(t);
+    if(!audio.ended)requestAnimationFrame(tick);
+    else{playing=false;$('demo-play-btn').textContent='▶'}
+  }
+  audio.onended=()=>{playing=false;$('demo-play-btn').textContent='↻'};
+}
+
 // Boot
 if('serviceWorker' in navigator)navigator.serviceWorker.register('data:text/javascript,').catch(()=>{});
 // Apply i18n to static elements
@@ -2340,6 +2530,8 @@ document.head.appendChild(tutStyle);
 initLanding();
 
 (async()=>{
+  // Demo mode: /demo — music-synced product demo
+  if(location.pathname==='/demo'){startMusicDemo();return}
   // Shared view: /s/:id — show read-only conversation, no login needed
   if(await checkSharedView())return;
   // Save referral code from ?ref=CODE
