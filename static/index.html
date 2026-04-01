@@ -308,6 +308,20 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .s-plan-badge.power{background:rgba(251,191,36,.12);color:var(--yl);border-color:var(--yl)}
 .sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 
+/* Share */
+.share-btn{flex-shrink:0;width:28px;height:28px;border-radius:8px;background:transparent;border:1px solid var(--bd);color:var(--mu);font-size:13px;display:grid;place-items:center;cursor:pointer;transition:all .12s}
+.share-btn:hover{background:var(--s2);color:var(--tx);border-color:var(--s3)}
+.share-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ac);color:#000;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:400;animation:.2s ease both fi;box-shadow:0 4px 16px rgba(167,139,250,.4)}
+#shared-view{display:none;position:fixed;inset:0;background:var(--bg);z-index:320;overflow-y:auto}
+#shared-view.on{display:block}
+.sv{max-width:720px;margin:0 auto;padding:20px}
+.sv-hd{display:flex;align-items:center;gap:10px;padding:12px 0 20px;border-bottom:1px solid var(--bd);margin-bottom:20px}
+.sv-logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--ac),var(--bl));flex-shrink:0}
+.sv-title{font-size:16px;font-weight:700;flex:1}
+.sv-author{font-size:11px;color:var(--mu)}
+.sv-home{font-size:12px;color:var(--ac);text-decoration:none;border:1px solid var(--ac);border-radius:8px;padding:5px 14px}
+.sv-msgs{display:flex;flex-direction:column;gap:20px}
+
 /* ── LANDING PAGE ── */
 #landing{position:fixed;inset:0;background:var(--bg);z-index:310;overflow-y:auto;display:none}
 #landing.on{display:block}
@@ -436,6 +450,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="ms"><button class="mb on" id="mc">Chat</button><button class="mb" id="mt">Terminal</button></div>
 <button class="ib" id="fb">&#128193;</button>
 <div class="tr">
+<button class="share-btn" id="sharebtn" title="Share">&#8599;</button>
 <span class="cr" id="crd"></span>
 <span class="dt" id="dot"></span>
 <button class="ib fb-btn" id="fbbtn" title="Feedback">&#128172;</button>
@@ -454,15 +469,6 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div id="ct" class="view-chat">
 <div id="ob-wrap"></div>
 <div id="cv"></div><div id="tv"></div>
-<div class="aq" id="aq">
-<button class="qa" data-q="Run tests">Run tests</button>
-<button class="qa" data-q="git status && git diff --stat">Git status</button>
-<button class="qa" data-q="Review recent changes">Review</button>
-<button class="qa" data-q="Deploy to production">Deploy</button>
-<button class="qa" data-q="Create a PR">Create PR</button>
-<button class="qa" data-q="git add -A && git commit -m 'Update'">Commit</button>
-<button class="qa" data-q="Undo all changes using git checkout">Undo</button>
-</div>
 <div class="ib2">
 <div class="mdl-row">
 <button class="mp on" data-m="auto">Auto</button>
@@ -559,6 +565,16 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 
 <div id="pv"><div class="pvw"><div class="pvh"><span id="pp"></span><button id="pc">&times;</button></div><div class="pvb" id="pb"></div></div></div>
+
+<!-- Shared session view (public, no auth needed) -->
+<div id="shared-view"><div class="sv">
+<div class="sv-hd">
+  <div class="sv-logo"></div>
+  <div><div class="sv-title" id="sv-title"></div><div class="sv-author" id="sv-author"></div></div>
+  <a class="sv-home" href="/">ChatWebで始める</a>
+</div>
+<div class="sv-msgs" id="sv-msgs"></div>
+</div></div>
 
 <script>
 (()=>{
@@ -918,7 +934,6 @@ function setB(b){busy=b;$('mg').disabled=b;$('sd').style.display=b?'none':'grid'
 $('sd').onclick=()=>send();$('st').onclick=stop;
 $('mg').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send()}if(e.key==='Escape'&&busy)stop()};
 $('mg').oninput=function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'};
-document.querySelectorAll('.qa').forEach(b=>b.onclick=()=>send(b.dataset.q));
 
 // Feedback modal
 let fbCat='bug';
@@ -1202,6 +1217,48 @@ if(f.name.match(/\.(js|ts|py|rs|go|json|yaml|toml|md|txt|html|css)$/i))rd.readAs
 $('thm').onclick=()=>{const isL=document.documentElement.classList.toggle('light');localStorage.setItem('ct_theme',isL?'light':'dark');$('thm').textContent=isL?'☀':'☾'};
 if(localStorage.getItem('ct_theme')==='light')$('thm').textContent='☀';
 
+// ── Share ──
+$('sharebtn').onclick=async()=>{
+  if(!sid)return;
+  try{
+    const r=await fetch(`/api/sessions/${sid}/share`+tq(),{method:'POST'});
+    if(!r.ok){alert(isJa?'共有できませんでした':'Could not share');return}
+    const d=await r.json();
+    await navigator.clipboard.writeText(d.url).catch(()=>{});
+    // Toast
+    const t=document.createElement('div');t.className='share-toast';
+    t.textContent=isJa?'リンクをコピーしました！':'Link copied!';
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(),2500);
+  }catch(e){alert('Error: '+e.message)}
+};
+
+// Shared view: detect /s/:id URL
+async function checkSharedView(){
+  const m=location.pathname.match(/^\/s\/([a-zA-Z0-9-]+)/);
+  if(!m)return false;
+  const shareId=m[1];
+  try{
+    const r=await fetch('/api/share/'+shareId);
+    if(!r.ok)return false;
+    const d=await r.json();
+    $('sv-title').textContent=d.name||'Shared Session';
+    $('sv-author').textContent=(isJa?'作成者: ':'by ')+d.author;
+    const el=$('sv-msgs');el.innerHTML='';
+    (d.messages||[]).forEach(m=>{
+      if(m.role==='user'){
+        const txt=(m.content||'').replace(/\n\n\[Project env vars available:[^\]]*\]/g,'').trim();
+        el.insertAdjacentHTML('beforeend',`<div class="msg u"><div class="bb">${esc(txt)}</div></div>`);
+      }else if(m.role==='assistant'){
+        el.insertAdjacentHTML('beforeend',`<div class="msg a"><div class="bb">${md(m.content||'')}</div></div>`);
+      }
+    });
+    $('shared-view').classList.add('on');
+    $('landing').classList.remove('on');
+    return true;
+  }catch{return false}
+}
+
 // Boot
 if('serviceWorker' in navigator)navigator.serviceWorker.register('data:text/javascript,').catch(()=>{});
 // Apply i18n to static elements
@@ -1216,6 +1273,8 @@ document.head.appendChild(tutStyle);
 initLanding();
 
 (async()=>{
+  // Shared view: /s/:id — show read-only conversation, no login needed
+  if(await checkSharedView())return;
   // Google OAuth callback: token returned in URL fragment
   const hash=new URLSearchParams(location.hash.slice(1));
   const googleToken=hash.get('google_token');

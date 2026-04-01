@@ -56,6 +56,7 @@ fn init_db(path: &str) -> Connection {
     conn.execute("ALTER TABLE sessions ADD COLUMN claude_sid TEXT", []).ok();
     conn.execute("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'", []).ok();
     conn.execute("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT", []).ok();
+    conn.execute("ALTER TABLE sessions ADD COLUMN share_id TEXT", []).ok();
     conn
 }
 
@@ -197,6 +198,10 @@ async fn main() {
         // Feedback
         .route("/api/feedback", post(submit_feedback))
         .route("/api/feedback", get(list_feedback))
+        // Share
+        .route("/api/sessions/:id/share", post(create_share))
+        .route("/api/share/:share_id", get(get_shared))
+        .route("/s/:share_id", get(view_shared))
         // WebSocket
         .route("/ws", get(ws_handler))
         .with_state(state);
@@ -765,6 +770,68 @@ async fn list_feedback(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) 
         }))
     }).unwrap().filter_map(|r| r.ok()).collect();
     Json(rows).into_response()
+}
+
+// ── Share ──
+
+async fn create_share(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    // Check session belongs to user, and get existing share_id
+    let existing: Option<Option<String>> = db.query_row(
+        "SELECT share_id FROM sessions WHERE id=?1 AND user_id=?2",
+        rusqlite::params![id, uid], |r| r.get(0)
+    ).ok();
+    match existing {
+        None => return StatusCode::NOT_FOUND.into_response(),
+        Some(Some(sid)) if !sid.is_empty() => {
+            // Already shared
+            let url = format!("{}/s/{}", s.base_url, sid);
+            return Json(serde_json::json!({"share_id": sid, "url": url})).into_response();
+        }
+        _ => {}
+    }
+    // Generate share ID
+    let share_id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    db.execute("UPDATE sessions SET share_id=?1 WHERE id=?2 AND user_id=?3",
+        rusqlite::params![share_id, id, uid]).ok();
+    let url = format!("{}/s/{}", s.base_url, share_id);
+    Json(serde_json::json!({"share_id": share_id, "url": url})).into_response()
+}
+
+async fn get_shared(Path(share_id): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let session: Option<(String, String, String)> = db.query_row(
+        "SELECT s.id, s.name, u.email FROM sessions s JOIN users u ON s.user_id=u.id WHERE s.share_id=?1",
+        [&share_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+    ).ok();
+    let (sid, name, email) = match session {
+        Some(s) => s, None => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let mut st = db.prepare("SELECT role,content,timestamp FROM messages WHERE session_id=?1 ORDER BY id").unwrap();
+    let msgs: Vec<serde_json::Value> = st.query_map([&sid], |r| Ok(serde_json::json!({
+        "role":r.get::<_,String>(0)?,"content":r.get::<_,String>(1)?,"timestamp":r.get::<_,String>(2)?
+    }))).unwrap().filter_map(|r| r.ok()).collect();
+    Json(serde_json::json!({
+        "name": name,
+        "author": email.split('@').next().unwrap_or("user"),
+        "messages": msgs
+    })).into_response()
+}
+
+async fn view_shared(Path(share_id): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+    // Check share exists
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let exists: bool = db.query_row(
+        "SELECT 1 FROM sessions WHERE share_id=?1", [&share_id], |_| Ok(true)
+    ).unwrap_or(false);
+    if !exists {
+        return (StatusCode::NOT_FOUND, Html("<html><body style='background:#09090b;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100dvh'><div style='text-align:center'><h1>Not Found</h1><p style='color:#a1a1aa'>This shared session does not exist or has been removed.</p><a href='/' style='color:#a78bfa'>Go to ChatWeb</a></div></body></html>")).into_response();
+    }
+    // Serve the main HTML — the frontend JS will detect /s/:id and render shared view
+    Html(HTML).into_response()
 }
 
 // ── Admin Alert (Telegram notification) ──
