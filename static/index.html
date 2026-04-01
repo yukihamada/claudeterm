@@ -530,7 +530,14 @@ h.m.forEach(m=>{
 // Show thinking indicator when busy
 if(busy){el.insertAdjacentHTML('beforeend',
   `<div class="thinking"><div class="think-inner"><div class="think-dots"><span></span><span></span><span></span></div><span class="think-label">${L.think}</span></div></div>`)}
-el.scrollTop=el.scrollHeight}
+// Smooth scroll to bottom, with enhanced mobile support
+setTimeout(()=>{
+  el.scrollTo({top:el.scrollHeight,behavior:'smooth'});
+  // Additional mobile scroll fix - ensure viewport is positioned correctly
+  if(window.innerWidth<=768){
+    setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),50);
+  }
+},10)}
 
 function rT(){const h=gH(sid);const el=$('tv');el.innerHTML='';
 h.m.forEach(m=>{
@@ -539,7 +546,15 @@ h.m.forEach(m=>{
   else if(m.role==='tool')el.insertAdjacentHTML('beforeend',`<div class="tt${m.dg?' dg':''}">── ${esc(m.name)} ${esc(m.file||'')} ${m.dn?(m.er?'[ERR]':'[OK]'):'...'}</div>\n`);
   else if(m.role==='system')el.insertAdjacentHTML('beforeend',`<div class="ts2">${esc(m.text)}</div>\n`);
   else if(m.role==='summary')el.insertAdjacentHTML('beforeend',`<div class="tm">── ${m.raw||''}</div>\n`);
-});el.scrollTop=el.scrollHeight}
+});
+// Smooth scroll to bottom, with enhanced mobile support
+setTimeout(()=>{
+  el.scrollTo({top:el.scrollHeight,behavior:'smooth'});
+  // Additional mobile scroll fix - ensure viewport is positioned correctly
+  if(window.innerWidth<=768){
+    setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),50);
+  }
+},10)}
 function render(){rC();rT();if(window.Prism)requestAnimationFrame(()=>Prism.highlightAll())}
 
 $('mc').onclick=()=>{mode='chat';$('mc').classList.add('on');$('mt').classList.remove('on');$('ct').className='view-chat'};
@@ -628,6 +643,8 @@ async function sendImage(prompt){
 }
 function send(t){if(busy||!sid)return;t=(t||$('mg').value).trim();if(!t)return;
 $('mg').value='';$('mg').style.height='auto';
+// Auto-focus textarea after sending message
+setTimeout(()=>$('mg').focus(),100);
 if(t.startsWith('/image ')){const p=t.slice(7).trim();if(p){asid=sid;sendImage(p);}return;}
 gH(sid).m.push({role:'user',text:t});asid=sid;
 setB(true);render();
