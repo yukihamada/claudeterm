@@ -115,10 +115,40 @@ button{font-family:var(--f);cursor:pointer}
 .sy::before,.sy::after{content:'';flex:1;height:1px;background:var(--bd);max-width:60px}
 .su{padding:12px 16px;background:linear-gradient(135deg,rgba(15,23,42,.8),rgba(30,27,75,.8));border:1px solid rgba(99,102,241,.25);border-radius:14px;font-size:12px;max-width:min(680px,92%);backdrop-filter:blur(10px)}
 .su b{color:var(--bl)}.sr{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}.sn{font-weight:600;font-family:var(--m)}
-/* Tool cards */
+/* Tool cards with icons */
 .tl{margin:4px 0;padding:9px 14px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;font-size:12px;max-width:min(680px,92%);cursor:pointer;transition:all .12s}
 .tl:hover{background:var(--s3)}.tl.dg{border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.05)}
-.th{display:flex;align-items:center;gap:6px}.tn{font-weight:500;color:var(--mu);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tf{color:var(--dm);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.th{display:flex;align-items:center;gap:6px}
+.t-ico{font-size:13px;flex-shrink:0;width:18px;text-align:center}
+.tn{font-weight:500;color:var(--mu);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tf{color:var(--dm);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+
+/* Live Preview pane */
+#preview-pane{display:none;flex:1;border-left:1px solid var(--bd);flex-direction:column;min-width:0}
+#preview-pane.on{display:flex}
+.pv-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg);border-bottom:1px solid var(--bd);font-size:11px;color:var(--mu);flex-shrink:0}
+.pv-bar .pv-dot{width:6px;height:6px;border-radius:50%;background:var(--gn);box-shadow:0 0 4px var(--gn)}
+.pv-bar .pv-url{flex:1;font-family:var(--m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv-bar button{background:none;border:1px solid var(--bd);color:var(--mu);border-radius:6px;padding:2px 8px;font-size:10px;cursor:pointer}
+.pv-bar button:hover{background:var(--s2);color:var(--tx)}
+#preview-frame{flex:1;border:none;background:#fff;border-radius:0 0 0 0}
+@media(max-width:768px){#preview-pane.on{position:fixed;inset:0;z-index:100;border:none}
+.pv-bar{padding:10px 12px}}
+
+/* File editor */
+.fe-editor{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center}
+.fe-editor.on{display:flex}
+.fe-wrap{width:min(700px,95vw);height:min(500px,80vh);background:var(--s1);border:1px solid var(--bd);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;animation:.2s cubic-bezier(.16,1,.3,1) both fi}
+.fe-hd{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bd);font-size:12px;font-family:var(--m);color:var(--mu)}
+.fe-hd span{flex:1}
+.fe-ta{flex:1;background:var(--bg);color:var(--tx);font-family:var(--m);font-size:13px;padding:14px;border:none;outline:none;resize:none;line-height:1.6;tab-size:2}
+
+/* Template cards */
+.tmpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-top:6px}
+.tmpl-card{padding:10px;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .12s;text-align:center}
+.tmpl-card:hover{border-color:var(--ac);transform:translateY(-1px)}
+.tmpl-card .tmpl-ico{font-size:22px;margin-bottom:4px}
+.tmpl-card .tmpl-name{font-size:11px;font-weight:600}
+.tmpl-card .tmpl-desc{font-size:9px;color:var(--dm);margin-top:2px}
 .ts{flex-shrink:0;font-size:10px;padding:1px 6px;border-radius:10px}.ts.ok{color:var(--gn);background:rgba(74,222,128,.1)}.ts.er{color:var(--rd);background:rgba(248,113,113,.1)}.ts.rn{color:var(--yl);background:rgba(250,204,21,.1)}
 .tb{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);font-family:var(--m);font-size:11px;color:var(--mu);white-space:pre-wrap;max-height:260px;overflow-y:auto}
 .tl.open .tb{display:block}.da{color:var(--gn)}.dd{color:var(--rd);text-decoration:line-through;opacity:.6}
@@ -517,6 +547,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="hm-sep"></div>
 <button id="fb" class="hm-item"><span>📁</span><span id="hm-files"></span><span class="hm-key">⌘B</span></button>
 <button id="sharebtn" class="hm-item"><span>↗</span><span id="hm-share"></span><span class="hm-key">⌘⇧S</span></button>
+<button id="previewbtn" class="hm-item"><span>👁</span><span id="hm-preview"></span><span class="hm-key">⌘P</span></button>
 <button id="cronbtn" class="hm-item"><span>⏲</span><span id="hm-cron"></span></button>
 <button id="fbbtn" class="hm-item"><span>💬</span><span id="hm-fb"></span></button>
 <button id="thm" class="hm-item"><span id="thm-ico">☾</span><span id="hm-theme"></span><span class="hm-key">⌘D</span></button>
@@ -553,6 +584,28 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </div>
 </div>
 </div>
+<!-- Live Preview -->
+<div id="preview-pane">
+<div class="pv-bar">
+  <span class="pv-dot"></span>
+  <span class="pv-url" id="pv-url">Preview</span>
+  <button id="pv-refresh">↻</button>
+  <button id="pv-close-preview">✕</button>
+</div>
+<iframe id="preview-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+</div>
+</div>
+</div>
+
+<!-- File Editor -->
+<div class="fe-editor" id="file-editor">
+<div class="fe-wrap">
+<div class="fe-hd">
+  <span id="fe-path"></span>
+  <button class="bs bs-p" id="fe-save" style="padding:4px 14px;font-size:11px">Save</button>
+  <button class="pm-close" id="fe-close">&times;</button>
+</div>
+<textarea class="fe-ta" id="fe-content"></textarea>
 </div>
 </div>
 
@@ -705,6 +758,8 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
   <select id="prj-to"></select>
   <button id="prj-merge-btn"></button>
 </div>
+<div class="prj-section" id="prj-tmpl-label"></div>
+<div class="tmpl-grid" id="prj-templates"></div>
 <div class="prj-status" id="prj-status"></div>
 <button class="pm-close" id="prj-close">&times;</button>
 </div></div>
@@ -1033,7 +1088,8 @@ h.m.forEach(m=>{
     `<div class="msg a"><div class="bb">${m.html||''}${m.st?'<span class="cur"></span>':''}</div></div>`)}
   else if(m.role==='tool'){const d=document.createElement('div');d.className='tl'+(m.dg?' dg':'');
     const c=m.dn?(m.er?'er':'ok'):'rn',t=m.dn?(m.er?'error':'\u2713'):'...';
-    d.innerHTML=`<div class="th"><span class="tn">${esc(m.name)}</span><span class="tf">${esc(m.file||'')}</span><span class="ts ${c}">${t}</span></div><div class="tb">${m.dH||esc(m.dt||'')}</div>`;
+    const ico={'Read':'📖','Write':'✏️','Edit':'🔧','Bash':'⚡','Glob':'🔍','Grep':'🔎','Agent':'🤖'}[m.name]||'🔨';
+    d.innerHTML=`<div class="th"><span class="t-ico">${ico}</span><span class="tn">${esc(m.name)}</span><span class="tf">${esc(m.file||'')}</span><span class="ts ${c}">${t}</span></div><div class="tb">${m.dH||esc(m.dt||'')}</div>`;
     d.onclick=()=>d.classList.toggle('open');el.appendChild(d)}
   else if(m.role==='system')el.insertAdjacentHTML('beforeend',`<div class="sy">${esc(m.text)}</div>`)
   else if(m.role==='summary')el.insertAdjacentHTML('beforeend',`<div class="su"><b>${L.summary}</b><div class="sr">${m.html}</div></div>`)
@@ -1084,6 +1140,7 @@ $('hm-theme').textContent=isJa?'テーマ切替':'Toggle theme';
 $('hm-history').textContent=isJa?'履歴':'History';
 $('hm-settings').textContent=isJa?'設定':'Settings';
 $('hm-shortcuts').textContent=isJa?'ショートカット':'Shortcuts';
+$('hm-preview').textContent=isJa?'プレビュー':'Preview';
 
 // Shortcuts modal
 const isMac=navigator.platform?.includes('Mac');
@@ -1181,6 +1238,16 @@ if(ev.type==='error'){
   h.m.push({role:'assistant',html:md(errText),text:errText,st:false});
   setB(false);render();asid=null;return}
 if(ev.type==='system')return;
+if(ev.type==='session_renamed'){
+  const s=ss.find(x=>x.id===ev.session_id);
+  if(s){s.name=ev.name;tU()}return}
+if(ev.type==='preview'){
+  previewPort=ev.port;
+  // Auto-show preview pane
+  $('pv-url').textContent=`localhost:${ev.port}`;
+  $('preview-frame').src=`/preview/${user?.id||''}/?_t=${Date.now()}`;
+  $('preview-pane').classList.add('on');
+  return}
 
 // Detect platform billing error (Anthropic API credit exhausted)
 if(ev.type==='assistant'&&ev.error==='billing_error'){
@@ -1426,7 +1493,8 @@ const el=$('fl');el.innerHTML='';
 if(p){const u=document.createElement('div');u.className='fe dir';u.innerHTML='<span>..</span>';u.onclick=()=>lF(p.split('/').slice(0,-1).join('/'));el.appendChild(u)}
 fs.forEach(f=>{const d=document.createElement('div');d.className='fe'+(f.is_dir?' dir':'');
 d.innerHTML=`<span>${f.is_dir?'&#128193;':'&#128196;'}</span> <span>${esc(f.name)}</span>`;
-d.onclick=()=>{if(f.is_dir)lF(p?p+'/'+f.name:f.name);else pvF(p?p+'/'+f.name:f.name)};el.appendChild(d)})}
+const fp2=p?p+'/'+f.name:f.name;
+d.onclick=()=>{if(f.is_dir)lF(fp2);else openEditor(fp2)};el.appendChild(d)})}
 async function pvF(p){const r=await fetch(`/api/files/read${tq()}&path=${encodeURIComponent(p)}`);if(!r.ok)return;
 const d=await r.json();$('pp').textContent=p;$('pb').textContent=d.content;$('pv').classList.add('on')}
 $('pc').onclick=()=>$('pv').classList.remove('on');$('pv').onclick=e=>{if(e.target===$('pv'))$('pv').classList.remove('on')};
@@ -1464,6 +1532,8 @@ document.addEventListener('keydown',e=>{
   if(mod&&e.key===','){e.preventDefault();$('ubtn').click();return}
   // Cmd+D: theme toggle
   if(mod&&e.key==='d'&&!inInput){e.preventDefault();$('thm').click();return}
+  // Cmd+P: preview
+  if(mod&&e.key==='p'&&!inInput){e.preventDefault();$('previewbtn').click();return}
   // Cmd+Shift+S: share
   if(mod&&e.shiftKey&&e.key==='S'){e.preventDefault();$('sharebtn').click();return}
   // ?: shortcuts (when not in input)
@@ -1581,6 +1651,52 @@ if(f.name.match(/\.(js|ts|py|rs|go|json|yaml|toml|md|txt|html|css)$/i))rd.readAs
 $('thm').onclick=()=>{const isL=document.documentElement.classList.toggle('light');localStorage.setItem('ct_theme',isL?'light':'dark');$('thm-ico').textContent=isL?'☀':'☾';$('hd-menu').classList.remove('on')};
 if(localStorage.getItem('ct_theme')==='light')$('thm-ico').textContent='☀';
 
+// ── Live Preview ──
+let previewPort=null;
+$('previewbtn').onclick=()=>{
+  $('hd-menu').classList.remove('on');
+  const pane=$('preview-pane');
+  if(pane.classList.contains('on')){pane.classList.remove('on');return}
+  if(previewPort){
+    $('pv-url').textContent=`localhost:${previewPort}`;
+    $('preview-frame').src=`/preview/${user?.id||''}/?_t=${Date.now()}`;
+    pane.classList.add('on');
+  }else{
+    // Check if port is available
+    fetch('/api/preview/port'+tq()).then(r=>r.json()).then(d=>{
+      if(d.port){
+        previewPort=d.port;
+        $('pv-url').textContent=`localhost:${d.port}`;
+        $('preview-frame').src=`/preview/${user?.id||''}/?_t=${Date.now()}`;
+        pane.classList.add('on');
+      }else{
+        alert(isJa?'プレビューするにはdev serverを起動してください（例: npm run dev）':'Start a dev server first (e.g. npm run dev)');
+      }
+    });
+  }
+};
+$('pv-refresh').onclick=()=>{$('preview-frame').src=$('preview-frame').src};
+$('pv-close-preview').onclick=()=>$('preview-pane').classList.remove('on');
+
+// ── File Editor ──
+let editingPath='';
+function openEditor(path){
+  fetch(`/api/files/read${tq()}&path=${encodeURIComponent(path)}`).then(r=>r.json()).then(d=>{
+    editingPath=path;
+    $('fe-path').textContent=path;
+    $('fe-content').value=d.content||'';
+    $('file-editor').classList.add('on');
+    $('fe-content').focus();
+  });
+}
+$('fe-save').onclick=async()=>{
+  const r=await fetch('/api/files/write'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({path:editingPath,content:$('fe-content').value})});
+  if(r.ok){$('fe-save').textContent='✓';setTimeout(()=>$('fe-save').textContent='Save',1500)}
+};
+$('fe-close').onclick=()=>$('file-editor').classList.remove('on');
+$('file-editor').onclick=e=>{if(e.target===$('file-editor'))$('file-editor').classList.remove('on')};
+
 // ── Projects ──
 let projects=[];
 async function loadProjects(){
@@ -1637,6 +1753,31 @@ async function showProjectPicker(){
     };
   });
   window._selectedProjType=()=>selectedType;
+  // Template starters
+  const TEMPLATES=[
+    {id:'react-todo',ico:'✅',name:'Todo App',desc:'React + Vite'},
+    {id:'nextjs-blog',ico:'📝',name:'Blog',desc:'Next.js'},
+    {id:'api-rust',ico:'🦀',name:'API (Rust)',desc:'axum'},
+    {id:'api-node',ico:'🟢',name:'API (Node)',desc:'Express + TS'},
+    {id:'python-data',ico:'🐍',name:'Data/ML',desc:'Python + pandas'},
+    {id:'landing-page',ico:'🎨',name:'Landing Page',desc:'HTML/CSS'},
+  ];
+  $('prj-tmpl-label').textContent=isJa?'テンプレートから始める':'Start from Template';
+  $('prj-templates').innerHTML=TEMPLATES.map(t=>
+    `<div class="tmpl-card" data-tmpl="${t.id}">
+      <div class="tmpl-ico">${t.ico}</div>
+      <div class="tmpl-name">${t.name}</div>
+      <div class="tmpl-desc">${t.desc}</div>
+    </div>`).join('');
+  $('prj-templates').querySelectorAll('.tmpl-card').forEach(card=>{
+    card.onclick=async()=>{
+      const tmpl=card.dataset.tmpl;
+      const name=TEMPLATES.find(t=>t.id===tmpl)?.name.toLowerCase().replace(/\s+/g,'-')||'project';
+      const r=await fetch('/api/projects/from-template'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({name,template:tmpl})});
+      if(r.ok){const d=await r.json();$('proj-modal').classList.remove('on');cS(d.name,d.path)}
+    };
+  });
   // Merge selects
   $('prj-merge-label').textContent=isJa?'フォルダをマージ':'Merge Folders';
   const opts=projects.map(p=>`<option value="${esc(p.path)}">${esc(p.name)}</option>`).join('');

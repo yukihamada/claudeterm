@@ -103,6 +103,7 @@ struct AppState {
     base_url: String,
     limiter: Arc<billing::RateLimiter>,
     active_procs: Arc<StdMutex<HashMap<String, bool>>>,
+    preview_ports: Arc<StdMutex<HashMap<String, u16>>>, // uid -> port for live preview
 }
 
 #[derive(Deserialize)] struct TokenQ { token: Option<String> }
@@ -136,6 +137,29 @@ fn get_user(db: &Connection, token: &str) -> Option<(String, String, f64, Option
     ).ok()
 }
 
+/// Extract port number from text like "localhost:3000" or "port 5173"
+fn extract_port(text: &str) -> Option<u16> {
+    // Match patterns: localhost:NNNN, 127.0.0.1:NNNN, 0.0.0.0:NNNN, port NNNN
+    for pattern in &["localhost:", "127.0.0.1:", "0.0.0.0:"] {
+        if let Some(idx) = text.find(pattern) {
+            let after = &text[idx + pattern.len()..];
+            let num: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+            if let Ok(p) = num.parse::<u16>() {
+                if (1024..=65535).contains(&p) { return Some(p); }
+            }
+        }
+    }
+    // "port NNNN" pattern
+    if let Some(idx) = text.to_lowercase().find("port ") {
+        let after = &text[idx + 5..];
+        let num: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(p) = num.parse::<u16>() {
+            if (1024..=65535).contains(&p) { return Some(p); }
+        }
+    }
+    None
+}
+
 fn auth_user(state: &AppState, token: Option<&str>) -> Option<(String, String, f64, Option<String>, String)> {
     let t = token?;
     if t.is_empty() { return None; }
@@ -167,9 +191,10 @@ async fn main() {
         stripe_key: std::env::var("STRIPE_SECRET_KEY").ok(),
         resend_key: std::env::var("RESEND_API_KEY").ok(),
         gemini_key: std::env::var("GEMINI_API_KEY").ok(),
-        base_url: std::env::var("BASE_URL").unwrap_or_else(|_| "https://term.pasha.run".to_string()),
+        base_url: std::env::var("BASE_URL").unwrap_or_else(|_| "https://chatweb.ai".to_string()),
         limiter: Arc::new(billing::RateLimiter::new(20)),
         active_procs: Arc::new(StdMutex::new(HashMap::new())),
+        preview_ports: Arc::new(StdMutex::new(HashMap::new())),
     });
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let app = Router::new()
@@ -241,6 +266,14 @@ async fn main() {
         .route("/api/referral/code", get(get_referral_code))
         .route("/api/referral/apply", post(apply_referral))
         .route("/r/:code", get(referral_redirect))
+        // Preview
+        .route("/api/preview/port", get(get_preview_port).post(set_preview_port))
+        // Files write
+        .route("/api/files/write", post(write_file))
+        // GitHub
+        .route("/api/github/status", get(github_status))
+        // Templates
+        .route("/api/projects/from-template", post(create_from_template))
         // Cron
         .route("/api/cron", get(list_crons).post(create_cron))
         .route("/api/cron/:id", delete(delete_cron))
@@ -879,6 +912,201 @@ async fn merge_projects(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
+}
+
+// ── Live Preview ──
+
+async fn set_preview_port(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<serde_json::Value>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let port = body.get("port").and_then(|p| p.as_u64()).unwrap_or(0) as u16;
+    if port > 0 {
+        s.preview_ports.lock().unwrap_or_else(|e| e.into_inner()).insert(uid, port);
+    }
+    Json(serde_json::json!({"ok": true})).into_response()
+}
+
+async fn get_preview_port(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let port = s.preview_ports.lock().unwrap_or_else(|e| e.into_inner()).get(&uid).copied();
+    Json(serde_json::json!({"port": port})).into_response()
+}
+
+// ── File Editor ──
+
+#[derive(Deserialize)] struct WriteFileReq { path: String, content: String }
+
+async fn write_file(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<WriteFileReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let base = PathBuf::from(format!("{}/users/{}", s.workdir, uid));
+    let file = base.join(&body.path);
+    if !file.starts_with(&base) { return StatusCode::FORBIDDEN.into_response(); }
+    if let Some(parent) = file.parent() { std::fs::create_dir_all(parent).ok(); }
+    match std::fs::write(&file, &body.content) {
+        Ok(_) => Json(serde_json::json!({"ok": true})).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+// ── GitHub Status ──
+
+async fn github_status(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let user_dir = format!("{}/users/{}", s.workdir, uid);
+    // Check if gh CLI is authenticated
+    let output = Command::new("gh")
+        .arg("auth").arg("status")
+        .current_dir(&user_dir)
+        .output().await;
+    let authenticated = output.map(|o| o.status.success()).unwrap_or(false);
+    Json(serde_json::json!({"authenticated": authenticated})).into_response()
+}
+
+// ── Template Starters ──
+
+#[derive(Deserialize)] struct TemplateReq { name: String, template: String }
+
+async fn create_from_template(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<TemplateReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let name: String = body.name.chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+        .take(50).collect();
+    if name.is_empty() { return (StatusCode::BAD_REQUEST, "Invalid name").into_response(); }
+    let dir = PathBuf::from(format!("{}/users/{}/{}", s.workdir, uid, name));
+    std::fs::create_dir_all(&dir).ok();
+
+    match body.template.as_str() {
+        "nextjs-blog" => {
+            std::fs::write(dir.join("package.json"), r#"{"name":"my-blog","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start"},"dependencies":{"next":"14","react":"18","react-dom":"18"},"devDependencies":{"typescript":"5","@types/react":"18","@types/node":"20"}}"#).ok();
+            std::fs::create_dir_all(dir.join("app")).ok();
+            std::fs::write(dir.join("app/layout.tsx"), "export default function RootLayout({children}:{children:React.ReactNode}){return(<html><body>{children}</body></html>)}\nexport const metadata={title:'My Blog'}").ok();
+            std::fs::write(dir.join("app/page.tsx"), "export default function Home(){return(<main style={{maxWidth:640,margin:'0 auto',padding:20}}><h1>My Blog</h1><p>Welcome to my blog built with Next.js.</p><article><h2>First Post</h2><p>Hello, world!</p></article></main>)}").ok();
+            std::fs::write(dir.join("tsconfig.json"), r#"{"compilerOptions":{"target":"es5","lib":["dom","es2017"],"jsx":"preserve","module":"esnext","moduleResolution":"bundler","strict":true,"esModuleInterop":true,"skipLibCheck":true}}"#).ok();
+        }
+        "react-todo" => {
+            std::fs::write(dir.join("package.json"), r#"{"name":"todo-app","private":true,"scripts":{"dev":"vite","build":"vite build"},"dependencies":{"react":"18","react-dom":"18"},"devDependencies":{"vite":"5","@vitejs/plugin-react":"4","typescript":"5","@types/react":"18","@types/react-dom":"18"}}"#).ok();
+            std::fs::create_dir_all(dir.join("src")).ok();
+            std::fs::write(dir.join("index.html"), r#"<!DOCTYPE html><html><head><title>Todo App</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>"#).ok();
+            std::fs::write(dir.join("src/main.tsx"), "import React from'react';import ReactDOM from'react-dom/client';import App from'./App';ReactDOM.createRoot(document.getElementById('root')!).render(<App/>)").ok();
+            std::fs::write(dir.join("src/App.tsx"), r#"import{useState}from'react';export default function App(){const[todos,setTodos]=useState<{text:string,done:boolean}[]>([]);const[input,setInput]=useState('');const add=()=>{if(!input.trim())return;setTodos([...todos,{text:input,done:false}]);setInput('')};return(<div style={{maxWidth:480,margin:'40px auto',fontFamily:'system-ui'}}><h1>Todo App</h1><div style={{display:'flex',gap:8}}><input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Add a todo..." style={{flex:1,padding:8,borderRadius:8,border:'1px solid #ddd'}}/><button onClick={add} style={{padding:'8px 16px',borderRadius:8,background:'#7c3aed',color:'#fff',border:'none'}}>Add</button></div><ul style={{listStyle:'none',padding:0,marginTop:16}}>{todos.map((t,i)=>(<li key={i} onClick={()=>{const n=[...todos];n[i].done=!n[i].done;setTodos(n)}} style={{padding:12,margin:'4px 0',background:'#f9fafb',borderRadius:8,cursor:'pointer',textDecoration:t.done?'line-through':'none',opacity:t.done?.5:1}}>{t.text}</li>))}</ul></div>)}"#).ok();
+            std::fs::write(dir.join("vite.config.ts"), "import{defineConfig}from'vite';import react from'@vitejs/plugin-react';export default defineConfig({plugins:[react()]})").ok();
+        }
+        "api-rust" => {
+            std::fs::write(dir.join("Cargo.toml"), &format!("[package]\nname=\"{}\"\nversion=\"0.1.0\"\nedition=\"2021\"\n\n[dependencies]\naxum=\"0.7\"\ntokio={{version=\"1\",features=[\"full\"]}}\nserde={{version=\"1\",features=[\"derive\"]}}\nserde_json=\"1\"\n", name)).ok();
+            std::fs::create_dir_all(dir.join("src")).ok();
+            std::fs::write(dir.join("src/main.rs"), r#"use axum::{routing::get,Router,Json};
+use serde_json::{json,Value};
+
+#[tokio::main]
+async fn main(){
+    let app=Router::new()
+        .route("/",get(||async{Json(json!({"message":"Hello, World!"}))}))
+        .route("/health",get(||async{"ok"}));
+    let addr="0.0.0.0:3000";
+    println!("Listening on {addr}");
+    let listener=tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener,app).await.unwrap();
+}"#).ok();
+            std::fs::write(dir.join("Dockerfile"), &format!("FROM rust:1.88-slim AS build\nWORKDIR /app\nCOPY . .\nRUN cargo build --release\n\nFROM debian:bookworm-slim\nCOPY --from=build /app/target/release/{} /usr/local/bin/app\nEXPOSE 3000\nCMD [\"app\"]\n", name)).ok();
+        }
+        "api-node" => {
+            std::fs::write(dir.join("package.json"), r#"{"name":"api-server","private":true,"scripts":{"dev":"tsx watch src/index.ts","build":"tsc","start":"node dist/index.js"},"dependencies":{"express":"4"},"devDependencies":{"tsx":"4","typescript":"5","@types/express":"4","@types/node":"20"}}"#).ok();
+            std::fs::create_dir_all(dir.join("src")).ok();
+            std::fs::write(dir.join("src/index.ts"), "import express from'express';\nconst app=express();\napp.use(express.json());\napp.get('/',(_,res)=>res.json({message:'Hello, World!'}));\napp.get('/health',(_,res)=>res.send('ok'));\nconst port=process.env.PORT||3000;\napp.listen(port,()=>console.log(`Listening on port ${port}`));\n").ok();
+            std::fs::write(dir.join("tsconfig.json"), r#"{"compilerOptions":{"target":"es2020","module":"commonjs","outDir":"dist","strict":true,"esModuleInterop":true},"include":["src"]}"#).ok();
+        }
+        "python-data" => {
+            std::fs::write(dir.join("requirements.txt"), "pandas>=2.0\nnumpy>=1.24\nmatplotlib>=3.7\nscikit-learn>=1.3\njupyter>=1.0\n").ok();
+            std::fs::write(dir.join("main.py"), r#"import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Generate sample data
+np.random.seed(42)
+df = pd.DataFrame({
+    'x': np.random.randn(100),
+    'y': np.random.randn(100),
+    'category': np.random.choice(['A', 'B', 'C'], 100)
+})
+
+print(f"Dataset: {len(df)} rows, {len(df.columns)} columns")
+print(df.describe())
+
+# Create visualization
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+df.groupby('category')['x'].mean().plot(kind='bar', ax=axes[0], title='Mean X by Category')
+axes[1].scatter(df['x'], df['y'], c=df['category'].astype('category').cat.codes, alpha=0.6)
+axes[1].set_title('X vs Y')
+plt.tight_layout()
+plt.savefig('output.png', dpi=150)
+print("Chart saved to output.png")
+"#).ok();
+            std::fs::write(dir.join(".gitignore"), "*.pyc\n__pycache__/\n.venv/\n*.egg-info/\ndata/\n*.csv\n").ok();
+        }
+        "landing-page" => {
+            std::fs::write(dir.join("index.html"), r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Landing Page</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;color:#111;background:#fff}
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;background:linear-gradient(135deg,#667eea,#764ba2)}
+.hero h1{font-size:clamp(2rem,5vw,4rem);color:#fff;font-weight:800;letter-spacing:-.04em;margin-bottom:16px}
+.hero p{font-size:1.2rem;color:rgba(255,255,255,.8);max-width:600px;line-height:1.6;margin-bottom:32px}
+.btn{display:inline-block;padding:14px 32px;background:#fff;color:#764ba2;font-size:1rem;font-weight:700;border-radius:99px;text-decoration:none;transition:transform .15s}
+.btn:hover{transform:translateY(-2px)}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;max-width:900px;margin:80px auto;padding:0 20px}
+.feature{padding:24px;border-radius:16px;background:#f9fafb;border:1px solid #e5e7eb}
+.feature h3{font-size:1.1rem;margin-bottom:8px}.feature p{color:#6b7280;line-height:1.6}
+footer{text-align:center;padding:40px;color:#9ca3af;font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="hero">
+  <h1>Your Product Name</h1>
+  <p>A brief, compelling description of what your product does and why people should care.</p>
+  <a href="#" class="btn">Get Started</a>
+</div>
+<div class="features">
+  <div class="feature"><h3>Feature One</h3><p>Explain the first key benefit of your product.</p></div>
+  <div class="feature"><h3>Feature Two</h3><p>Explain the second key benefit of your product.</p></div>
+  <div class="feature"><h3>Feature Three</h3><p>Explain the third key benefit of your product.</p></div>
+</div>
+<footer>&copy; 2026 Your Company. All rights reserved.</footer>
+</body>
+</html>"##).ok();
+        }
+        _ => {
+            return (StatusCode::BAD_REQUEST, "Unknown template").into_response();
+        }
+    }
+
+    // Write CLAUDE.md with appropriate type
+    let ptype = match body.template.as_str() {
+        "nextjs-blog"|"react-todo"|"landing-page" => "webapp",
+        "api-rust"|"api-node" => "api",
+        "python-data" => "data",
+        _ => "general",
+    };
+    // Reuse the CLAUDE.md generation
+    let base_rules = format!("# {name}\n\n## Critical Rules (MUST follow)\n- **NEVER say \"done\" without evidence**: Always show diffs, test output, or logs as proof\n- **NEVER guess at fixes**: Read error messages, grep the codebase, trace the stack — then fix\n- **NEVER commit secrets**: API keys, tokens, credentials → `.env` only, never in code or logs\n\n## Workflow\n1. Explore → 2. Plan → 3. Implement → 4. Verify → 5. Report\n\n");
+    std::fs::write(dir.join("CLAUDE.md"), format!("{}## Template: {}\n", base_rules, body.template)).ok();
+
+    Json(serde_json::json!({"name": name, "path": name, "template": body.template})).into_response()
 }
 
 // ── Billing ──
@@ -1585,10 +1813,34 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 };
                 if !owned { continue; }
 
-                // Save user message
-                { let db=state.db.lock().unwrap_or_else(|e| e.into_inner()); let now=chrono::Utc::now().to_rfc3339();
-                  db.execute("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?1,'user',?2,?3)",
-                    rusqlite::params![cm.session,cm.text,now]).ok(); }
+                // Save user message + auto-rename session
+                let auto_rename_msg = {
+                    let db=state.db.lock().unwrap_or_else(|e| e.into_inner());
+                    let now=chrono::Utc::now().to_rfc3339();
+                    db.execute("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?1,'user',?2,?3)",
+                        rusqlite::params![cm.session,cm.text,now]).ok();
+                    // Auto-name: if session is still "Session N", rename from first message
+                    let cur_name: Option<String> = db.query_row(
+                        "SELECT name FROM sessions WHERE id=?1", [&cm.session], |r| r.get(0)).ok();
+                    if let Some(ref n) = cur_name {
+                        if n.starts_with("Session ") || n == "New session" {
+                            let auto_name: String = cm.text.chars()
+                                .filter(|c| !c.is_control())
+                                .take(40).collect::<String>().trim().to_string();
+                            if !auto_name.is_empty() {
+                                db.execute("UPDATE sessions SET name=?1 WHERE id=?2",
+                                    rusqlite::params![auto_name, cm.session]).ok();
+                                Some((auto_name, cm.session.clone()))
+                            } else { None }
+                        } else { None }
+                    } else { None }
+                };
+                // Send rename event outside of lock
+                if let Some((name, sess_id)) = auto_rename_msg {
+                    let _ = ws.send(Message::Text(serde_json::json!({
+                        "type":"session_renamed","name":name,"session_id":sess_id
+                    }).to_string().into())).await;
+                }
 
                 // Each user gets their own isolated sandbox
                 let user_sandbox = format!("{}/users/{}", state.workdir, uid);
@@ -1803,6 +2055,16 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                                             if let Some(c) = v.get("total_cost_usd").and_then(|c|c.as_f64()) {
                                                 cost_this_turn = c;
                                             }
+                                        }
+                                    }
+                                    // Detect dev server port from output
+                                    if line.contains("localhost:") || line.contains("127.0.0.1:") || line.contains("0.0.0.0:") {
+                                        if let Some(port) = extract_port(&line) {
+                                            state.preview_ports.lock().unwrap_or_else(|e| e.into_inner())
+                                                .insert(uid.clone(), port);
+                                            let _ = ws.send(Message::Text(serde_json::json!({
+                                                "type":"preview","port":port
+                                            }).to_string().into())).await;
                                         }
                                     }
                                     if ws.send(Message::Text(line.into())).await.is_err() {
