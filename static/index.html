@@ -271,7 +271,6 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <option value="haiku">⚡ Haiku (fast)</option>
 <option value="sonnet">✦ Sonnet</option>
 <option value="opus">◆ Max effort</option>
-<option value="gemini">✦ Gemini 2.5 Pro</option>
 </select>
 <button class="cb cb-m" id="mi">&#127908;</button>
 <textarea class="inp" id="mg" rows="1" placeholder="Message Claude... (Cmd+K)"></textarea>
@@ -533,7 +532,7 @@ if(ev.type==='assistant'&&ev.error==='billing_error'){
 }
 
 if(ev.type==='model_info'){
-  const mn=ev.model?.includes('haiku')?'⚡ Haiku':ev.model?.includes('opus')?'◆ Max':ev.model?.includes('gemini')?'✦ Gemini 2.5 Pro':'✦ Sonnet';
+  const mn=ev.model?.includes('haiku')?'⚡ Haiku':ev.model?.includes('opus')?'◆ Max':'✦ Sonnet';
   const ef={'low':'light','medium':'','high':'deep'}[ev.effort]||ev.effort;
   h.m.push({role:'system',text:ef?`${mn} · ${ef}`:mn});render();return}
 if(ev.type==='assistant'&&ev.message){const ct=ev.message.content;if(!ct||!Array.isArray(ct))return;
