@@ -7,6 +7,17 @@ primary_region = "nrt"
 [env]
   PORT = "3000"
   WORKDIR = "/data/workspaces"
+  # Scaling: set these secrets for R2 cloud storage (fly secrets set ...)
+  # R2_ENDPOINT = "https://<account>.r2.cloudflarestorage.com"
+  # R2_BUCKET = "claudeterm-files"
+  # R2_ACCESS_KEY_ID = "..."
+  # R2_SECRET_ACCESS_KEY = "..."
+  # When R2 is set, /data volume is used as local cache only
+  # and multiple VMs can serve requests with shared file state.
+  #
+  # For DB scaling: migrate to Turso (libsql)
+  # DB_URL = "libsql://claudeterm-xxx.turso.io"
+  # DB_AUTH_TOKEN = "..."
 
 [http_service]
   internal_port = 3000

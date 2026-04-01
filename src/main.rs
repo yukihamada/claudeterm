@@ -10,6 +10,7 @@ mod billing;
 mod router;
 mod gemini;
 mod imagen;
+mod storage;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::{Arc, Mutex as StdMutex}};
@@ -82,13 +83,13 @@ struct AppState {
     command: String,
     workdir: String,
     db: Db,
+    storage: storage::Storage,
     admin_token: Option<String>,
     stripe_key: Option<String>,
     resend_key: Option<String>,
     gemini_key: Option<String>,
     base_url: String,
     limiter: Arc<billing::RateLimiter>,
-    // Per-user active process flag: uid -> bool (true = running)
     active_procs: Arc<StdMutex<HashMap<String, bool>>>,
 }
 
@@ -145,10 +146,12 @@ async fn main() {
         .unwrap_or_else(|| workdir.clone());
     let db_path = std::env::var("DB_PATH")
         .unwrap_or_else(|_| format!("{}/claudeterm.db", data_dir));
+    let store = storage::Storage::from_env(&workdir);
     let state = Arc::new(AppState {
         admin_token: std::env::var("AUTH_TOKEN").ok(),
         command: std::env::var("CLAUDE_COMMAND").unwrap_or_else(|_| "claude".to_string()),
-        workdir, db: Arc::new(StdMutex::new(init_db(&db_path))),
+        storage: store,
+        workdir: workdir.clone(), db: Arc::new(StdMutex::new(init_db(&db_path))),
         stripe_key: std::env::var("STRIPE_SECRET_KEY").ok(),
         resend_key: std::env::var("RESEND_API_KEY").ok(),
         gemini_key: std::env::var("GEMINI_API_KEY").ok(),
@@ -1326,6 +1329,9 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 // Each user gets their own isolated sandbox
                 let user_sandbox = format!("{}/users/{}", state.workdir, uid);
                 std::fs::create_dir_all(&user_sandbox).ok();
+                let project_name = cm.project.as_deref().unwrap_or("");
+                // R2: pull latest files before Claude runs
+                state.storage.pull(&uid, project_name).await;
                 let workdir = if let Some(ref p) = cm.project {
                     let w = format!("{}/{}", user_sandbox, p);
                     if std::path::Path::new(&w).is_dir() { w } else { user_sandbox.clone() }
@@ -1578,6 +1584,9 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                     db.execute("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?1,'assistant',?2,?3)",
                         rusqlite::params![sid_clone,assistant_text,now]).ok();
                 }
+
+                // R2: push modified files after Claude finishes
+                state.storage.push(&uid, project_name).await;
 
                 // Send done + updated credits
                 let ev = if stopped {"stopped"} else {"done"};
