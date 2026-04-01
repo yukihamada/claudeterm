@@ -672,14 +672,166 @@ async fn create_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     let dir = PathBuf::from(format!("{}/users/{}/{}", s.workdir, uid, name));
     std::fs::create_dir_all(&dir).ok();
 
-    let claude_md = match body.project_type.as_deref().unwrap_or("general") {
-        "webapp" => format!("# {name}\n\n## Project Type: Web Application\n\n- Framework: React / Next.js / Vue (choose one)\n- Deploy target: Fly.io or Cloudflare Pages\n- Use TypeScript\n- Mobile-responsive design\n\n## Commands\n- `npm run dev` — development server\n- `npm run build` — production build\n- `fly deploy` — deploy to Fly.io\n"),
-        "mobile" => format!("# {name}\n\n## Project Type: Mobile App\n\n- iOS: Swift + SwiftUI\n- Android: Kotlin + Jetpack Compose\n- Use MVVM architecture\n- Support dark mode\n\n## Commands\n- `xcodebuild` — iOS build\n- `fastlane ios beta` — TestFlight upload\n"),
-        "api" => format!("# {name}\n\n## Project Type: API Server\n\n- Language: Rust (axum) or Node.js (Express)\n- Database: SQLite or PostgreSQL\n- RESTful API with JSON\n- Include OpenAPI spec\n\n## Commands\n- `cargo run` — start server\n- `cargo test` — run tests\n"),
-        "data" => format!("# {name}\n\n## Project Type: Data / ML\n\n- Language: Python\n- Libraries: pandas, numpy, matplotlib, scikit-learn\n- Use Jupyter notebooks for exploration\n- Clean, documented code\n\n## Commands\n- `python main.py` — run pipeline\n- `pytest` — run tests\n"),
-        "devops" => format!("# {name}\n\n## Project Type: DevOps / Infrastructure\n\n- Docker + docker-compose\n- CI/CD: GitHub Actions\n- Infrastructure: Terraform / Fly.io / AWS\n- Monitoring: health checks + alerts\n\n## Commands\n- `docker compose up` — local environment\n- `fly deploy` — deploy\n- `terraform apply` — infrastructure\n"),
-        _ => format!("# {name}\n\nProject workspace.\n"),
+    // Base template (shared across all project types)
+    let base_rules = format!(r#"# {name}
+
+## Critical Rules (MUST follow)
+- **NEVER say "done" without evidence**: Always show diffs, test output, or logs as proof
+- **NEVER guess at fixes**: Read error messages, grep the codebase, trace the stack — then fix
+- **NEVER commit secrets**: API keys, tokens, credentials → `.env` only, never in code or logs
+- **Ask before acting** on: migrations, schema changes, external API cost increases, destructive operations
+
+## Workflow
+1. **Explore** — Read relevant code. `grep`/`glob` before asking questions
+2. **Plan** — Write approach in `tasks/todo.md` for 3+ step tasks
+3. **Implement** — Small, focused changes following existing patterns
+4. **Verify** — Run tests/build, confirm behavior
+5. **Report** — Show what changed with evidence
+
+## Learning Loop
+- Read `tasks/lessons.md` at session start
+- After mistakes or corrections, append lessons immediately
+
+"#);
+
+    let project_section = match body.project_type.as_deref().unwrap_or("general") {
+        "webapp" => format!(r#"## Project: Web Application
+
+### Stack
+- Framework: React / Next.js / Vue — choose based on requirements
+- Language: TypeScript (strict mode)
+- Styling: Tailwind CSS or CSS Modules
+- Deploy: Fly.io (`fly deploy`) or Cloudflare Pages
+
+### Conventions
+- Mobile-first responsive design
+- Semantic HTML, WCAG accessibility basics
+- Environment variables in `.env` (never hardcode URLs or keys)
+- `package.json` scripts: `dev`, `build`, `test`, `lint`
+
+### Commands
+- `npm run dev` — development server (hot reload)
+- `npm run build` — production build
+- `npm test` — run tests
+- `fly deploy --remote-only` — deploy to production
+
+### Quality Checklist
+- [ ] Responsive on mobile (375px+)
+- [ ] No console errors
+- [ ] Core Web Vitals pass (LCP < 2.5s)
+- [ ] SEO meta tags + OGP set
+"#),
+        "mobile" => format!(r#"## Project: Mobile App
+
+### Stack
+- iOS: Swift 5.9+ / SwiftUI (primary)
+- Android: Kotlin / Jetpack Compose (if needed)
+- Architecture: MVVM + Repository pattern
+- Data: SwiftData or CoreData
+
+### Conventions
+- Support dark mode and Dynamic Type
+- Follow Apple HIG / Material Design guidelines
+- Localize all user-facing strings
+- Handle offline/error states gracefully
+
+### Commands
+- `xcodebuild -scheme {name} -destination 'platform=iOS Simulator,name=iPhone 16'` — build
+- `xcodebuild test` — run tests
+- `fastlane ios beta` — upload to TestFlight
+
+### Quality Checklist
+- [ ] Works on iPhone SE (smallest screen)
+- [ ] Dark mode tested
+- [ ] No memory leaks (Instruments)
+- [ ] App Store screenshots ready
+"#),
+        "api" => format!(r#"## Project: API Server
+
+### Stack
+- Language: Rust (axum) or Node.js (Express/Fastify)
+- Database: SQLite (rusqlite) or PostgreSQL
+- API style: RESTful JSON
+- Auth: JWT or API key
+
+### Conventions
+- All endpoints documented with examples
+- Input validation at boundaries
+- Structured error responses: `{{"error": "message", "code": "..."}}`
+- Database migrations tracked in `migrations/`
+- Rate limiting on public endpoints
+
+### Commands
+- `cargo run` / `npm start` — start server
+- `cargo test` / `npm test` — run tests
+- `curl localhost:3000/health` — health check
+- `fly deploy --remote-only` — deploy
+
+### Quality Checklist
+- [ ] All endpoints tested with curl examples
+- [ ] Error cases handled (400, 401, 404, 500)
+- [ ] No N+1 queries
+- [ ] CORS configured correctly
+"#),
+        "data" => format!(r#"## Project: Data / ML
+
+### Stack
+- Language: Python 3.11+
+- Libraries: pandas, numpy, matplotlib, scikit-learn
+- Notebooks: Jupyter for exploration
+- Pipeline: scripts in `src/`, data in `data/`
+
+### Conventions
+- Reproducible: pin dependencies in `requirements.txt`
+- Data files > 10MB → `.gitignore`, document download source
+- Clean separation: data loading → processing → analysis → output
+- Document assumptions and data sources
+
+### Commands
+- `python -m venv .venv && source .venv/bin/activate` — setup
+- `pip install -r requirements.txt` — install deps
+- `python main.py` — run pipeline
+- `pytest` — run tests
+- `jupyter notebook` — interactive exploration
+
+### Quality Checklist
+- [ ] Results reproducible from clean checkout
+- [ ] Charts have titles, labels, legends
+- [ ] No hardcoded file paths (use relative or env vars)
+"#),
+        "devops" => format!(r#"## Project: DevOps / Infrastructure
+
+### Stack
+- Containers: Docker + docker-compose
+- CI/CD: GitHub Actions
+- Cloud: Fly.io / AWS / GCP
+- IaC: Terraform or Fly.toml
+- Monitoring: health check endpoints + uptime alerts
+
+### Conventions
+- Dockerfile: multi-stage build, non-root user
+- All secrets in environment variables (never in files)
+- Infrastructure as code — no manual console changes
+- Blue-green or rolling deployments
+- Health check endpoint at `/health`
+
+### Commands
+- `docker compose up -d` — local environment
+- `docker compose logs -f` — watch logs
+- `fly deploy --remote-only` — deploy to Fly.io
+- `terraform plan` → `terraform apply` — infra changes
+- `gh workflow run deploy.yml` — trigger CI/CD
+
+### Quality Checklist
+- [ ] `docker compose up` works from clean clone
+- [ ] Health check returns 200
+- [ ] Secrets not in docker image or logs
+- [ ] Rollback procedure documented
+"#),
+        _ => "## Project: General\n\nFlexible workspace. Ask Claude anything.\n".to_string(),
     };
+
+    let claude_md = format!("{}{}", base_rules, project_section);
     std::fs::write(dir.join("CLAUDE.md"), &claude_md).ok();
     Json(serde_json::json!({"name": name, "path": name})).into_response()
 }

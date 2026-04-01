@@ -1108,6 +1108,11 @@ const SHORTCUTS=[
     {keys:[MOD,'Shift','S'],label:isJa?'共有':'Share session'},
     {keys:[MOD,'D'],label:isJa?'テーマ切替':'Toggle theme'},
   ]},
+  {section:isJa?'タブ':'Tabs',items:[
+    {keys:[MOD,'←'],label:isJa?'前のタブ':'Previous tab'},
+    {keys:[MOD,'→'],label:isJa?'次のタブ':'Next tab'},
+    {keys:[MOD,'W'],label:isJa?'タブを閉じる':'Close tab'},
+  ]},
 ];
 function showShortcuts(){
   $('hd-menu').classList.remove('on');
@@ -1467,6 +1472,21 @@ document.addEventListener('keydown',e=>{
   if(!inInput&&!mod){
     if(e.key==='1'){$('mc').click();return}
     if(e.key==='2'){$('mt').click();return}
+  }
+  // Cmd+Left/Right: previous/next tab
+  if(mod&&(e.key==='ArrowLeft'||e.key==='ArrowRight')&&!inInput){
+    e.preventDefault();
+    const idx=ss.findIndex(s=>s.id===sid);
+    if(idx<0)return;
+    const next=e.key==='ArrowRight'?Math.min(idx+1,ss.length-1):Math.max(idx-1,0);
+    if(next!==idx){sid=ss[next].id;tU();lH(sid)}
+    return;
+  }
+  // Cmd+W: close current tab
+  if(mod&&e.key==='w'&&!inInput){
+    e.preventDefault();
+    if(sid&&ss.length>1)dS(sid);
+    return;
   }
   // Esc: close modals
   if(e.key==='Escape'){
