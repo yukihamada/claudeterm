@@ -188,23 +188,25 @@ fn verify_stripe_signature(payload: &str, sig_header: &str, secret: &str) -> boo
     }
     if timestamp.is_empty() || signature.is_empty() { return false; }
 
-    // Compute expected: HMAC-SHA256(secret, "timestamp.payload")
-    use std::io::Write;
-    let signed_payload = format!("{}.{}", timestamp, payload);
-
-    // Simple HMAC-SHA256 using ring-like approach
-    // For now, use a timing-safe comparison of the raw signature presence
-    // Full HMAC requires hmac crate — we validate structure + timestamp freshness
+    // Reject old timestamps (5 min tolerance)
     let ts: i64 = timestamp.parse().unwrap_or(0);
     let now = chrono::Utc::now().timestamp();
-    // Reject if timestamp is more than 5 minutes old
     if (now - ts).abs() > 300 {
         tracing::warn!("Stripe webhook: timestamp too old ({} seconds)", now - ts);
         return false;
     }
-    // Signature present + timestamp fresh = accept
-    // TODO: add hmac crate for proper HMAC-SHA256 verification
-    !signature.is_empty()
+
+    // Compute HMAC-SHA256
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    let signed_payload = format!("{}.{}", timestamp, payload);
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+        .expect("HMAC key");
+    mac.update(signed_payload.as_bytes());
+
+    // Compare with provided signature
+    let expected = hex::encode(mac.finalize().into_bytes());
+    expected == signature
 }
 
 /// Extract port number from text like "localhost:3000" or "port 5173"
@@ -328,6 +330,18 @@ async fn main() {
             (StatusCode::OK, [("content-type","audio/mpeg"),("cache-control","public, max-age=604800")], DEMO_SONG)
         }))
         .route("/demo", get(|_: Query<TokenQ>| async { Html(HTML) }))
+        .route("/sitemap.xml", get(|| async {
+            (StatusCode::OK, [("content-type","application/xml"),("cache-control","public, max-age=86400")],
+r#"<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://chatweb.ai/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://chatweb.ai/demo</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+</urlset>"#)
+        }))
+        .route("/robots.txt", get(|| async {
+            (StatusCode::OK, [("content-type","text/plain"),("cache-control","public, max-age=86400")],
+"User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /ws\nDisallow: /app/\nSitemap: https://chatweb.ai/sitemap.xml")
+        }))
         .route("/og.png", get(|| async {
             // SVG served as og image (Twitter/OGP accept SVG via content-type)
             let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
@@ -2410,7 +2424,13 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 let mut child = match cmd.spawn() {
                     Ok(c)=>c, Err(e)=>{
                         tracing::error!("claude spawn failed uid={uid} err={e}");
-                        let _ = ws.send(Message::Text(serde_json::json!({"type":"error","text":format!("Failed to start Claude: {e}")}).to_string().into())).await;
+                        let err_msg = match e.kind() {
+                            std::io::ErrorKind::NotFound => "Claude CLI is not available on this server.",
+                            std::io::ErrorKind::PermissionDenied => "Permission denied. Please try again.",
+                            _ => "Server is busy. Please try again in a moment.",
+                        };
+                        let _ = ws.send(Message::Text(serde_json::json!({"type":"error","text":err_msg}).to_string().into())).await;
+                        state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
                         continue;
                     }
                 };
