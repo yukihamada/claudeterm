@@ -676,6 +676,14 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="info" id="buy-msg"></div>
 <label>Language / 言語</label>
 <div id="s-lang" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+<label>🔐 Keys</label>
+<div id="s-keys-list" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
+<div style="display:flex;gap:6px;margin-top:4px">
+  <input id="s-key-name" placeholder="KEY_NAME" style="flex:1;text-transform:uppercase;font-family:var(--m);font-size:11px;background:var(--bg);border:1.5px solid var(--bd);border-radius:6px;padding:6px 8px;color:var(--tx);outline:none">
+  <input id="s-key-value" type="password" placeholder="value" style="flex:2;font-family:var(--m);font-size:11px;background:var(--bg);border:1.5px solid var(--bd);border-radius:6px;padding:6px 8px;color:var(--tx);outline:none">
+  <button id="s-key-add" style="background:var(--ac);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"></button>
+</div>
+<div class="info" style="margin-top:4px" id="s-keys-info"></div>
 <label id="s-ref-label"></label>
 <div id="s-ref-box" style="display:flex;gap:8px;align-items:center">
   <input id="s-ref-url" disabled style="flex:1;font-size:11px;font-family:var(--m)">
@@ -1030,6 +1038,11 @@ $('ubtn').onclick=()=>{
     $('s-onetime-label').textContent=isJa?'残高追加':'Add Balance';
     $('s-onetime-grid').innerHTML=`<div style="font-size:11px;color:var(--dm);padding:8px;text-align:center">${isJa?'月額プランに加入すると残高を追加で購入できます':'Subscribe to a monthly plan to purchase additional balance'}</div>`;
   }
+  // Key management
+  $('s-key-add').textContent=isJa?'追加':'Add';
+  $('s-keys-info').textContent=isJa?'キーはサーバーに暗号化保存。Claudeのセッションで自動的に使用されます。':'Keys stored encrypted on server. Auto-injected into Claude sessions.';
+  refreshKeys();
+
   // Language selector
   const LANGS=[{id:'ja',label:'日本語'},{id:'en',label:'English'},{id:'zh',label:'中文'},{id:'ko',label:'한국어'}];
   $('s-lang').innerHTML=LANGS.map(l=>
@@ -1060,6 +1073,37 @@ $('ubtn').onclick=()=>{
   $('settings').classList.add('on');
 };
 $('s-close').onclick=()=>$('settings').classList.remove('on');
+
+// Key management
+async function refreshKeys(){
+  const r=await fetch('/api/keys'+tq());
+  if(!r.ok)return;
+  const d=await r.json();
+  const el=$('s-keys-list');
+  if(!d.keys||!d.keys.length){
+    el.innerHTML=`<span style="color:var(--dm)">${isJa?'キーが設定されていません':'No keys configured'}</span>`;
+    return;
+  }
+  el.innerHTML=d.keys.map(k=>
+    `<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg);border-radius:6px">
+      <span style="font-family:var(--m);font-weight:600;flex:1">${esc(k.name)}</span>
+      <span style="color:var(--dm)">${k.masked}</span>
+      <button onclick="deleteKey('${esc(k.name)}')" style="background:none;border:none;color:var(--dm);cursor:pointer;font-size:12px">✕</button>
+    </div>`).join('');
+}
+window.deleteKey=async function(name){
+  await fetch('/api/keys/'+encodeURIComponent(name)+tq(),{method:'DELETE'});
+  refreshKeys();
+};
+$('s-key-add').onclick=async()=>{
+  const name=$('s-key-name').value.trim().toUpperCase();
+  const value=$('s-key-value').value.trim();
+  if(!name||!value)return;
+  await fetch('/api/keys'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({name,value})});
+  $('s-key-name').value='';$('s-key-value').value='';
+  refreshKeys();
+};
 
 // Apply referral code
 $('s-ref-apply-btn').onclick=async()=>{

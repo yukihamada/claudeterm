@@ -175,6 +175,57 @@ fn extract_port(text: &str) -> Option<u16> {
     None
 }
 
+/// Load user keys: tries KAGI Vault first, falls back to local .env
+async fn load_user_keys(state: &AppState, uid: &str) -> Vec<(String, String)> {
+    let mut keys = Vec::new();
+
+    // 1. Try local .env (legacy / fallback)
+    let env_path = format!("{}/users/{}/.env", state.workdir, uid);
+    if let Ok(content) = std::fs::read_to_string(&env_path) {
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') { continue; }
+            if let Some((k, v)) = line.split_once('=') {
+                keys.push((k.trim().to_string(), v.trim().to_string()));
+            }
+        }
+    }
+
+    // 2. Try KAGI Vault (overwrites .env keys with same name)
+    let vault_url = std::env::var("KAGI_VAULT_URL")
+        .unwrap_or_else(|_| "https://kagi-server.fly.dev".to_string());
+    let vault_token_path = format!("{}/users/{}/.vault_token", state.workdir, uid);
+    if let Ok(token) = std::fs::read_to_string(&vault_token_path) {
+        let token = token.trim();
+        if !token.is_empty() {
+            let client = reqwest::Client::new();
+            if let Ok(resp) = client.post(format!("{}/api/v1/vault/list", vault_url))
+                .json(&serde_json::json!({"session_token": token}))
+                .send().await
+            {
+                if let Ok(body) = resp.json::<serde_json::Value>().await {
+                    if let Some(items) = body.get("items").and_then(|i| i.as_array()) {
+                        for item in items {
+                            if let (Some(name), Some(val)) = (
+                                item.get("key_name").and_then(|n| n.as_str()),
+                                item.get("encrypted_value").and_then(|v| v.as_str()),
+                            ) {
+                                // Note: In production, encrypted_value would need client-side
+                                // decryption. For now, if the value is stored as plaintext via
+                                // the ChatWeb settings UI (which encrypts on client), we use it.
+                                // The real E2E flow: browser decrypts → passes to server → env var
+                                keys.push((name.to_string(), val.to_string()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    keys
+}
+
 fn auth_user(state: &AppState, token: Option<&str>) -> Option<(String, String, f64, Option<String>, String)> {
     let t = token?;
     if t.is_empty() { return None; }
@@ -286,6 +337,9 @@ async fn main() {
         .route("/api/referral/code", get(get_referral_code))
         .route("/api/referral/apply", post(apply_referral))
         .route("/r/:code", get(referral_redirect))
+        // Keys (vault)
+        .route("/api/keys", get(list_keys).post(save_key))
+        .route("/api/keys/:name", delete(delete_key))
         // Preview
         .route("/api/preview/port", get(get_preview_port).post(set_preview_port))
         // Files write
@@ -739,6 +793,7 @@ async fn create_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
 - **NEVER say "done" without evidence**: Always show diffs, test output, or logs as proof
 - **NEVER guess at fixes**: Read error messages, grep the codebase, trace the stack — then fix
 - **NEVER commit secrets**: API keys, tokens, credentials → `.env` only, never in code or logs
+- **NEVER expose secrets**: Do not run `printenv`, `env`, `echo $KEY`, `cat .env` or similar commands that would display secret values. Use keys silently via environment variables.
 - **Ask before acting** on: migrations, schema changes, external API cost increases, destructive operations
 
 ## Workflow
@@ -1058,6 +1113,76 @@ async fn serve_user_app_index(
     State(s): State<Arc<AppState>>,
 ) -> Response {
     serve_user_app(Path((uid, project, String::new())), State(s)).await
+}
+
+// ── Key Management ──
+
+async fn list_keys(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let env_path = format!("{}/users/{}/.env", s.workdir, uid);
+    let mut keys = Vec::new();
+    if let Ok(content) = std::fs::read_to_string(&env_path) {
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') { continue; }
+            if let Some((k, _)) = line.split_once('=') {
+                keys.push(serde_json::json!({"name": k.trim(), "masked": "••••••••"}));
+            }
+        }
+    }
+    Json(serde_json::json!({"keys": keys})).into_response()
+}
+
+#[derive(Deserialize)] struct SaveKeyReq { name: String, value: String }
+
+async fn save_key(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<SaveKeyReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    // Validate key name (only uppercase letters, digits, underscore)
+    let name: String = body.name.chars()
+        .filter(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_')
+        .collect();
+    if name.is_empty() || body.value.is_empty() {
+        return (StatusCode::BAD_REQUEST, "Invalid key").into_response();
+    }
+    // Read existing .env, update or append
+    let env_path = format!("{}/users/{}/.env", s.workdir, uid);
+    std::fs::create_dir_all(format!("{}/users/{}", s.workdir, uid)).ok();
+    let mut lines: Vec<String> = std::fs::read_to_string(&env_path)
+        .unwrap_or_default().lines().map(|l| l.to_string()).collect();
+    let mut found = false;
+    for line in &mut lines {
+        if line.starts_with(&format!("{}=", name)) {
+            *line = format!("{}={}", name, body.value);
+            found = true;
+            break;
+        }
+    }
+    if !found { lines.push(format!("{}={}", name, body.value)); }
+    std::fs::write(&env_path, lines.join("\n") + "\n").ok();
+    // Set restrictive permissions
+    #[cfg(unix)]
+    { use std::os::unix::fs::PermissionsExt;
+      std::fs::set_permissions(&env_path, std::fs::Permissions::from_mode(0o600)).ok(); }
+    Json(serde_json::json!({"ok": true})).into_response()
+}
+
+async fn delete_key(Path(name): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let env_path = format!("{}/users/{}/.env", s.workdir, uid);
+    if let Ok(content) = std::fs::read_to_string(&env_path) {
+        let filtered: Vec<&str> = content.lines()
+            .filter(|l| !l.starts_with(&format!("{}=", name)))
+            .collect();
+        std::fs::write(&env_path, filtered.join("\n") + "\n").ok();
+    }
+    StatusCode::NO_CONTENT.into_response()
 }
 
 // ── Community Gallery ──
@@ -1677,17 +1802,9 @@ async fn cron_scheduler(state: Arc<AppState>) {
                     .stdin(std::process::Stdio::null())
                     .env("TERM", "dumb").env("NO_COLOR", "1")
                     .env("CI", "1").env("DISABLE_AUTOUPDATE", "1");
-                // Load user's .env for cron jobs too
-                let env_path = format!("{}/users/{}/.env", state.workdir, uid);
-                if let Ok(env_content) = std::fs::read_to_string(&env_path) {
-                    for line in env_content.lines() {
-                        let line = line.trim();
-                        if line.is_empty() || line.starts_with('#') { continue; }
-                        if let Some((k, v)) = line.split_once('=') {
-                            cmd.env(k.trim(), v.trim());
-                        }
-                    }
-                }
+                // Load user keys for cron
+                let vault_keys = load_user_keys(&state, &uid).await;
+                for (k, v) in &vault_keys { cmd.env(k, v); }
 
                 let result = match cmd.output().await {
                     Ok(output) => {
@@ -2154,16 +2271,10 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                     .arg("--model").arg(model)
                     .arg(&cm.text);
                 if let Some(ref sid) = claude_sid { cmd.arg("--resume").arg(sid); }
-                // Load user's .env if it exists
-                let env_path = format!("{}/users/{}/.env", state.workdir, uid);
-                if let Ok(env_content) = std::fs::read_to_string(&env_path) {
-                    for line in env_content.lines() {
-                        let line = line.trim();
-                        if line.is_empty() || line.starts_with('#') { continue; }
-                        if let Some((k, v)) = line.split_once('=') {
-                            cmd.env(k.trim(), v.trim());
-                        }
-                    }
+                // Load user keys from KAGI Vault (encrypted store) or .env fallback
+                let vault_keys = load_user_keys(&state, &uid).await;
+                for (k, v) in &vault_keys {
+                    cmd.env(k, v);
                 }
                 cmd.current_dir(&workdir)
                     .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
