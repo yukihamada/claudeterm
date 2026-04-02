@@ -152,6 +152,31 @@ fn get_user(db: &Connection, token: &str) -> Option<(String, String, f64, Option
     ).ok()
 }
 
+/// Redact secret values from Claude CLI output before sending to client
+fn redact_secrets(line: &str, keys: &[(String, String)]) -> String {
+    let mut output = line.to_string();
+    for (_, val) in keys {
+        if val.len() >= 8 && output.contains(val.as_str()) {
+            let mask = format!("{}••••••••", &val[..4.min(val.len())]);
+            output = output.replace(val.as_str(), &mask);
+        }
+    }
+    // Also redact common secret patterns
+    // sk-ant-*, ghp_*, fm2_*, fo1_*, AKIA*
+    for prefix in &["sk-ant-", "ghp_", "fm2_", "fo1_", "AKIA"] {
+        if let Some(idx) = output.find(prefix) {
+            let end = output[idx..].find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '\n')
+                .map(|i| idx + i).unwrap_or(output.len());
+            if end - idx > 8 {
+                let visible = &output[idx..idx + prefix.len() + 4.min(end - idx - prefix.len())];
+                let replacement = format!("{}••••••••", visible);
+                output.replace_range(idx..end, &replacement);
+            }
+        }
+    }
+    output
+}
+
 /// Verify Stripe webhook signature (HMAC-SHA256)
 fn verify_stripe_signature(payload: &str, sig_header: &str, secret: &str) -> bool {
     // Parse sig header: t=timestamp,v1=signature
@@ -577,6 +602,12 @@ async fn verify_otp(State(s): State<Arc<AppState>>, Json(body): Json<serde_json:
         None => return (StatusCode::BAD_REQUEST, "Missing code").into_response(),
     };
 
+    // Rate limit OTP verification (max 5 per email per 10 minutes)
+    if !s.limiter.check(&format!("otp:{}", email)) {
+        return (StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({"error":"Too many attempts. Please wait."}))).into_response();
+    }
+
     // Validate OTP from DB
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
@@ -776,10 +807,15 @@ async fn read_file(Query(q): Query<FileQ>, State(s): State<Arc<AppState>>) -> Re
     };
     let base = PathBuf::from(format!("{}/users/{}", s.workdir, uid));
     let rel = q.path.unwrap_or_default();
-    // Block access to sensitive files
     if is_sensitive_file(&rel) { return StatusCode::FORBIDDEN.into_response(); }
     let file = base.join(&rel);
     if !file.starts_with(&base) { return StatusCode::FORBIDDEN.into_response(); }
+    // Resolve symlinks and verify still within base
+    if let Ok(resolved) = file.canonicalize() {
+        if let Ok(base_resolved) = base.canonicalize() {
+            if !resolved.starts_with(&base_resolved) { return StatusCode::FORBIDDEN.into_response(); }
+        }
+    }
     match std::fs::read_to_string(&file) {
         Ok(c) => Json(serde_json::json!({"content":if c.len()>50000{&c[..50000]}else{&c},"path":rel})).into_response(),
         Err(_) => StatusCode::NOT_FOUND.into_response(),
@@ -1270,14 +1306,12 @@ async fn gallery(State(s): State<Arc<AppState>>) -> Response {
         "SELECT id,author,project,title,description,tags,likes,created_at,user_id FROM gallery ORDER BY created_at DESC LIMIT 50"
     ).unwrap();
     let items: Vec<serde_json::Value> = st.query_map([], |r| {
-        let uid: String = r.get(8)?;
-        let project: String = r.get(2)?;
+        let gallery_id: String = r.get(0)?;
         Ok(serde_json::json!({
-            "id": r.get::<_,String>(0)?, "author": r.get::<_,String>(1)?,
-            "project": project, "title": r.get::<_,String>(3)?,
+            "id": gallery_id, "author": r.get::<_,String>(1)?,
+            "title": r.get::<_,String>(3)?,
             "description": r.get::<_,String>(4)?, "tags": r.get::<_,String>(5)?,
             "likes": r.get::<_,i64>(6)?, "created_at": r.get::<_,String>(7)?,
-            "url": format!("/app/{}/{}/", uid, project),
         }))
     }).unwrap().filter_map(|r| r.ok()).collect();
     Json(items).into_response()
@@ -1319,6 +1353,10 @@ async fn write_file(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     let file = base.join(&body.path);
     if !file.starts_with(&base) { return StatusCode::FORBIDDEN.into_response(); }
     if let Some(parent) = file.parent() { std::fs::create_dir_all(parent).ok(); }
+    // Check resolved path after parent creation
+    if let (Ok(resolved), Ok(base_r)) = (file.parent().unwrap_or(&file).canonicalize(), base.canonicalize()) {
+        if !resolved.starts_with(&base_r) { return StatusCode::FORBIDDEN.into_response(); }
+    }
     match std::fs::write(&file, &body.content) {
         Ok(_) => Json(serde_json::json!({"ok": true})).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
@@ -2009,12 +2047,20 @@ async fn fork_shared(Path(share_id): Path<String>, Query(q): Query<TokenQ>, Stat
             fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) {
                 if let Ok(rd) = std::fs::read_dir(src) {
                     for e in rd.flatten() {
+                        let name = e.file_name().to_string_lossy().to_string();
+                        // Skip sensitive/hidden files and dirs
+                        if name.starts_with('.') || name == "node_modules" || name == "target" { continue; }
                         let s = e.path();
-                        let d = dst.join(e.file_name());
+                        let d = dst.join(&name);
                         if s.is_dir() {
                             std::fs::create_dir_all(&d).ok();
                             copy_recursive(&s, &d);
                         } else if !d.exists() {
+                            // Skip sensitive file types
+                            let lower = name.to_lowercase();
+                            if lower.ends_with(".pem") || lower.ends_with(".key") || lower.ends_with(".p8")
+                                || lower.ends_with(".p12") || lower.contains("secret") || lower.contains("credential")
+                                || lower == "id_rsa" || lower == "id_ed25519" { continue; }
                             std::fs::copy(&s, &d).ok();
                         }
                     }
@@ -2460,7 +2506,9 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                                             }).to_string().into())).await;
                                         }
                                     }
-                                    if ws.send(Message::Text(line.into())).await.is_err() {
+                                    // Redact known secret patterns from output
+                                    let safe_line = redact_secrets(&line, &vault_keys);
+                                    if ws.send(Message::Text(safe_line.into())).await.is_err() {
                                         let _ = child.kill().await;
                                         state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
                                         stopped=true; break;
