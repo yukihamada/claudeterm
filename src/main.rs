@@ -102,6 +102,16 @@ fn init_db(path: &str) -> Connection {
             FOREIGN KEY(user_id) REFERENCES users(id)
         );
     ").ok();
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS usage_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            session_id TEXT,
+            model TEXT,
+            cost_usd REAL,
+            created_at TEXT
+        );
+    ").ok();
     conn
 }
 
@@ -420,6 +430,8 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
         // Community
         .route("/api/community/publish", post(publish_project))
         .route("/api/community/gallery", get(gallery))
+        // Usage
+        .route("/api/usage", get(get_usage))
         // Cron
         .route("/api/cron", get(list_crons).post(create_cron))
         .route("/api/cron/:id", delete(delete_cron))
@@ -1312,6 +1324,30 @@ async fn publish_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>
             body.description.as_deref().unwrap_or(""), body.tags.as_deref().unwrap_or(""), now]
     ).ok();
     Json(serde_json::json!({"id": id, "ok": true})).into_response()
+}
+
+async fn get_usage(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let total: f64 = db.query_row(
+        "SELECT COALESCE(SUM(cost_usd),0) FROM usage_log WHERE user_id=?1", [&uid], |r| r.get(0)
+    ).unwrap_or(0.0);
+    let month_start = chrono::Utc::now().format("%Y-%m-01").to_string();
+    let month_total: f64 = db.query_row(
+        "SELECT COALESCE(SUM(cost_usd),0) FROM usage_log WHERE user_id=?1 AND created_at>=?2",
+        rusqlite::params![uid, month_start], |r| r.get(0)
+    ).unwrap_or(0.0);
+    let mut stmt = db.prepare(
+        "SELECT created_at, model, cost_usd FROM usage_log WHERE user_id=?1 ORDER BY id DESC LIMIT 30"
+    ).unwrap();
+    let entries: Vec<serde_json::Value> = stmt.query_map([&uid], |r| {
+        Ok(serde_json::json!({
+            "date": r.get::<_,String>(0)?, "model": r.get::<_,String>(1)?, "cost": r.get::<_,f64>(2)?
+        }))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    Json(serde_json::json!({ "total": total, "month_total": month_total, "entries": entries })).into_response()
 }
 
 async fn gallery(State(s): State<Arc<AppState>>) -> Response {
@@ -2364,6 +2400,8 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                               db.execute("UPDATE users SET credits = credits - ?1 WHERE id = ?2",
                                 rusqlite::params![charge, uid]).ok();
                               let now = chrono::Utc::now().to_rfc3339();
+                              db.execute("INSERT INTO usage_log (user_id,session_id,model,cost_usd,created_at) VALUES (?1,?2,?3,?4,?5)",
+                                rusqlite::params![uid, cm.session, model, charge, now]).ok();
                               if !gr.text.is_empty() {
                                 db.execute("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?1,'assistant',?2,?3)",
                                     rusqlite::params![cm.session, gr.text, now]).ok();
@@ -2403,6 +2441,19 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 let vault_keys = load_user_keys(&state, &uid).await;
                 for (k, v) in &vault_keys {
                     cmd.env(k, v);
+                }
+                // Configure git credentials for GitHub push
+                // If user has GITHUB_TOKEN, set up credential helper so `git push` works
+                let has_gh_token = vault_keys.iter().any(|(k, v)| k == "GITHUB_TOKEN" && !v.is_empty());
+                if has_gh_token {
+                    let gh_token = vault_keys.iter().find(|(k, _)| k == "GITHUB_TOKEN").unwrap().1.clone();
+                    cmd.env("GH_TOKEN", &gh_token);
+                    // Write a tiny credential helper script path into the env
+                    // git will call GIT_ASKPASS with the prompt; we return the token as password
+                    let helper = format!("!f() {{ echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={}\"; }}; f", gh_token);
+                    cmd.env("GIT_CONFIG_COUNT", "1");
+                    cmd.env("GIT_CONFIG_KEY_0", "credential.https://github.com.helper");
+                    cmd.env("GIT_CONFIG_VALUE_0", &helper);
                 }
                 cmd.current_dir(&workdir)
                     .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
@@ -2563,6 +2614,8 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                     let db = db_ref.lock().unwrap_or_else(|e| e.into_inner());
                     db.execute("UPDATE users SET credits = credits - ?1 WHERE id = ?2",
                         rusqlite::params![charge, uid]).ok();
+                    db.execute("INSERT INTO usage_log (user_id,session_id,model,cost_usd,created_at) VALUES (?1,?2,?3,?4,?5)",
+                        rusqlite::params![uid, sid_clone, model, charge, chrono::Utc::now().to_rfc3339()]).ok();
                 }
 
                 // Save assistant response

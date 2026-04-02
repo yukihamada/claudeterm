@@ -510,6 +510,17 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 /* Shortcuts modal */
 #shortcuts-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
 #shortcuts-modal.on{display:flex}
+#usage-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#usage-modal.on{display:flex}
+.usage-stats{display:flex;gap:12px;margin-bottom:12px}
+.usage-stat{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;padding:12px;text-align:center}
+.usage-stat-label{font-size:10px;color:var(--dm);text-transform:uppercase;letter-spacing:.04em}
+.usage-stat-value{font-size:20px;font-weight:700;color:var(--ac);margin-top:4px}
+.usage-list{max-height:300px;overflow-y:auto;font-size:12px}
+.usage-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd)}
+.usage-row-date{color:var(--dm);font-family:var(--m);font-size:11px}
+.usage-row-model{color:var(--mu);flex:1;margin:0 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.usage-row-cost{color:var(--tx);font-weight:600;font-family:var(--m)}
 .sc-modal{width:min(400px,92vw);background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:4px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);position:relative;max-height:80vh;overflow-y:auto}
 .sc-modal h2{font-size:18px;font-weight:700;letter-spacing:-.03em;margin-bottom:8px}
 .sc-row{display:flex;align-items:center;padding:6px 0;font-size:12px}
@@ -621,6 +632,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <div class="hm-sep"></div>
 <button id="historybtn" class="hm-item"><span>📜</span><span id="hm-history"></span><span class="hm-key">⌘H</span></button>
 <button id="ubtn" class="hm-item"><span>👤</span><span id="hm-settings"></span><span class="hm-key">⌘,</span></button>
+<button id="usagebtn" class="hm-item"><span>&#128202;</span><span id="hm-usage"></span></button>
 <div class="hm-sep"></div>
 <button id="gallerybtn" class="hm-item"><span>🏛</span><span id="hm-gallery"></span></button>
 <button id="shortcutsbtn" class="hm-item"><span>⌨</span><span id="hm-shortcuts"></span><span class="hm-key">?</span></button>
@@ -788,6 +800,17 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button class="pm-close" id="sc-close">&times;</button>
 <h2 id="sc-title"></h2>
 <div id="sc-list"></div>
+</div></div>
+
+<!-- Usage modal -->
+<div id="usage-modal"><div class="stw" style="width:min(480px,92vw)">
+<button class="pm-close" id="usage-close">&times;</button>
+<h2 id="usage-title">Usage</h2>
+<div class="usage-stats">
+<div class="usage-stat"><div class="usage-stat-label" id="usage-total-label">Total Spent</div><div class="usage-stat-value" id="usage-total">-</div></div>
+<div class="usage-stat"><div class="usage-stat-label" id="usage-month-label">This Month</div><div class="usage-stat-value" id="usage-month">-</div></div>
+</div>
+<div class="usage-list" id="usage-list"></div>
 </div></div>
 
 <!-- Session history -->
@@ -1274,9 +1297,39 @@ $('hm-fb').textContent=isJa?'フィードバック':'Feedback';
 $('hm-theme').textContent=isJa?'テーマ切替':'Toggle theme';
 $('hm-history').textContent=isJa?'履歴':'History';
 $('hm-settings').textContent=isJa?'設定':'Settings';
+$('hm-usage').textContent=isJa?'使用量':'Usage';
 $('hm-shortcuts').textContent=isJa?'ショートカット':'Shortcuts';
 $('hm-preview').textContent=isJa?'プレビュー':'Preview';
 $('hm-gallery').textContent=isJa?'ギャラリー':'Gallery';
+
+// Usage
+async function showUsage(){
+  $('hd-menu').classList.remove('on');
+  $('usage-title').textContent=isJa?'使用量':'Usage';
+  $('usage-total-label').textContent=isJa?'累計':'Total Spent';
+  $('usage-month-label').textContent=isJa?'今月':'This Month';
+  $('usage-total').textContent='...';
+  $('usage-month').textContent='...';
+  $('usage-list').innerHTML='';
+  $('usage-modal').classList.add('on');
+  const r=await fetch('/api/usage?token='+token);
+  if(!r.ok)return;
+  const d=await r.json();
+  $('usage-total').textContent=fc(d.total);
+  $('usage-month').textContent=fc(d.month_total);
+  if(!d.entries.length){
+    $('usage-list').innerHTML=`<div style="text-align:center;color:var(--dm);padding:16px">${isJa?'まだ使用履歴がありません':'No usage history yet'}</div>`;
+    return;
+  }
+  $('usage-list').innerHTML=d.entries.map(e=>{
+    const dt=new Date(e.date);
+    const ds=dt.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+    return `<div class="usage-row"><span class="usage-row-date">${ds}</span><span class="usage-row-model">${e.model||'-'}</span><span class="usage-row-cost">${fc(e.cost)}</span></div>`;
+  }).join('');
+}
+$('usagebtn').onclick=showUsage;
+$('usage-close').onclick=()=>$('usage-modal').classList.remove('on');
+$('usage-modal').onclick=e=>{if(e.target===$('usage-modal'))$('usage-modal').classList.remove('on')};
 
 // Gallery
 async function showGallery(){
@@ -1376,7 +1429,7 @@ $('history-modal').onclick=e=>{if(e.target===$('history-modal'))$('history-modal
 // ── WS ──
 function connect(){const p=location.protocol==='https:'?'wss:':'ws:';
 ws=new WebSocket(`${p}//${location.host}/ws${tq()}`);$('dot').className='dt';
-ws.onopen=()=>$('dot').className='dt on';ws.onclose=()=>{$('dot').className='dt off';setTimeout(connect,2000)};
+ws.onopen=()=>$('dot').className='dt on';ws.onclose=()=>{$('dot').className='dt off';if(busy){setB(false);gH(sid).m.push({role:'system',text:isJa?'接続が切れました。再接続中...':'Connection lost. Reconnecting...'});render()}setTimeout(connect,2000)};
 ws.onerror=()=>ws.close();ws.onmessage=e=>{try{hEv(JSON.parse(e.data))}catch{}}}
 
 let asid=null;
@@ -1397,9 +1450,8 @@ if(ev.type==='no_credits'){
   setB(false);render();asid=null;
   setTimeout(showPlansModal,300);return}
 if(ev.type==='error'){
-  const errText=ev.text||'Error';
-  h.m.push({role:'assistant',html:md(errText),text:errText,st:false});
-  setB(false);render();asid=null;return}
+  const raw=ev.text||'Error';const msg=raw.includes('busy')||raw.includes('timeout')?(isJa?'サーバー混雑中。再度お試しください。':'Server busy. Retry.'):raw.includes('not available')?(isJa?'一時利用不可':'Unavailable'):raw;
+  h.m.push({role:'system',text:msg});setB(false);render();asid=null;return}
 if(ev.type==='system')return;
 if(ev.type==='session_renamed'){
   const s=ss.find(x=>x.id===ev.session_id);
