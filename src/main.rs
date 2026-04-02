@@ -1677,6 +1677,17 @@ async fn cron_scheduler(state: Arc<AppState>) {
                     .stdin(std::process::Stdio::null())
                     .env("TERM", "dumb").env("NO_COLOR", "1")
                     .env("CI", "1").env("DISABLE_AUTOUPDATE", "1");
+                // Load user's .env for cron jobs too
+                let env_path = format!("{}/users/{}/.env", state.workdir, uid);
+                if let Ok(env_content) = std::fs::read_to_string(&env_path) {
+                    for line in env_content.lines() {
+                        let line = line.trim();
+                        if line.is_empty() || line.starts_with('#') { continue; }
+                        if let Some((k, v)) = line.split_once('=') {
+                            cmd.env(k.trim(), v.trim());
+                        }
+                    }
+                }
 
                 let result = match cmd.output().await {
                     Ok(output) => {
@@ -2143,9 +2154,19 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                     .arg("--model").arg(model)
                     .arg(&cm.text);
                 if let Some(ref sid) = claude_sid { cmd.arg("--resume").arg(sid); }
+                // Load user's .env if it exists
+                let env_path = format!("{}/users/{}/.env", state.workdir, uid);
+                if let Ok(env_content) = std::fs::read_to_string(&env_path) {
+                    for line in env_content.lines() {
+                        let line = line.trim();
+                        if line.is_empty() || line.starts_with('#') { continue; }
+                        if let Some((k, v)) = line.split_once('=') {
+                            cmd.env(k.trim(), v.trim());
+                        }
+                    }
+                }
                 cmd.current_dir(&workdir)
                     .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
-                    // Pipe stdin to /dev/null so interactive prompts fail fast (never hang)
                     .stdin(std::process::Stdio::null())
                     .env("TERM","dumb").env("NO_COLOR","1")
                     // Reduce node/claude startup overhead
