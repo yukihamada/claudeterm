@@ -714,6 +714,12 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
   <button id="s-key-add" style="background:var(--ac);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"></button>
 </div>
 <div class="info" style="margin-top:4px" id="s-keys-info"></div>
+<label>📱 KAGIアプリから受け取る</label>
+<div style="display:flex;gap:6px">
+  <input id="s-transfer-code" placeholder="6桁コード" maxlength="6" inputmode="numeric" style="flex:1;font-family:var(--m);font-size:16px;text-align:center;letter-spacing:4px;background:var(--bg);border:1.5px solid var(--bd);border-radius:6px;padding:8px;color:var(--tx);outline:none">
+  <button id="s-transfer-claim" style="background:var(--ac);color:#000;border:none;border-radius:6px;padding:8px 14px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">受け取る</button>
+</div>
+<div class="info" id="s-transfer-status" style="margin-top:4px"></div>
 <label id="s-ref-label"></label>
 <div id="s-ref-box" style="display:flex;gap:8px;align-items:center">
   <input id="s-ref-url" disabled style="flex:1;font-size:11px;font-family:var(--m)">
@@ -1144,6 +1150,45 @@ $('s-key-add').onclick=async()=>{
     body:JSON.stringify({name,value})});
   $('s-key-name').value='';$('s-key-value').value='';
   refreshKeys();
+};
+
+// KAGI transfer claim
+$('s-transfer-claim').onclick=async()=>{
+  const code=$('s-transfer-code').value.trim();
+  if(code.length!==6){$('s-transfer-status').textContent=isJa?'6桁のコードを入力':'Enter 6-digit code';return}
+  $('s-transfer-status').textContent=isJa?'受信中...':'Claiming...';
+  try{
+    const r=await fetch('https://kagi-server.fly.dev/api/v1/transfer/claim',{
+      method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code})});
+    if(!r.ok){$('s-transfer-status').textContent=isJa?'コードが無効か期限切れです':'Invalid or expired code';return}
+    const d=await r.json();
+    // Decrypt with SHA256(code) using Web Crypto API
+    const enc=Uint8Array.from(atob(d.encrypted_data),c=>c.charCodeAt(0));
+    const codeBytes=new TextEncoder().encode(code);
+    const hashBuf=await crypto.subtle.digest('SHA-256',codeBytes);
+    const key=await crypto.subtle.importKey('raw',hashBuf,{name:'AES-GCM'},false,['decrypt']);
+    // AES-GCM: first 12 bytes = nonce, rest = ciphertext+tag
+    const nonce=enc.slice(0,12);
+    const ciphertext=enc.slice(12);
+    const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:nonce},key,ciphertext);
+    const keys=JSON.parse(new TextDecoder().decode(plain));
+    // Save each key
+    let saved=0;
+    for(const k of keys){
+      if(k.name&&k.value){
+        await fetch('/api/keys'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+          body:JSON.stringify({name:k.name.toUpperCase().replace(/\s+/g,'_'),value:k.value})});
+        saved++;
+      }
+    }
+    $('s-transfer-status').textContent=(isJa?'✓ '+saved+'件の鍵を受け取りました':'✓ Received '+saved+' keys');
+    $('s-transfer-status').style.color='var(--gn)';
+    $('s-transfer-code').value='';
+    refreshKeys();
+  }catch(e){
+    $('s-transfer-status').textContent=(isJa?'復号に失敗しました: ':'Decryption failed: ')+e.message;
+    $('s-transfer-status').style.color='var(--rd)';
+  }
 };
 
 // Apply referral code
