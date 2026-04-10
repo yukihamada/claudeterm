@@ -15,10 +15,14 @@ RUN cargo build --release --bin claudeterm
 # ── base: apt + npm install (cached unless this layer changes) ──────────────
 FROM node:22-slim AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git python3 gosu \
+    ca-certificates curl git python3 python3-pip gosu ffmpeg \
+    && pip3 install --break-system-packages google-genai \
     && rm -rf /var/lib/apt/lists/*
 # Pin version so cache is stable; bump manually when upgrading claude CLI
 RUN npm install -g @anthropic-ai/claude-code@1
+# Deploy CLIs (users provide tokens via Keys vault)
+RUN curl -L https://fly.io/install.sh | FLYCTL_INSTALL=/usr/local sh \
+    && npm install -g vercel@latest wrangler@latest netlify-cli@latest @railway/cli@latest
 
 # ── runtime: copy binary on top of cached base ──────────────────────────────
 FROM base AS runtime

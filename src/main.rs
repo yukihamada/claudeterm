@@ -1,7 +1,7 @@
 use axum::{
-    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, Path, Query, State},
+    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, Host, Path, Query, State},
     http::{HeaderMap, StatusCode},
-    response::{Html, IntoResponse, Json, Response},
+    response::{Html, IntoResponse, Json, Redirect, Response},
     routing::{delete, get, post},
     Router,
 };
@@ -10,7 +10,9 @@ mod billing;
 mod router;
 mod gemini;
 mod imagen;
+mod veo;
 mod storage;
+mod nou;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::{Arc, Mutex as StdMutex}};
@@ -24,6 +26,7 @@ use tokio::{
 const HTML: &str = include_str!("../static/index.html");
 const MANIFEST: &str = include_str!("../static/manifest.json");
 const DEMO_SONG: &[u8] = include_bytes!("../static/demo-song.mp3");
+const OG_PNG: &[u8] = include_bytes!("../static/og.png");
 const INITIAL_CREDITS: f64 = 3.0;
 const COST_MULTIPLIER: f64 = 1.3; // 30% margin on API costs
 
@@ -112,6 +115,40 @@ fn init_db(path: &str) -> Connection {
             created_at TEXT
         );
     ").ok();
+    // ── Pro Memory ──
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS user_memory (
+            user_id TEXT PRIMARY KEY,
+            content TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+        );
+    ").ok();
+    // ── Deploy, Agents, Live ──
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS deployed_apps (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            slug TEXT UNIQUE NOT NULL,
+            project TEXT NOT NULL,
+            title TEXT DEFAULT '',
+            created_at TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+        CREATE TABLE IF NOT EXISTS agent_marketplace (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            author TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            command TEXT NOT NULL,
+            project TEXT DEFAULT '',
+            interval_secs INTEGER NOT NULL,
+            tags TEXT DEFAULT '',
+            installs INTEGER DEFAULT 0,
+            created_at TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+    ").ok();
     conn
 }
 
@@ -125,10 +162,24 @@ struct AppState {
     stripe_key: Option<String>,
     resend_key: Option<String>,
     gemini_key: Option<String>,
+    anthropic_key: Option<String>,
+    nou_relay_url: String,
+    nou_node_id: Option<String>,
     base_url: String,
     limiter: Arc<billing::RateLimiter>,
     active_procs: Arc<StdMutex<HashMap<String, bool>>>,
     preview_ports: Arc<StdMutex<HashMap<String, u16>>>, // uid -> port for live preview
+    live_broadcasts: Arc<StdMutex<HashMap<String, LiveBroadcast>>>, // session_id -> broadcast
+}
+
+#[derive(Clone)]
+struct LiveBroadcast {
+    session_id: String,
+    user_email: String,
+    session_name: String,
+    project: String,
+    started_at: String,
+    tx: tokio::sync::broadcast::Sender<String>,
 }
 
 #[derive(Deserialize)] struct TokenQ { token: Option<String> }
@@ -324,10 +375,14 @@ async fn main() {
         stripe_key: std::env::var("STRIPE_SECRET_KEY").ok(),
         resend_key: std::env::var("RESEND_API_KEY").ok(),
         gemini_key: std::env::var("GEMINI_API_KEY").ok(),
+        anthropic_key: std::env::var("ANTHROPIC_API_KEY").ok(),
+        nou_relay_url: std::env::var("NOU_RELAY_URL").unwrap_or_else(|_| "https://nou-relay.fly.dev".to_string()),
+        nou_node_id: std::env::var("NOU_NODE_ID").ok(),
         base_url: std::env::var("BASE_URL").unwrap_or_else(|_| "https://chatweb.ai".to_string()),
         limiter: Arc::new(billing::RateLimiter::new(20)),
         active_procs: Arc::new(StdMutex::new(HashMap::new())),
         preview_ports: Arc::new(StdMutex::new(HashMap::new())),
+        live_broadcasts: Arc::new(StdMutex::new(HashMap::new())),
     });
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let app = Router::new()
@@ -353,22 +408,7 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
 "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /ws\nDisallow: /app/\nSitemap: https://chatweb.ai/sitemap.xml")
         }))
         .route("/og.png", get(|| async {
-            // SVG served as og image (Twitter/OGP accept SVG via content-type)
-            let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#09090b"/><stop offset="1" stop-color="#1a1040"/></linearGradient>
-<linearGradient id="ac" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
-<rect width="1200" height="630" fill="url(#bg)"/>
-<rect x="80" y="80" width="80" height="80" rx="22" fill="url(#ac)"/>
-<text x="108" y="147" font-size="56" font-family="system-ui" fill="white" font-weight="bold">C</text>
-<text x="190" y="142" font-size="60" font-family="system-ui" fill="white" font-weight="700" letter-spacing="-2">ChatWeb</text>
-<text x="80" y="260" font-size="36" font-family="system-ui" fill="#a1a1aa">AI Development Terminal</text>
-<text x="80" y="320" font-size="28" font-family="system-ui" fill="#52525b">Claude Code in your browser — code, build, and deploy</text>
-<text x="80" y="380" font-size="28" font-family="system-ui" fill="#52525b">with AI assistance. Free to start.</text>
-<rect x="80" y="450" width="200" height="52" rx="12" fill="url(#ac)"/>
-<text x="130" y="484" font-size="24" font-family="system-ui" fill="black" font-weight="600">Try Free</text>
-<text x="80" y="570" font-size="22" font-family="system-ui" fill="#3f3f46">chatweb.ai</text>
-</svg>"##;
-            (StatusCode::OK, [("content-type","image/svg+xml"),("cache-control","public, max-age=86400")], svg)
+            (StatusCode::OK, [("content-type","image/png"),("cache-control","public, max-age=86400")], OG_PNG)
         }))
         // Auth
         .route("/api/auth/login", post(login))
@@ -401,6 +441,9 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
         .route("/api/admin/credit", post(admin_credit))
         // Image generation
         .route("/api/image", post(generate_image))
+        // Video generation (Veo 3)
+        .route("/api/video", post(generate_video))
+        .route("/api/image/nanobanana", post(generate_nanobanana))
         // Admin alerts
         .route("/api/admin/alert", post(admin_alert))
         // Feedback
@@ -432,6 +475,8 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
         .route("/api/community/gallery", get(gallery))
         // Usage
         .route("/api/usage", get(get_usage))
+        .route("/api/memory", get(get_memory).delete(delete_memory))
+        .route("/api/nou/status", get(nou_status))
         // Cron
         .route("/api/cron", get(list_crons).post(create_cron))
         .route("/api/cron/:id", delete(delete_cron))
@@ -440,6 +485,32 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
         .route("/app/:uid/:project/*path", get(serve_user_app))
         .route("/app/:uid/:project/", get(serve_user_app_index))
         .route("/app/:uid/:project", get(serve_user_app_index))
+        // Deploy (subdomain hosting)
+        .route("/api/deploy", post(create_deploy).get(list_deploys))
+        .route("/api/deploy/:id", delete(delete_deploy))
+        // Agent marketplace
+        .route("/api/agents", get(list_agents))
+        .route("/api/agents/publish", post(publish_agent))
+        .route("/api/agents/:id/install", post(install_agent))
+        // Live coding
+        .route("/api/live", get(list_live))
+        .route("/api/sessions/:id/broadcast", post(toggle_broadcast))
+        .route("/ws/watch/:session_id", get(ws_watch_handler))
+        // Gallery enhancements
+        .route("/api/community/gallery/:id/like", post(like_gallery))
+        .route("/api/community/gallery/:id/remix", post(remix_gallery))
+        // Pair programming
+        .route("/api/share/:share_id/pair", post(pair_session))
+        // Time machine
+        .route("/api/snapshots/:project", get(list_snapshots))
+        .route("/api/snapshots/:project/revert", post(revert_snapshot))
+        // Widget builder
+        .route("/w/:widget_id", get(get_widget))
+        .route("/api/widget/:slug/embed", get(widget_embed_info))
+        // App Store
+        .route("/apps", get(app_store_page))
+        // Subdomain landing
+        .route("/live", get(live_page))
         // WebSocket
         .route("/ws", get(ws_handler))
         .with_state(state.clone());
@@ -448,9 +519,118 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
     let cron_state = state.clone();
     tokio::spawn(async move { cron_scheduler(cron_state).await });
 
+    // ── Subdomain router: xxxx.chatweb.ai serves deployed apps ──
+    let sub_state = state.clone();
+    let app = app.layer(axum::middleware::from_fn_with_state(sub_state, subdomain_middleware));
+
     let addr = format!("0.0.0.0:{port}");
-    tracing::info!("claudeterm v5 → http://{addr}");
+    tracing::info!("claudeterm v6 → http://{addr}");
     axum::serve(tokio::net::TcpListener::bind(&addr).await.unwrap(), app).await.unwrap();
+}
+
+// ── Subdomain Middleware ──
+// Intercepts requests to xxxx.chatweb.ai and serves deployed app files
+
+async fn subdomain_middleware(
+    State(state): State<Arc<AppState>>,
+    host: Host,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let hostname = host.0;
+    // Extract subdomain: "myapp.chatweb.ai" → "myapp"
+    let slug = if let Some(sub) = hostname.strip_suffix(".chatweb.ai") {
+        if sub.is_empty() || sub.contains('.') { return next.run(request).await; }
+        sub.to_string()
+    } else if let Some(sub) = hostname.strip_suffix(".localhost") {
+        // Dev mode
+        if sub.is_empty() || sub.contains('.') || sub.contains(':') { return next.run(request).await; }
+        sub.to_string()
+    } else {
+        return next.run(request).await;
+    };
+
+    // Look up deployed app
+    let deploy = {
+        let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+        db.query_row(
+            "SELECT d.user_id, d.project, d.title FROM deployed_apps d WHERE d.slug=?1",
+            [&slug], |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?, r.get::<_,String>(2)?))
+        ).ok()
+    };
+    let (uid, project, _title) = match deploy {
+        Some(d) => d,
+        None => {
+            // No deployed app — show a nice 404
+            return Html(format!(r#"<!DOCTYPE html><html><head><meta charset="utf-8"><title>Not Found</title>
+<style>body{{background:#09090b;color:#f4f4f5;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}}
+.c{{text-align:center}}h1{{font-size:48px;opacity:.3}}p{{color:#a1a1aa;margin:12px 0}}a{{color:#a78bfa}}</style></head>
+<body><div class="c"><h1>404</h1><p><b>{slug}.chatweb.ai</b> is not deployed yet.</p>
+<a href="https://chatweb.ai">Create your own app on ChatWeb →</a></div></body></html>"#)).into_response();
+        }
+    };
+
+    // Serve the file from the user's project directory
+    let path = request.uri().path().trim_start_matches('/');
+    let path = if path.is_empty() { "index.html" } else { path };
+
+    // Security checks
+    if path.contains("..") || is_sensitive_file(path) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+
+    let file_path = PathBuf::from(format!("{}/users/{}/{}/{}", state.workdir, uid, project, path));
+    let base = PathBuf::from(format!("{}/users/{}/{}", state.workdir, uid, project));
+
+    // Try exact path, then index.html for SPA routing
+    let resolved = if file_path.exists() {
+        file_path
+    } else {
+        // SPA fallback: serve index.html for non-file paths
+        base.join("index.html")
+    };
+
+    match (resolved.canonicalize(), base.canonicalize()) {
+        (Ok(r), Ok(b)) if r.starts_with(&b) => {
+            match std::fs::read(&r) {
+                Ok(data) => {
+                    let ct = content_type_for(&r.to_string_lossy());
+                    // Inject "Made with ChatWeb" badge for HTML files
+                    if ct.contains("text/html") {
+                        let html = String::from_utf8_lossy(&data);
+                        let badge = concat!(
+                            r##"<div style="position:fixed;bottom:12px;right:12px;z-index:99999;font-family:system-ui;font-size:12px">"##,
+                            r##"<a href="https://chatweb.ai" target="_blank" rel="noopener" "##,
+                            r##"style="display:flex;align-items:center;gap:6px;background:rgba(9,9,11,.85);color:#a1a1aa;"##,
+                            r##"padding:6px 12px;border-radius:20px;text-decoration:none;border:1px solid rgba(255,255,255,.1);"##,
+                            r##"backdrop-filter:blur(8px)">"##,
+                            r##"<svg width="14" height="14" viewBox="0 0 32 32">"##,
+                            r##"<rect width="32" height="32" rx="8" fill="#a78bfa"/>"##,
+                            r##"<text x="7" y="22" font-size="18" fill="white" font-weight="bold">C</text>"##,
+                            r##"</svg>Made with ChatWeb</a></div>"##,
+                        );
+                        let injected = if html.contains("</body>") {
+                            html.replace("</body>", &format!("{badge}</body>"))
+                        } else {
+                            format!("{html}{badge}")
+                        };
+                        return (StatusCode::OK, [
+                            ("content-type", ct),
+                            ("access-control-allow-origin", "*"),
+                            ("cache-control", "public, max-age=60"),
+                        ], injected).into_response();
+                    }
+                    (StatusCode::OK, [
+                        ("content-type", ct),
+                        ("access-control-allow-origin", "*"),
+                        ("cache-control", "public, max-age=300"),
+                    ], data).into_response()
+                }
+                Err(_) => StatusCode::NOT_FOUND.into_response(),
+            }
+        }
+        _ => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 // ── Auth ──
@@ -903,6 +1083,185 @@ async fn create_project(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
 ## Learning Loop
 - Read `tasks/lessons.md` at session start
 - After mistakes or corrections, append lessons immediately
+
+## Deploy (IMPORTANT — MUST follow)
+This project runs on **ChatWeb** (chatweb.ai). Multiple deploy targets are available:
+
+### 1. ChatWeb Subdomain (instant, no config needed)
+- Deploy via the Deploy menu → project goes live at `https://SLUG.chatweb.ai`
+- If already deployed, always mention the URL at the end of your response
+
+### 2. Fly.io — full-stack apps, Docker, databases
+- Token: `FLY_API_TOKEN` in Keys | Commands: `fly launch`, `fly deploy --remote-only`
+
+### 3. Vercel — frontend, Next.js, static sites
+- Token: `VERCEL_TOKEN` in Keys | Command: `vercel --yes --token $VERCEL_TOKEN`
+
+### 4. Cloudflare — Workers, Pages, edge functions
+- Token: `CLOUDFLARE_API_TOKEN` in Keys | Command: `wrangler deploy`
+
+### 5. Netlify — static sites, serverless, forms
+- Token: `NETLIFY_AUTH_TOKEN` in Keys | Command: `netlify deploy --prod --dir .`
+
+### 6. Railway — full-stack, databases, cron
+- Token: `RAILWAY_TOKEN` in Keys | Command: `railway up`
+
+### 7. Supabase — backend, auth, database, edge functions
+- Token: `SUPABASE_ACCESS_TOKEN` in Keys | Command: `supabase functions deploy`
+
+### Rules
+- **RULE**: Every time you create or modify web files, you MUST end your response with the deploy URL or deploy instructions.
+- If the project is already deployed to a subdomain, say: "サイトを更新しました！こちらで確認できます: https://SLUG.chatweb.ai"
+- If not yet deployed, list ALL available deploy options based on the user's configured tokens.
+- Example: "アプリが完成しました！デプロイ方法:\n  1. メニューの Deploy → my-app.chatweb.ai (即公開)\n  2. `fly deploy` → Fly.io\n  3. `vercel --yes` → Vercel\n  4. `wrangler deploy` → Cloudflare\n  5. `netlify deploy --prod` → Netlify\n  6. `railway up` → Railway"
+- NEVER skip this. ALWAYS include deploy options.
+
+## KAGI Smart Home Integration
+If the user has `KAGI_AUTH_TOKEN` in their Keys, they can interact with KAGI smart home system:
+- **KAGI Server**: `https://kagi-server.fly.dev` (or user's custom KAGI_SERVER_URL)
+- **Vault sync**: KAGI iOS app syncs API keys to ChatWeb via 6-digit transfer code (Settings → Keys → "受け取る")
+- **Available APIs** (all require Authorization: Bearer $KAGI_AUTH_TOKEN):
+  - `POST /api/v1/vault/list` — list synced secrets
+  - `POST /api/v1/vault/get` body: `{{"key_name":"..."}}` — get a specific secret
+  - `GET /api/v1/family/:token/status` — get family/property status
+  - `POST /api/v1/beds24/register` — register Beds24 PMS integration
+- **Smart lock control**: Use SwitchBot API directly (token synced via vault):
+  - `POST https://api.switch-bot.com/v1.1/devices/:id/commands` with `{{"command":"turnOn"}}` (unlock) or `{{"command":"turnOff"}}` (lock)
+  - Header: `Authorization: $SWITCHBOT_TOKEN`, `Content-Type: application/json`
+- **Reservation data**: If `BEDS24_API_KEY` is in Keys, use Beds24 API v2:
+  - `GET https://api.beds24.com/v2/bookings?arrivalFrom=TODAY` — today's check-ins
+  - Header: `token: $BEDS24_API_KEY`
+- When the user asks about properties, reservations, or smart devices, use these APIs with curl.
+
+## GitHub Integration
+If the user has `GITHUB_TOKEN` in Keys:
+- `gh auth login --with-token` is already configured
+- Create repos: `gh repo create PROJECT --public --source .`
+- Push code: `git init && git add . && git commit -m "init" && git push -u origin main`
+- Create PRs: `gh pr create --title "..." --body "..."`
+- After pushing to GitHub, Vercel/Netlify auto-deploy if connected
+
+## Database Integration
+If the user wants a database:
+- **Supabase**: If `SUPABASE_ACCESS_TOKEN` is set, use `supabase init` → `supabase db push`
+- **Turso (SQLite)**: If `TURSO_AUTH_TOKEN` is set, use `turso db create` → provide connection URL
+- **PlanetScale**: If `PLANETSCALE_TOKEN` is set, use their CLI
+- For simple apps, suggest SQLite (built into most runtimes, zero config)
+- Always write `.env` with connection strings, never hardcode
+
+## Fork the Internet
+If the user pastes a URL and says "make something like this" or "clone this design":
+1. Use `curl -s URL` to fetch the HTML
+2. Analyze the structure, design patterns, and layout
+3. Recreate a clean version using modern HTML/CSS (don't copy verbatim — create inspired-by version)
+4. Deploy to their subdomain
+Example: "stripe.comみたいなランディング作って" → fetch → analyze → recreate → deploy
+
+## KAGI Autopilot (Smart Home Automation)
+If the user wants to automate property management:
+- **Morning routine cron**: "毎朝8時に今日のチェックイン一覧を取得してTelegramに送信"
+  - curl Beds24 API → format → post to Telegram bot
+- **Auto-unlock before check-in**: "チェックイン30分前に自動解錠"
+  - Cron every 15min → check Beds24 arrivals → SwitchBot unlock if within 30min
+- **Cleaning dispatch**: "チェックアウト後に清掃チームにLINE通知"
+  - Cron → check departures → send LINE/Telegram notification
+- **Guest auto-reply**: FAQ answers (WiFi password, check-out time, etc.)
+These can all be built as Cron jobs. Guide the user to set up the tokens and cron schedules.
+
+## Anime & Video Creation (Veo 3 + Nano Banana)
+ChatWeb has built-in video/image generation. The user can create anime, short films, and music videos.
+
+### Available Models
+1. **Nano Banana** (`/api/image/nanobanana`) — Ultra-fast image gen for character sheets, storyboards, backgrounds
+2. **Gemini Image** (`/api/image`) — Higher quality images via gemini-3-pro-image-preview
+3. **Veo 3** (`/api/video`) — 8-second cinematic video clips WITH audio, dialogue, and music
+
+### Workflow for Creating Anime/Film
+1. **Character Design**: Use Nano Banana to generate character reference sheets
+   - `curl -X POST /api/image/nanobanana -d '{{"token":"...","prompt":"anime character sheet, young woman with blue hair..."}}' `
+2. **Storyboard**: Generate key frames for each scene
+3. **Video Clips**: Use Veo 3 to generate 8-second clips with dialogue
+   - `curl -X POST /api/video -d '{{"token":"...","prompt":"cinematic anime scene...","duration":8}}' `
+4. **Editing**: Use ffmpeg to concatenate clips, add music, subtitles
+   - `ffmpeg -f concat -i clips.txt -c:v copy output.mp4`
+
+### Veo 3 Prompt Tips
+- Always describe: camera angle, lighting, character appearance, action, dialogue
+- For anime: "anime style, cel-shaded, vibrant colors, Studio Ghibli quality"
+- Include dialogue in quotes: `The character says "こんにちは"`
+- Veo 3 generates audio including voice, music, and sound effects
+- Use reference images for character consistency across clips
+
+### Python Script Pattern (for multi-clip productions)
+```python
+import os, time
+from google import genai
+from google.genai import types
+client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
+
+def gen_clip(prompt, outpath, duration=8):
+    op = client.models.generate_videos(
+        model='veo-3.0-generate-001', prompt=prompt,
+        config=types.GenerateVideosConfig(aspect_ratio='16:9', duration_seconds=duration, number_of_videos=1))
+    t=0
+    while not op.done:
+        time.sleep(15); t+=15; op=client.operations.get(op)
+        if t>600: return False
+    if op.response and op.response.generated_videos:
+        data=client.files.download(file=op.response.generated_videos[0].video)
+        open(outpath,'wb').write(data); return True
+    return False
+```
+
+### Concatenation & Post-production
+```bash
+# clips.txt: file 'clips/scene1.mp4'\nfile 'clips/scene2.mp4'\n...
+ffmpeg -f concat -safe 0 -i clips.txt -c copy joined.mp4
+# Add subtitles (ASS format for styled text)
+ffmpeg -i joined.mp4 -vf "ass=subs.ass" -c:a copy final.mp4
+# Add background music
+ffmpeg -i final.mp4 -i bgm.mp3 -filter_complex "[0:a][1:a]amix=inputs=2:duration=shortest" -c:v copy output.mp4
+```
+
+## Web Site Creation Guide
+When the user asks to create a website or landing page:
+1. **ALWAYS create a single index.html** with embedded CSS and JS (no build step needed)
+2. Use modern design: dark theme, gradients, glassmorphism, subtle animations
+3. Make it responsive (mobile-first, flexbox/grid)
+4. Include SEO meta tags (title, description, og:image, twitter:card)
+5. After creating, remind: "Deploy メニューからサブドメインにデプロイできます"
+6. If the project is already deployed, changes are **instantly live** — remind the URL
+
+### Design Patterns to Follow
+- Hero section with large text + CTA button
+- Feature cards with icons (3-4 column grid)
+- Smooth scroll with `scroll-behavior: smooth`
+- Dark background: `#09090b` to `#1a1040` gradient
+- Accent: purple `#a78bfa` to blue `#60a5fa`
+- Font: `system-ui, -apple-system, sans-serif`
+- Border radius: `12-16px` for cards, `8-12px` for buttons
+- Subtle `backdrop-filter: blur()` for glass effect
+
+## Document & Presentation Creation
+When the user asks to create reports, documents, slides, or presentations:
+1. Create as HTML (single file, printable)
+2. Use `@media print` CSS for clean PDF export
+3. Include charts using inline SVG or CSS (no JS libraries needed)
+4. For slides: create HTML with CSS `scroll-snap` for slide-like navigation
+5. For PDFs: user can Cmd+P / Ctrl+P from the deployed URL
+
+## What You Can Do (Capabilities Summary)
+Tell users they can:
+- **Build websites** → chat to create, deploy to subdomain instantly
+- **Create anime/films** → Veo 3 generates 8s video clips with audio + dialogue
+- **Design images** → Nano Banana for fast generation, Gemini for quality
+- **Generate documents** → HTML-based reports, slides, charts
+- **Deploy anywhere** → ChatWeb, Fly.io, Vercel, Cloudflare, Netlify, Railway
+- **Control smart home** → KAGI integration (SwitchBot, Beds24, Hue)
+- **Automate tasks** → Cron jobs for scheduled AI operations
+- **Collaborate** → Share URLs for pair programming
+- **Version control** → Time Machine auto-snapshots every AI turn
+- **Embed anywhere** → Widget embed code for any deployed app
 
 "#);
 
@@ -2029,13 +2388,23 @@ async fn create_share(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s):
 
 async fn get_shared(Path(share_id): Path<String>, State(s): State<Arc<AppState>>) -> Response {
     let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
-    let session: Option<(String, String, String)> = db.query_row(
-        "SELECT s.id, s.name, u.email FROM sessions s JOIN users u ON s.user_id=u.id WHERE s.share_id=?1",
-        [&share_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+    let session: Option<(String, String, String, String)> = db.query_row(
+        "SELECT s.id, s.name, u.email, COALESCE(s.project,'') FROM sessions s JOIN users u ON s.user_id=u.id WHERE s.share_id=?1",
+        [&share_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
     ).ok();
-    let (sid, name, email) = match session {
+    let (sid, name, email, project) = match session {
         Some(s) => s, None => return StatusCode::NOT_FOUND.into_response(),
     };
+    // Check if this project has a deployed URL
+    let deploy_url: Option<String> = if !project.is_empty() {
+        db.query_row(
+            "SELECT slug FROM deployed_apps WHERE project=?1 AND user_id=(SELECT user_id FROM sessions WHERE id=?2)",
+            rusqlite::params![project, sid], |r| {
+                let slug: String = r.get(0)?;
+                Ok(format!("https://{}.chatweb.ai", slug))
+            }
+        ).ok()
+    } else { None };
     let mut st = db.prepare("SELECT role,content,timestamp FROM messages WHERE session_id=?1 ORDER BY id").unwrap();
     let msgs: Vec<serde_json::Value> = st.query_map([&sid], |r| Ok(serde_json::json!({
         "role":r.get::<_,String>(0)?,"content":r.get::<_,String>(1)?,"timestamp":r.get::<_,String>(2)?
@@ -2043,7 +2412,9 @@ async fn get_shared(Path(share_id): Path<String>, State(s): State<Arc<AppState>>
     Json(serde_json::json!({
         "name": name,
         "author": email.split('@').next().unwrap_or("user"),
-        "messages": msgs
+        "messages": msgs,
+        "deploy_url": deploy_url,
+        "project": project
     })).into_response()
 }
 
@@ -2237,16 +2608,565 @@ async fn generate_image(State(s): State<Arc<AppState>>, Json(body): Json<ImageRe
     }
 }
 
+// ── Video generation (Veo 3) ──
+
+#[derive(Deserialize)]
+struct VideoReq {
+    token: Option<String>,
+    prompt: String,
+    duration: Option<u32>,
+    aspect_ratio: Option<String>,
+    reference_image: Option<String>, // base64
+}
+
+async fn generate_video(State(s): State<Arc<AppState>>, Json(body): Json<VideoReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, body.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let key = match s.gemini_key.as_deref() {
+        Some(k) => k.to_string(),
+        None => return (StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error":"GEMINI_API_KEY not configured"}))).into_response(),
+    };
+    let duration = body.duration.unwrap_or(8).min(8);
+    let aspect = body.aspect_ratio.as_deref().unwrap_or("16:9");
+
+    tracing::info!("Veo 3 generation requested by user {} — {}s {}", &uid[..4], duration, aspect);
+
+    match veo::generate_video(&key, &body.prompt, duration, aspect, body.reference_image.as_deref()).await {
+        Ok(result) => {
+            // Save video to user's project and return path
+            let filename = format!("video_{}.mp4", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+            let video_dir = format!("{}/users/{}/videos", s.workdir, uid);
+            std::fs::create_dir_all(&video_dir).ok();
+            let video_path = format!("{}/{}", video_dir, filename);
+            std::fs::write(&video_path, &result.video_data).ok();
+
+            // Return as base64 data URL for preview
+            let b64 = base64_encode(&result.video_data);
+            Json(serde_json::json!({
+                "url": format!("data:video/mp4;base64,{}", b64),
+                "path": format!("videos/{}", filename),
+                "size_mb": result.video_data.len() as f64 / 1024.0 / 1024.0,
+                "duration": result.duration
+            })).into_response()
+        }
+        Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": e}))).into_response(),
+    }
+}
+
+fn base64_encode(data: &[u8]) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity(data.len() * 4 / 3 + 4);
+    for chunk in data.chunks(3) {
+        let b = match chunk.len() {
+            3 => ((chunk[0] as u32) << 16) | ((chunk[1] as u32) << 8) | (chunk[2] as u32),
+            2 => ((chunk[0] as u32) << 16) | ((chunk[1] as u32) << 8),
+            1 => (chunk[0] as u32) << 16,
+            _ => 0,
+        };
+        result.push(CHARS[((b >> 18) & 0x3F) as usize] as char);
+        result.push(CHARS[((b >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 { result.push(CHARS[((b >> 6) & 0x3F) as usize] as char); } else { result.push('='); }
+        if chunk.len() > 2 { result.push(CHARS[(b & 0x3F) as usize] as char); } else { result.push('='); }
+    }
+    result
+}
+
+// ── Nano Banana (fast image gen) ──
+
+async fn generate_nanobanana(State(s): State<Arc<AppState>>, Json(body): Json<ImageReq>) -> Response {
+    if auth_user(&s, body.token.as_deref()).is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let key = match s.gemini_key.as_deref() {
+        Some(k) => k.to_string(),
+        None => return (StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error":"GEMINI_API_KEY not configured"}))).into_response(),
+    };
+    match veo::generate_image_nanobanana(&key, &body.prompt).await {
+        Ok((mime, data)) => Json(serde_json::json!({
+            "url": format!("data:{};base64,{}", mime, data),
+            "model": "nano-banana-pro-preview"
+        })).into_response(),
+        Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": e}))).into_response(),
+    }
+}
+
+// ── Pair Programming (shared session write) ──
+
+async fn pair_session(Path(share_id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let session = db.query_row(
+        "SELECT s.id, s.name, s.project, s.user_id FROM sessions s WHERE s.share_id=?1",
+        [&share_id], |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?,
+            r.get::<_,String>(2)?, r.get::<_,String>(3)?))
+    ).ok();
+    let (src_sid, name, project, owner_uid) = match session {
+        Some(s) => s, None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    // If it's the owner, just return their session
+    if owner_uid == uid {
+        return Json(serde_json::json!({
+            "session_id": src_sid, "name": name, "project": project, "pair_mode": true
+        })).into_response();
+    }
+
+    // Create a new session for the pair user with copied messages + shared project
+    let new_sid = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let pair_name = format!("{} (pair)", name);
+    // Point to owner's project directory for real-time file sharing
+    let collab_project = format!("../{}/{}", owner_uid, if project.is_empty() { "." } else { &project });
+    db.execute("INSERT INTO sessions (id,user_id,name,created_at,project) VALUES (?1,?2,?3,?4,?5)",
+        rusqlite::params![new_sid, uid, pair_name, now, collab_project]).ok();
+    // Copy all existing messages so pair user sees full history
+    db.execute(
+        "INSERT INTO messages (session_id,role,content,timestamp) \
+         SELECT ?1,role,content,timestamp FROM messages WHERE session_id=?2 ORDER BY id",
+        rusqlite::params![new_sid, src_sid]).ok();
+
+    let msg_count: i64 = db.query_row(
+        "SELECT COUNT(*) FROM messages WHERE session_id=?1", [&new_sid], |r| r.get(0)
+    ).unwrap_or(0);
+
+    tracing::info!("Pair session: user {} joined {} ({} messages copied)", &uid[..4], src_sid, msg_count);
+    Json(serde_json::json!({
+        "session_id": new_sid, "name": pair_name, "project": collab_project, "pair_mode": true,
+        "messages_copied": msg_count
+    })).into_response()
+}
+
+// ── Time Machine (auto-commit + revert) ──
+
+async fn list_snapshots(Path(project): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let dir = format!("{}/users/{}/{}", s.workdir, uid, project);
+    if !std::path::Path::new(&dir).join(".git").is_dir() {
+        return Json(serde_json::json!({"snapshots": []})).into_response();
+    }
+    let output = Command::new("git")
+        .args(["log", "--oneline", "--format=%H|%s|%cr", "-20"])
+        .current_dir(&dir)
+        .output().await;
+    let snapshots: Vec<serde_json::Value> = match output {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).lines().filter_map(|l| {
+            let parts: Vec<&str> = l.splitn(3, '|').collect();
+            if parts.len() == 3 {
+                Some(serde_json::json!({"hash": parts[0], "message": parts[1], "time": parts[2]}))
+            } else { None }
+        }).collect(),
+        Err(_) => vec![],
+    };
+    Json(serde_json::json!({"snapshots": snapshots})).into_response()
+}
+
+#[derive(Deserialize)] struct RevertReq { hash: String }
+
+async fn revert_snapshot(Path(project): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<RevertReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let dir = format!("{}/users/{}/{}", s.workdir, uid, project);
+    // Validate hash is alphanumeric
+    if !body.hash.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return (StatusCode::BAD_REQUEST, "Invalid hash").into_response();
+    }
+    let output = Command::new("git")
+        .args(["checkout", &body.hash, "--", "."])
+        .current_dir(&dir)
+        .output().await;
+    match output {
+        Ok(o) if o.status.success() => Json(serde_json::json!({"ok": true, "reverted_to": body.hash})).into_response(),
+        _ => (StatusCode::BAD_REQUEST, "Revert failed").into_response(),
+    }
+}
+
+// ── Widget Builder ──
+
+async fn get_widget(Path(widget_id): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+    // widget_id = deploy slug
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let deploy = db.query_row(
+        "SELECT slug FROM deployed_apps WHERE slug=?1 OR id=?1", [&widget_id], |r| r.get::<_,String>(0)
+    ).ok();
+    let slug = match deploy {
+        Some(s) => s, None => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let script = format!(
+        r#"(function(){{var d=document.createElement('div');d.id='cw-widget-{slug}';d.style.cssText='width:100%;max-width:800px;margin:0 auto';var f=document.createElement('iframe');f.src='https://{slug}.chatweb.ai';f.style.cssText='width:100%;height:600px;border:none;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.15)';d.appendChild(f);var s=document.currentScript;s.parentNode.insertBefore(d,s)}})();"#
+    );
+    (StatusCode::OK, [
+        ("content-type", "application/javascript"),
+        ("access-control-allow-origin", "*"),
+        ("cache-control", "public, max-age=300"),
+    ], script).into_response()
+}
+
+async fn widget_embed_info(Path(slug): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+    // Public endpoint — no auth required
+    let embed_script = format!(r#"<script src="https://chatweb.ai/w/{}"></script>"#, slug);
+    let iframe = format!(r#"<iframe src="https://{}.chatweb.ai" style="width:100%;height:600px;border:none;border-radius:12px" loading="lazy"></iframe>"#, slug);
+    Json(serde_json::json!({
+        "script": embed_script,
+        "iframe": iframe,
+        "url": format!("https://{}.chatweb.ai", slug)
+    })).into_response()
+}
+
+// ── AI App Store ──
+
+async fn app_store_page(State(s): State<Arc<AppState>>) -> Html<String> {
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let mut st = db.prepare(
+        "SELECT d.slug, d.title, d.project, g.description, g.tags, g.likes, g.author \
+         FROM deployed_apps d LEFT JOIN gallery g ON d.project = g.project AND d.user_id = g.user_id \
+         ORDER BY g.likes DESC, d.created_at DESC LIMIT 50"
+    ).unwrap();
+    let apps: Vec<(String,String,String,String,String,i64,String)> = st.query_map([], |r| Ok((
+        r.get(0)?, r.get::<_,String>(1).unwrap_or_default(),
+        r.get::<_,String>(2).unwrap_or_default(), r.get::<_,String>(3).unwrap_or_default(),
+        r.get::<_,String>(4).unwrap_or_default(), r.get::<_,i64>(5).unwrap_or(0),
+        r.get::<_,String>(6).unwrap_or_else(|_| "user".to_string()),
+    ))).unwrap().filter_map(|r| r.ok()).collect();
+
+    let cards: String = apps.iter().map(|(slug, title, _proj, desc, tags, likes, author)| {
+        let t = if title.is_empty() { slug } else { title };
+        format!(r#"<a href="https://{slug}.chatweb.ai" target="_blank" class="card">
+            <h3>{t}</h3><p>{desc}</p>
+            <div class="meta"><span>@{author}</span>{}<span>{likes} &hearts;</span></div>
+        </a>"#, if tags.is_empty() { String::new() } else { format!("<span>{tags}</span>") })
+    }).collect();
+
+    Html(format!(r##"<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ChatWeb Apps — AI-Built App Store</title>
+<style>*{{margin:0;padding:0;box-sizing:border-box}}body{{background:#09090b;color:#f4f4f5;font-family:system-ui;min-height:100vh}}
+.hd{{padding:24px;text-align:center;border-bottom:1px solid #27272a}}.hd h1{{font-size:32px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}
+.hd p{{color:#a1a1aa;margin-top:8px}}.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:24px;max-width:1200px;margin:0 auto}}
+.card{{background:#18181b;border:1px solid #27272a;border-radius:16px;padding:20px;text-decoration:none;color:#f4f4f5;transition:all .2s}}
+.card:hover{{border-color:#a78bfa;transform:translateY(-2px);box-shadow:0 8px 32px rgba(167,139,250,.15)}}
+.card h3{{font-size:18px;margin-bottom:8px}}.card p{{color:#a1a1aa;font-size:13px;margin-bottom:12px;line-height:1.6}}
+.meta{{display:flex;gap:8px;font-size:11px;color:#52525b;flex-wrap:wrap}}.meta span{{background:#27272a;padding:2px 8px;border-radius:12px}}
+.cta{{text-align:center;padding:32px}}.cta a{{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#a78bfa,#818cf8);color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:700;font-size:16px}}
+</style></head><body>
+<div class="hd"><h1>ChatWeb Apps</h1><p>Apps built entirely by AI — browse, use, and remix</p></div>
+<div class="grid">{cards}</div>
+<div class="cta"><a href="https://chatweb.ai">Build your own app with AI &rarr;</a></div>
+</body></html>"##))
+}
+
+// ── Deploy (subdomain hosting) ──
+
+#[derive(Deserialize)] struct DeployReq { project: String, slug: String, title: Option<String> }
+
+async fn create_deploy(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<DeployReq>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    // Validate slug: lowercase alphanumeric + hyphens, 3-32 chars
+    let slug: String = body.slug.trim().to_lowercase()
+        .chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
+    if slug.len() < 3 || slug.len() > 32 {
+        return (StatusCode::BAD_REQUEST, "Slug must be 3-32 chars (a-z, 0-9, -)").into_response();
+    }
+    // Reserved slugs
+    if ["www","api","app","mail","ftp","admin","dev","staging","test"].contains(&slug.as_str()) {
+        return (StatusCode::BAD_REQUEST, "This subdomain is reserved").into_response();
+    }
+    // Check project exists
+    let dir = PathBuf::from(format!("{}/users/{}/{}", s.workdir, uid, body.project));
+    if !dir.is_dir() { return (StatusCode::NOT_FOUND, "Project not found").into_response(); }
+    // Check index.html exists
+    if !dir.join("index.html").exists() {
+        return (StatusCode::BAD_REQUEST, "Project needs an index.html to deploy").into_response();
+    }
+
+    let id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    match db.execute(
+        "INSERT INTO deployed_apps (id,user_id,slug,project,title,created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+        rusqlite::params![id, uid, slug, body.project, body.title.as_deref().unwrap_or(""), now]
+    ) {
+        Ok(_) => {
+            let url = format!("https://{}.chatweb.ai", slug);
+            tracing::info!("Deployed {}.chatweb.ai → user {}/{}", slug, &uid[..4], body.project);
+            Json(serde_json::json!({"id": id, "slug": slug, "url": url, "ok": true})).into_response()
+        }
+        Err(_) => (StatusCode::CONFLICT, "This subdomain is already taken").into_response(),
+    }
+}
+
+async fn list_deploys(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let mut st = db.prepare(
+        "SELECT id,slug,project,title,created_at FROM deployed_apps WHERE user_id=?1 ORDER BY created_at DESC"
+    ).unwrap();
+    let items: Vec<serde_json::Value> = st.query_map([&uid], |r| Ok(serde_json::json!({
+        "id": r.get::<_,String>(0)?, "slug": r.get::<_,String>(1)?,
+        "project": r.get::<_,String>(2)?, "title": r.get::<_,String>(3)?,
+        "url": format!("https://{}.chatweb.ai", r.get::<_,String>(1)?),
+        "created_at": r.get::<_,String>(4)?
+    }))).unwrap().filter_map(|r| r.ok()).collect();
+    Json(items).into_response()
+}
+
+async fn delete_deploy(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute("DELETE FROM deployed_apps WHERE id=?1 AND user_id=?2", rusqlite::params![id, uid]).ok();
+    StatusCode::NO_CONTENT.into_response()
+}
+
+// ── Agent Marketplace ──
+
+#[derive(Deserialize)] struct PublishAgentReq {
+    name: String, description: Option<String>, command: String,
+    project: Option<String>, interval_secs: i64, tags: Option<String>,
+}
+
+async fn publish_agent(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
+    Json(body): Json<PublishAgentReq>) -> Response {
+    let (uid, email, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    if body.name.trim().is_empty() || body.command.trim().is_empty() {
+        return (StatusCode::BAD_REQUEST, "name and command required").into_response();
+    }
+    let id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let author = email.split('@').next().unwrap_or("user").to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let interval = body.interval_secs.max(300).min(604800);
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute(
+        "INSERT INTO agent_marketplace (id,user_id,author,name,description,command,project,interval_secs,tags,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+        rusqlite::params![id, uid, author, body.name.trim(), body.description.as_deref().unwrap_or(""),
+            body.command.trim(), body.project.as_deref().unwrap_or(""), interval,
+            body.tags.as_deref().unwrap_or(""), now]
+    ).ok();
+    Json(serde_json::json!({"id": id, "ok": true})).into_response()
+}
+
+async fn list_agents(State(s): State<Arc<AppState>>) -> Response {
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let mut st = db.prepare(
+        "SELECT id,author,name,description,command,project,interval_secs,tags,installs,created_at FROM agent_marketplace ORDER BY installs DESC, created_at DESC LIMIT 50"
+    ).unwrap();
+    let items: Vec<serde_json::Value> = st.query_map([], |r| Ok(serde_json::json!({
+        "id": r.get::<_,String>(0)?, "author": r.get::<_,String>(1)?,
+        "name": r.get::<_,String>(2)?, "description": r.get::<_,String>(3)?,
+        "command": r.get::<_,String>(4)?, "project": r.get::<_,String>(5)?,
+        "interval_secs": r.get::<_,i64>(6)?, "tags": r.get::<_,String>(7)?,
+        "installs": r.get::<_,i64>(8)?, "created_at": r.get::<_,String>(9)?
+    }))).unwrap().filter_map(|r| r.ok()).collect();
+    Json(items).into_response()
+}
+
+async fn install_agent(Path(agent_id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    // Get agent details
+    let agent = db.query_row(
+        "SELECT name,command,project,interval_secs FROM agent_marketplace WHERE id=?1",
+        [&agent_id], |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?,
+            r.get::<_,String>(2)?, r.get::<_,i64>(3)?))
+    );
+    let (name, command, project, interval) = match agent {
+        Ok(a) => a, Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    // Create cron job for user
+    let id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let now = chrono::Utc::now();
+    let now_ts = now.timestamp();
+    db.execute(
+        "INSERT INTO cron_jobs (id,user_id,name,command,project,interval_secs,next_run,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        rusqlite::params![id, uid, name, command, project, interval, now_ts + interval, now.to_rfc3339()]
+    ).ok();
+    // Increment install count
+    db.execute("UPDATE agent_marketplace SET installs = installs + 1 WHERE id=?1", [&agent_id]).ok();
+    Json(serde_json::json!({"id": id, "ok": true, "name": name})).into_response()
+}
+
+// ── Live Coding ──
+
+async fn toggle_broadcast(Path(session_id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, email, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    // Verify session belongs to user
+    let session = {
+        let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+        db.query_row("SELECT name, COALESCE(project,'') FROM sessions WHERE id=?1 AND user_id=?2",
+            rusqlite::params![session_id, uid], |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?))
+        ).ok()
+    };
+    let (name, project) = match session {
+        Some(s) => s, None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    let mut broadcasts = s.live_broadcasts.lock().unwrap_or_else(|e| e.into_inner());
+    if broadcasts.contains_key(&session_id) {
+        broadcasts.remove(&session_id);
+        Json(serde_json::json!({"broadcasting": false})).into_response()
+    } else {
+        let (tx, _) = tokio::sync::broadcast::channel(256);
+        broadcasts.insert(session_id.clone(), LiveBroadcast {
+            session_id: session_id.clone(),
+            user_email: email,
+            session_name: name,
+            project,
+            started_at: chrono::Utc::now().to_rfc3339(),
+            tx,
+        });
+        Json(serde_json::json!({"broadcasting": true})).into_response()
+    }
+}
+
+async fn list_live(State(s): State<Arc<AppState>>) -> Response {
+    let broadcasts = s.live_broadcasts.lock().unwrap_or_else(|e| e.into_inner());
+    let items: Vec<serde_json::Value> = broadcasts.values().map(|b| {
+        serde_json::json!({
+            "session_id": b.session_id,
+            "author": b.user_email.split('@').next().unwrap_or("user"),
+            "name": b.session_name,
+            "project": b.project,
+            "started_at": b.started_at,
+            "viewers": b.tx.receiver_count(),
+        })
+    }).collect();
+    Json(items).into_response()
+}
+
+async fn ws_watch_handler(
+    ws: WebSocketUpgrade,
+    Path(session_id): Path<String>,
+    State(state): State<Arc<AppState>>,
+) -> Response {
+    let rx = {
+        let broadcasts = state.live_broadcasts.lock().unwrap_or_else(|e| e.into_inner());
+        broadcasts.get(&session_id).map(|b| b.tx.subscribe())
+    };
+    match rx {
+        Some(rx) => ws.on_upgrade(move |socket| handle_ws_watch(socket, rx)),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+async fn handle_ws_watch(mut ws: WebSocket, mut rx: tokio::sync::broadcast::Receiver<String>) {
+    loop {
+        tokio::select! {
+            msg = rx.recv() => {
+                match msg {
+                    Ok(text) => {
+                        if ws.send(Message::Text(text.into())).await.is_err() { break; }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                }
+            }
+            msg = ws.recv() => {
+                match msg {
+                    Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+async fn live_page(State(_s): State<Arc<AppState>>) -> Html<&'static str> {
+    Html(HTML)
+}
+
+// ── Gallery Enhancements ──
+
+async fn like_gallery(Path(id): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute("UPDATE gallery SET likes = likes + 1 WHERE id=?1", [&id]).ok();
+    let likes: i64 = db.query_row("SELECT likes FROM gallery WHERE id=?1", [&id], |r| r.get(0)).unwrap_or(0);
+    Json(serde_json::json!({"likes": likes})).into_response()
+}
+
+async fn remix_gallery(Path(gallery_id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    // Get gallery item
+    let item = {
+        let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+        db.query_row(
+            "SELECT user_id, project, title FROM gallery WHERE id=?1",
+            [&gallery_id], |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?, r.get::<_,String>(2)?))
+        ).ok()
+    };
+    let (src_uid, src_project, title) = match item {
+        Some(i) => i, None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    // Copy project files
+    let new_project = format!("{}-remix", src_project);
+    let src_dir = format!("{}/users/{}/{}", s.workdir, src_uid, src_project);
+    let dst_dir = format!("{}/users/{}/{}", s.workdir, uid, new_project);
+    if std::path::Path::new(&src_dir).is_dir() {
+        std::fs::create_dir_all(&dst_dir).ok();
+        fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) {
+            if let Ok(rd) = std::fs::read_dir(src) {
+                for e in rd.flatten() {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if name.starts_with('.') || name == "node_modules" || name == "target" { continue; }
+                    let s = e.path(); let d = dst.join(&name);
+                    if s.is_dir() { std::fs::create_dir_all(&d).ok(); copy_recursive(&s, &d); }
+                    else {
+                        let lower = name.to_lowercase();
+                        if lower.ends_with(".pem") || lower.ends_with(".key") || lower.contains("secret") { continue; }
+                        std::fs::copy(&s, &d).ok();
+                    }
+                }
+            }
+        }
+        copy_recursive(std::path::Path::new(&src_dir), std::path::Path::new(&dst_dir));
+    }
+
+    // Create session for the remix
+    let new_sid = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    let session_name = format!("{} (remix)", title);
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute("INSERT INTO sessions (id,user_id,name,created_at,project) VALUES (?1,?2,?3,?4,?5)",
+        rusqlite::params![new_sid, uid, session_name, now, new_project]).ok();
+
+    Json(serde_json::json!({
+        "session_id": new_sid, "project": new_project, "name": session_name
+    })).into_response()
+}
+
 // ── WebSocket ──
 
 async fn ws_handler(ws: WebSocketUpgrade, Query(q): Query<TokenQ>, State(state): State<Arc<AppState>>) -> Response {
     let user = auth_user(&state, q.token.as_deref());
     if user.is_none() { return StatusCode::UNAUTHORIZED.into_response(); }
-    let (uid, _email, credits, api_key, _plan) = user.unwrap();
-    ws.on_upgrade(move |socket| handle_ws(socket, state, uid, credits, api_key))
+    let user = auth_user(&state, q.token.as_deref());
+    if user.is_none() { return StatusCode::UNAUTHORIZED.into_response(); }
+    let (uid, _email, credits, api_key, plan) = user.unwrap();
+    ws.on_upgrade(move |socket| handle_ws(socket, state, uid, credits, api_key, plan))
 }
 
-async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut credits: f64, api_key: Option<String>) {
+async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut credits: f64, api_key: Option<String>, plan: String) {
     let (stop_tx, mut stop_rx) = watch::channel(false);
 
     loop {
@@ -2353,8 +3273,11 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
 
                 // Model routing: manual selection or auto
                 let use_gemini = cm.model.as_deref() == Some("gemini");
+                let use_nou = cm.model.as_deref().map(|m| m.starts_with("nou")).unwrap_or(false);
                 let (model, effort) = if use_gemini {
                     (gemini::MODEL, "")
+                } else if use_nou {
+                    ("nou", "")
                 } else {
                     match cm.model.as_deref() {
                         Some("haiku") => ("claude-haiku-4-5-20251001", "low"),
@@ -2421,6 +3344,81 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 }
                 // ── End Gemini path ───────────────────────────────────────
 
+                // ── NOU path (local machine via relay) ────────────────────
+                if use_nou {
+                    // Resolve node ID: user's vault NOU_NODE_ID > server env > error
+                    let vault_keys_nou = load_user_keys(&state, &uid).await;
+                    let node_id = vault_keys_nou.iter()
+                        .find(|(k, _)| k == "NOU_NODE_ID")
+                        .map(|(_, v)| v.clone())
+                        .or_else(|| state.nou_node_id.clone());
+
+                    let node_id = match node_id {
+                        Some(id) if !id.is_empty() => id,
+                        _ => {
+                            let _ = ws.send(Message::Text(serde_json::json!({
+                                "type":"error","text":"No NOU node connected. Start NOU on your machine or set NOU_NODE_ID in your keys."
+                            }).to_string().into())).await;
+                            state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
+                            continue;
+                        }
+                    };
+
+                    // Determine NOU model: "nou:gemma4-31b" or default to whatever node runs
+                    let nou_model = cm.model.as_deref()
+                        .and_then(|m| m.strip_prefix("nou:"))
+                        .unwrap_or("") // empty = relay/node picks default
+                        .to_string();
+                    let nou_model_str = if nou_model.is_empty() {
+                        // Ask node for its current model
+                        let client = reqwest::Client::new();
+                        let models_url = format!("{}/n/{}/v1/models", state.nou_relay_url, node_id);
+                        let fetched = async {
+                            let r = client.get(&models_url).timeout(std::time::Duration::from_secs(5)).send().await.ok()?;
+                            let v: serde_json::Value = r.json().await.ok()?;
+                            v["data"][0]["id"].as_str().map(|s| s.to_string())
+                        }.await;
+                        fetched.unwrap_or_else(|| "Qwen3-1.7B-Q4_K_M.gguf".to_string())
+                    } else { nou_model };
+
+                    // Load conversation history
+                    let history: Vec<(String, String)> = {
+                        let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                        let mut stmt = db.prepare(
+                            "SELECT role, content FROM messages WHERE session_id=?1 ORDER BY id ASC LIMIT 20"
+                        ).unwrap();
+                        stmt.query_map(rusqlite::params![cm.session], |r| Ok((r.get(0)?, r.get(1)?)))
+                            .unwrap().filter_map(|r| r.ok()).collect()
+                    };
+
+                    let result = nou::stream(&mut ws, &state.nou_relay_url, &node_id, &nou_model_str, &history, &cm.text).await;
+                    state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
+                    match result {
+                        Ok(nr) => {
+                            // NOU is free (local) — deduct nothing
+                            if !nr.text.is_empty() {
+                                let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                                let now = chrono::Utc::now().to_rfc3339();
+                                db.execute("INSERT INTO messages (session_id,role,content,timestamp) VALUES (?1,'assistant',?2,?3)",
+                                    rusqlite::params![cm.session, nr.text, now]).ok();
+                            }
+                            let _ = ws.send(Message::Text(serde_json::json!({
+                                "type":"done","credits":credits
+                            }).to_string().into())).await;
+                        }
+                        Err(e) => {
+                            let _ = ws.send(Message::Text(serde_json::json!({
+                                "type":"error","text":format!("NOU error: {e}")
+                            }).to_string().into())).await;
+                        }
+                    }
+                    continue;
+                }
+                // ── End NOU path ──────────────────────────────────────────
+
+                // Load user keys early (needed for deploy context + cmd env)
+                let vault_keys = load_user_keys(&state, &uid).await;
+
                 // macOS: wrap in sandbox-exec; Linux: Docker container provides isolation
                 #[cfg(target_os = "macos")]
                 let mut cmd = {
@@ -2432,13 +3430,49 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 #[cfg(not(target_os = "macos"))]
                 let mut cmd = Command::new(&state.command);
 
+                // Enrich message with deploy context
+                let enriched_text = {
+                    let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                    // Pro/Power: inject cross-session memory as context
+                    let memory_prefix = if plan == "pro" || plan == "power" {
+                        let mem: Option<String> = db.query_row(
+                            "SELECT content FROM user_memory WHERE user_id=?1",
+                            [&uid], |r| r.get(0)
+                        ).ok().filter(|s: &String| !s.is_empty());
+                        mem.map(|m| format!("[CONTEXT FROM PREVIOUS SESSIONS:\n{}\n]\n\n", m))
+                            .unwrap_or_default()
+                    } else { String::new() };
+                    let deploy_info: Option<String> = if !project_name.is_empty() {
+                        db.query_row(
+                            "SELECT slug FROM deployed_apps WHERE project=?1 AND user_id=?2",
+                            rusqlite::params![project_name, uid], |r| r.get::<_,String>(0)
+                        ).ok().map(|slug| format!(
+                            "\n\n[IMPORTANT: This project is live at https://{slug}.chatweb.ai — you MUST mention this exact URL at the end of your response. Say: \"サイトを更新しました！こちらで確認できます: https://{slug}.chatweb.ai\"]"
+                        ))
+                    } else { None };
+                    // Check available deploy targets from user's keys
+                    let key_exists = |name: &str| vault_keys.iter().any(|(k, v)| k == name && !v.is_empty());
+                    let mut targets = vec!["ChatWeb subdomain (Deploy menu)"];
+                    if key_exists("FLY_API_TOKEN") { targets.push("Fly.io (fly deploy)"); }
+                    if key_exists("VERCEL_TOKEN") { targets.push("Vercel (vercel --yes)"); }
+                    if key_exists("CLOUDFLARE_API_TOKEN") { targets.push("Cloudflare (wrangler deploy)"); }
+                    if key_exists("NETLIFY_AUTH_TOKEN") { targets.push("Netlify (netlify deploy --prod)"); }
+                    if key_exists("RAILWAY_TOKEN") { targets.push("Railway (railway up)"); }
+                    if key_exists("SUPABASE_ACCESS_TOKEN") { targets.push("Supabase (supabase functions deploy)"); }
+                    // KAGI integration context
+                    if key_exists("KAGI_AUTH_TOKEN") { targets.push("KAGI Smart Home (curl API)"); }
+                    if key_exists("SWITCHBOT_TOKEN") { targets.push("SwitchBot (smart lock control)"); }
+                    if key_exists("BEDS24_API_KEY") { targets.push("Beds24 (reservation data)"); }
+                    let targets_str = if targets.len() > 1 {
+                        format!("\n[Deploy targets available: {}]", targets.join(", "))
+                    } else { String::new() };
+                    format!("{}{}{}{}", memory_prefix, cm.text, deploy_info.unwrap_or_default(), targets_str)
+                };
                 cmd.arg("-p").arg("--output-format").arg("stream-json")
                     .arg("--verbose").arg("--dangerously-skip-permissions")
                     .arg("--model").arg(model)
-                    .arg(&cm.text);
+                    .arg(&enriched_text);
                 if let Some(ref sid) = claude_sid { cmd.arg("--resume").arg(sid); }
-                // Load user keys from KAGI Vault (encrypted store) or .env fallback
-                let vault_keys = load_user_keys(&state, &uid).await;
                 for (k, v) in &vault_keys {
                     cmd.env(k, v);
                 }
@@ -2470,6 +3504,21 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                 // Use user's API key if set, otherwise fall back to system
                 if let Some(ref key) = api_key {
                     cmd.env("ANTHROPIC_API_KEY", key);
+                }
+                // Pass server-side Gemini key for Veo/image generation
+                // Write to user's .env file so Python scripts and Claude CLI subprocesses can read it
+                if let Some(ref gk) = state.gemini_key {
+                    if !vault_keys.iter().any(|(k, _)| k == "GEMINI_API_KEY") {
+                        cmd.env("GEMINI_API_KEY", gk);
+                        cmd.env("GOOGLE_API_KEY", gk);
+                        // Also write to .env in project dir so Python scripts pick it up
+                        let env_path = format!("{}/.env", workdir);
+                        let env_content = std::fs::read_to_string(&env_path).unwrap_or_default();
+                        if !env_content.contains("GEMINI_API_KEY") {
+                            let line = format!("GEMINI_API_KEY={}\nGOOGLE_API_KEY={}\n", gk, gk);
+                            std::fs::write(&env_path, format!("{}{}", env_content, line)).ok();
+                        }
+                    }
                 }
 
                 let mut child = match cmd.spawn() {
@@ -2579,6 +3628,12 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                                     }
                                     // Redact known secret patterns from output
                                     let safe_line = redact_secrets(&line, &vault_keys);
+                                    // Broadcast to live watchers if session is broadcasting
+                                    if let Ok(broadcasts) = state.live_broadcasts.lock() {
+                                        if let Some(b) = broadcasts.get(&sid_clone) {
+                                            let _ = b.tx.send(safe_line.clone());
+                                        }
+                                    }
                                     if ws.send(Message::Text(safe_line.into())).await.is_err() {
                                         let _ = child.kill().await;
                                         state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
@@ -2625,8 +3680,38 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                         rusqlite::params![sid_clone,assistant_text,now]).ok();
                 }
 
+                // Pro/Power: update cross-session memory asynchronously
+                if !assistant_text.is_empty() && (plan == "pro" || plan == "power") {
+                    if let Some(akey) = state.anthropic_key.clone() {
+                        let db2 = Arc::clone(&db_ref);
+                        let uid2 = uid.clone();
+                        let user_msg = cm.text.clone();
+                        let asst_msg = assistant_text.clone();
+                        tokio::spawn(async move {
+                            update_user_memory(db2, akey, uid2, user_msg, asst_msg).await;
+                        });
+                    }
+                }
+
                 // R2: push modified files after Claude finishes
                 state.storage.push(&uid, project_name).await;
+
+                // Time Machine: auto-commit snapshot after each turn
+                if !project_name.is_empty() {
+                    let snap_dir = format!("{}/users/{}/{}", state.workdir, uid, project_name);
+                    if std::path::Path::new(&snap_dir).is_dir() {
+                        let snap_msg = assistant_text.chars().take(72).collect::<String>();
+                        let snap_msg = if snap_msg.is_empty() { "auto-snapshot".to_string() } else { snap_msg };
+                        // Init git if not exists, then commit
+                        let _ = Command::new("git").args(["init"]).current_dir(&snap_dir).output().await;
+                        let _ = Command::new("git").args(["add", "-A"]).current_dir(&snap_dir).output().await;
+                        let _ = Command::new("git")
+                            .args(["commit", "-m", &snap_msg, "--allow-empty-message", "--no-gpg-sign"])
+                            .env("GIT_AUTHOR_NAME", "ChatWeb AI").env("GIT_AUTHOR_EMAIL", "ai@chatweb.ai")
+                            .env("GIT_COMMITTER_NAME", "ChatWeb AI").env("GIT_COMMITTER_EMAIL", "ai@chatweb.ai")
+                            .current_dir(&snap_dir).output().await;
+                    }
+                }
 
                 // Send done + updated credits
                 let ev = if stopped {"stopped"} else {"done"};
@@ -2644,4 +3729,122 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
     }
     // Always release lock on disconnect
     state.active_procs.lock().unwrap_or_else(|e| e.into_inner()).remove(&uid);
+}
+
+// ── GET /api/nou/status ──────────────────────────────────────────────────────
+async fn nou_status(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> impl IntoResponse {
+    let user = auth_user(&s, q.token.as_deref());
+    let (uid, ..) = match user { Some(u) => u, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::Value::Null)) };
+
+    // Get user's NOU_NODE_ID from vault or fall back to server default
+    let vault_keys = load_user_keys(&s, &uid).await;
+    let node_id = vault_keys.iter()
+        .find(|(k, _)| k == "NOU_NODE_ID")
+        .map(|(_, v)| v.clone())
+        .or_else(|| s.nou_node_id.clone());
+
+    // Query the relay for connected nodes
+    let client = reqwest::Client::new();
+    let relay_status: Option<serde_json::Value> = async {
+        let r = client.get(format!("{}/api/status", s.nou_relay_url))
+            .timeout(std::time::Duration::from_secs(5))
+            .send().await.ok()?;
+        r.json().await.ok()
+    }.await;
+
+    let nodes: Vec<serde_json::Value> = relay_status.as_ref()
+        .and_then(|v| v["nodes"].as_array())
+        .map(|a| a.to_vec())
+        .unwrap_or_default();
+
+    // Find matching node if user has one configured
+    let matched = node_id.as_deref().and_then(|nid| {
+        nodes.iter().find(|n| n["node_id"].as_str() == Some(nid)).cloned()
+    });
+
+    let connected = matched.is_some() || (!nodes.is_empty() && node_id.is_none());
+    let active_node = matched.or_else(|| nodes.first().cloned());
+
+    (StatusCode::OK, Json(serde_json::json!({
+        "connected": connected,
+        "node": active_node,
+        "relay_url": s.nou_relay_url,
+        "all_nodes": nodes.len()
+    })))
+}
+
+// ── Pro Memory: extract key facts and update persistent memory ──────────────
+async fn update_user_memory(db: Db, anthropic_key: String, user_id: String, user_msg: String, assistant_msg: String) {
+    // Load existing memory
+    let existing: String = {
+        let db = db.lock().unwrap_or_else(|e| e.into_inner());
+        db.query_row("SELECT content FROM user_memory WHERE user_id=?1", [&user_id], |r| r.get(0))
+            .unwrap_or_default()
+    };
+
+    // Truncate inputs to keep prompt small
+    let user_snippet = user_msg.chars().take(600).collect::<String>();
+    let asst_snippet = assistant_msg.chars().take(600).collect::<String>();
+
+    let prompt = format!(
+        "You are a memory extractor. Given a conversation exchange and existing memory, update the memory with any new important facts about the user: their projects, tech stack, preferences, goals, key decisions, or context that would help future conversations.\n\nRules:\n- Keep it concise (max 400 chars)\n- Use bullet points like \"• \"\n- Only include facts that will be useful in future sessions\n- Merge/deduplicate with existing memory\n- If nothing new is worth remembering, return the existing memory unchanged\n- Return ONLY the memory text, no explanation\n\nExisting memory:\n{}\n\nNew exchange:\nUser: {}\nAssistant: {}",
+        if existing.is_empty() { "(none)".to_string() } else { existing },
+        user_snippet,
+        asst_snippet
+    );
+
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 200,
+        "messages": [{"role": "user", "content": prompt}]
+    });
+
+    let resp = client.post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", &anthropic_key)
+        .header("anthropic-version", "2023-06-01")
+        .header("content-type", "application/json")
+        .json(&body)
+        .send().await;
+
+    if let Ok(r) = resp {
+        if let Ok(v) = r.json::<serde_json::Value>().await {
+            if let Some(new_mem) = v["content"][0]["text"].as_str() {
+                let new_mem = new_mem.trim().to_string();
+                if !new_mem.is_empty() {
+                    let now = chrono::Utc::now().to_rfc3339();
+                    let db = db.lock().unwrap_or_else(|e| e.into_inner());
+                    db.execute(
+                        "INSERT INTO user_memory (user_id, content, updated_at) VALUES (?1,?2,?3) ON CONFLICT(user_id) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at",
+                        rusqlite::params![user_id, new_mem, now]
+                    ).ok();
+                }
+            }
+        }
+    }
+}
+
+// ── GET /api/memory ──────────────────────────────────────────────────────────
+async fn get_memory(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> impl IntoResponse {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return (StatusCode::UNAUTHORIZED, Json(serde_json::Value::Null))
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    let content: String = db.query_row(
+        "SELECT content FROM user_memory WHERE user_id=?1", [&uid], |r| r.get(0)
+    ).unwrap_or_default();
+    let updated_at: Option<String> = db.query_row(
+        "SELECT updated_at FROM user_memory WHERE user_id=?1", [&uid], |r| r.get(0)
+    ).ok();
+    (StatusCode::OK, Json(serde_json::json!({"content": content, "updated_at": updated_at})))
+}
+
+// ── DELETE /api/memory ───────────────────────────────────────────────────────
+async fn delete_memory(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> impl IntoResponse {
+    let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
+        Some(u) => u, None => return StatusCode::UNAUTHORIZED
+    };
+    let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+    db.execute("DELETE FROM user_memory WHERE user_id=?1", [&uid]).ok();
+    StatusCode::NO_CONTENT
 }

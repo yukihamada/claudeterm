@@ -2,15 +2,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#09090b">
-<meta name="description" content="Claude Code in your browser. Build apps, write code, and deploy — with AI assistance.">
-<meta property="og:title" content="ChatWeb — AI Development Terminal">
-<meta property="og:description" content="Claude Code in your browser. Build apps, write code, and deploy with AI. Free to start.">
+<meta name="description" content="Claude Code in your browser. Build, test, and deploy apps with AI — no install needed. Free $10 credit. Plans from $9/mo.">
+<meta property="og:title" content="ChatWeb — Claude Code in Your Browser">
+<meta property="og:description" content="Run Claude Code without installing anything. AI builds and deploys your app right from the browser. Start free with $10 credit.">
 <meta property="og:image" content="https://chatweb.ai/og.png">
 <meta property="og:url" content="https://chatweb.ai">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="ChatWeb — AI Development Terminal">
-<meta name="twitter:description" content="Claude Code in your browser. Free to start.">
+<meta name="twitter:title" content="ChatWeb — Claude Code in Your Browser">
+<meta name="twitter:description" content="No install. AI writes, tests, deploys your app. Free $10 credit → plans from $9/mo."  />
 <meta name="twitter:image" content="https://chatweb.ai/og.png">
 <link rel="canonical" href="https://chatweb.ai">
 <meta name="robots" content="index, follow">
@@ -24,9 +24,17 @@
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Web",
   "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
+    "@type": "AggregateOffer",
+    "lowPrice": "0",
+    "highPrice": "79",
+    "priceCurrency": "USD",
+    "offerCount": "4",
+    "offers": [
+      {"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD"},
+      {"@type": "Offer", "name": "Starter", "price": "9", "priceCurrency": "USD"},
+      {"@type": "Offer", "name": "Pro", "price": "29", "priceCurrency": "USD"},
+      {"@type": "Offer", "name": "Power", "price": "79", "priceCurrency": "USD"}
+    ]
   }
 }
 </script>
@@ -161,12 +169,7 @@ button{font-family:var(--f);cursor:pointer}
 .fe-ta{flex:1;background:var(--bg);color:var(--tx);font-family:var(--m);font-size:13px;padding:14px;border:none;outline:none;resize:none;line-height:1.6;tab-size:2}
 
 /* Template cards */
-.tmpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-top:6px}
-.tmpl-card{padding:10px;background:var(--bg);border:1.5px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .12s;text-align:center}
-.tmpl-card:hover{border-color:var(--ac);transform:translateY(-1px)}
-.tmpl-card .tmpl-ico{font-size:22px;margin-bottom:4px}
-.tmpl-card .tmpl-name{font-size:11px;font-weight:600}
-.tmpl-card .tmpl-desc{font-size:9px;color:var(--dm);margin-top:2px}
+/* .tmpl-* styles moved to project picker section below */
 
 /* Gallery */
 #gallery-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
@@ -297,15 +300,25 @@ button{font-family:var(--f);cursor:pointer}
 
 /* Dashboard */
 #ob-wrap{flex-shrink:0;overflow-y:auto;max-height:calc(100dvh - 160px)}
-.ob-caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;width:100%;max-width:500px}
-@media(max-width:480px){.ob-caps{grid-template-columns:1fr 1fr}}
-.ob-cap{display:flex;align-items:center;gap:8px;padding:10px;background:var(--s1);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:all .15s}
-.ob-cap:hover{border-color:var(--ac);background:rgba(167,139,250,.05);transform:translateY(-1px)}
-.ob-cap:active{transform:none}
-.ob-cap-ico{font-size:18px;flex-shrink:0}
-.ob-cap-title{font-size:12px;font-weight:700}
-.ob-cap-examples{display:flex;flex-wrap:wrap;gap:3px}
-.ob-cap-examples span{font-size:9px;color:var(--dm);white-space:nowrap}
+
+/* NEW: Simple empty-state (home screen) */
+.hs{display:flex;flex-direction:column;align-items:center;gap:20px;padding:48px 24px 24px;width:100%;max-width:640px;margin:0 auto;animation:.5s cubic-bezier(.16,1,.3,1) both fi}
+.hs-logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--ac),var(--bl));box-shadow:0 8px 32px rgba(167,139,250,.35);display:grid;place-items:center;font-size:24px;font-weight:900;color:#fff}
+.hs-title{font-size:clamp(22px,4vw,28px);font-weight:800;letter-spacing:-.03em;text-align:center;line-height:1.2}
+.hs-title span{background:linear-gradient(135deg,var(--ac),var(--bl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hs-sub{font-size:13px;color:var(--mu);text-align:center;line-height:1.5;margin-top:-8px}
+.hs-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:6px;width:100%}
+.hs-chip{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--s1);border:1px solid var(--bd);border-radius:99px;font-size:13px;color:var(--tx);cursor:pointer;transition:all .15s;text-align:left}
+.hs-chip:hover{border-color:var(--ac);background:rgba(167,139,250,.06);transform:translateY(-1px)}
+.hs-chip-ico{font-size:15px;flex-shrink:0}
+.hs-divider{display:flex;align-items:center;gap:10px;width:100%;max-width:400px;margin-top:4px;color:var(--dm);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.hs-divider::before,.hs-divider::after{content:'';flex:1;height:1px;background:var(--bd)}
+.hs-workflows{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.hs-wf{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;background:transparent;border:1px solid var(--bd);border-radius:99px;font-size:11px;color:var(--mu);cursor:pointer;transition:all .15s}
+.hs-wf:hover{border-color:var(--ac);color:var(--ac)}
+.hs-wf-ico{font-size:13px}
+.hs-hint{font-size:11px;color:var(--dm);text-align:center;margin-top:2px}
+.hs-hint kbd{background:var(--s2);border:1px solid var(--bd);border-radius:4px;padding:1px 5px;font-family:var(--m);font-size:10px;color:var(--mu)}
 
 /* Prism overrides */
 code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5px;background:none;text-shadow:none}
@@ -369,49 +382,81 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .share-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ac);color:#000;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:400;animation:.2s ease both fi;box-shadow:0 4px 16px rgba(167,139,250,.4)}
 #shared-view{display:none;position:fixed;inset:0;background:var(--bg);z-index:320;overflow-y:auto}
 #shared-view.on{display:block}
-.sv{max-width:720px;margin:0 auto;padding:20px}
-.sv-hd{display:flex;align-items:center;gap:10px;padding:12px 0 20px;border-bottom:1px solid var(--bd);margin-bottom:20px}
-.sv-logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--ac),var(--bl));flex-shrink:0}
-.sv-title{font-size:16px;font-weight:700;flex:1}
-.sv-author{font-size:11px;color:var(--mu)}
-.sv-home{font-size:12px;color:var(--ac);text-decoration:none;border:1px solid var(--ac);border-radius:8px;padding:5px 14px}
-.sv-msgs{display:flex;flex-direction:column;gap:20px}
-.sv-act-btn{padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .12s;display:flex;align-items:center;gap:8px}
-.sv-act-btn.primary{background:linear-gradient(135deg,var(--ac),var(--bl));color:#000}
-.sv-act-btn.primary:hover{opacity:.85}
+.sv{max-width:760px;margin:0 auto;padding:32px 20px 80px}
+.sv-hero{text-align:center;padding:40px 20px 32px;margin-bottom:28px;background:linear-gradient(180deg,rgba(167,139,250,.06) 0%,transparent 100%);border-radius:20px;border:1px solid rgba(167,139,250,.1)}
+.sv-hero-logo{width:48px;height:48px;border-radius:14px;margin:0 auto 16px;background:linear-gradient(135deg,var(--ac),var(--bl));box-shadow:0 8px 32px rgba(167,139,250,.25);display:grid;place-items:center;font-size:24px;font-weight:800;color:#fff}
+.sv-hero-title{font-size:24px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.sv-hero-author{font-size:13px;color:var(--mu);margin-bottom:4px}
+.sv-hero-meta{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;color:var(--dm);margin-top:8px}
+.sv-hero-meta span{display:flex;align-items:center;gap:4px}
+.sv-deploy-bar{margin-bottom:24px;padding:14px 18px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.15);border-radius:14px;display:flex;align-items:center;gap:10px}
+.sv-deploy-dot{width:8px;height:8px;border-radius:50%;background:var(--gn);box-shadow:0 0 8px var(--gn);flex-shrink:0}
+.sv-deploy-url{color:var(--ac);font-size:14px;font-weight:600;text-decoration:none;flex:1}
+.sv-deploy-url:hover{text-decoration:underline}
+.sv-deploy-badge{font-size:10px;color:var(--gn);background:rgba(74,222,128,.1);padding:3px 10px;border-radius:20px;font-weight:600}
+.sv-actions{display:flex;gap:8px;margin-bottom:28px;flex-wrap:wrap;justify-content:center}
+.sv-act-btn{padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+.sv-act-btn.primary{background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;box-shadow:0 4px 16px rgba(167,139,250,.3)}
+.sv-act-btn.primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 6px 24px rgba(167,139,250,.4)}
 .sv-act-btn.secondary{background:var(--s2);border:1px solid var(--bd);color:var(--tx)}
-.sv-act-btn.secondary:hover{border-color:var(--ac);color:var(--ac)}
+.sv-act-btn.secondary:hover{border-color:var(--ac);color:var(--ac);transform:translateY(-1px)}
+.sv-divider{height:1px;background:var(--bd);margin:0 0 24px}
+.sv-msgs{display:flex;flex-direction:column;gap:16px}
+.sv-msgs .msg{animation:.3s ease both fi}
+.sv-msgs .msg.u{align-self:flex-end;max-width:85%}
+.sv-msgs .msg.u .bb{background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;padding:12px 18px;border-radius:18px 18px 4px 18px;font-size:14px;line-height:1.7;box-shadow:0 2px 12px rgba(167,139,250,.2)}
+.sv-msgs .msg.a{align-self:flex-start;max-width:90%}
+.sv-msgs .msg.a .bb{background:var(--s1);border:1px solid var(--bd);padding:16px 20px;border-radius:4px 18px 18px 18px;font-size:14px;line-height:1.8;color:var(--tx)}
+.sv-msgs .msg.a .bb code{background:var(--s2);padding:1px 6px;border-radius:4px;font-family:var(--m);font-size:12px}
+.sv-msgs .msg.a .bb .pre-wrap{margin:12px 0;border-radius:10px;overflow:hidden;border:1px solid var(--bd)}
+.sv-msgs .msg.a .bb .pre-hd{background:var(--s2);padding:6px 12px;font-size:11px;color:var(--dm);display:flex;justify-content:space-between}
+.sv-msgs .msg.a .bb pre{background:var(--bg);padding:12px;overflow-x:auto;font-size:12px;line-height:1.6}
+.sv-footer{text-align:center;margin-top:40px;padding-top:24px;border-top:1px solid var(--bd)}
+.sv-footer a{color:var(--ac);text-decoration:none;font-size:14px;font-weight:600}
+.sv-footer p{color:var(--dm);font-size:11px;margin-top:8px}
 
-/* Project picker */
-#proj-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:flex-start;justify-content:center;padding:max(20px,env(safe-area-inset-top)) 0 max(20px,env(safe-area-inset-bottom))}
+/* Project picker — redesigned for simplicity */
+#proj-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);align-items:flex-start;justify-content:center;padding:max(24px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
 #proj-modal.on{display:flex}
-.prj{width:min(400px,94vw);max-height:calc(100dvh - 40px);overflow-y:auto;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:20px 16px;display:flex;flex-direction:column;gap:10px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);margin-top:auto;margin-bottom:auto;position:relative}
-.prj h2{font-size:16px;font-weight:700;letter-spacing:-.03em;padding-right:28px}
-.prj-list{display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto}
-.prj-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;cursor:pointer;transition:all .12s;font-size:12px}
-.prj-item:hover{border-color:var(--ac);background:rgba(167,139,250,.06)}
+.prj{width:min(520px,100%);max-height:calc(100dvh - 48px);overflow-y:auto;background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:28px 24px 24px;display:flex;flex-direction:column;gap:18px;animation:.25s cubic-bezier(.16,1,.3,1) both fi;box-shadow:0 24px 64px rgba(0,0,0,.5);margin:auto;position:relative}
+.prj h2{font-size:22px;font-weight:800;letter-spacing:-.03em;padding-right:28px;text-align:center}
+.prj-section{font-size:11px;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:-4px}
+.prj-list{display:flex;flex-direction:column;gap:5px;max-height:160px;overflow-y:auto}
+.prj-item{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bg);border:1.5px solid var(--bd);border-radius:12px;cursor:pointer;transition:all .12s;font-size:13px}
+.prj-item:hover{border-color:var(--ac);background:rgba(167,139,250,.06);transform:translateX(2px)}
 .prj-item.active{border-color:var(--ac);background:rgba(167,139,250,.1)}
-.prj-item .prj-ico{font-size:16px;flex-shrink:0}
+.prj-item .prj-ico{font-size:18px;flex-shrink:0}
 .prj-item .prj-name{font-weight:600;flex:1}
-.prj-new{display:flex;gap:6px}
-.prj-new input{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--tx);font-size:12px;outline:none}
-.prj-new input:focus{border-color:var(--ac)}
-.prj-new button{background:var(--ac);color:#000;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer}
-.prj-section{font-size:10px;color:var(--mu);font-weight:600;margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.prj-item .prj-arrow{color:var(--dm);font-size:14px;transition:transform .15s}
+.prj-item:hover .prj-arrow{transform:translateX(3px);color:var(--ac)}
+.prj-new{display:flex;gap:8px;align-items:center}
+.prj-new input{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:12px;padding:12px 16px;color:var(--tx);font-size:14px;outline:none;transition:border-color .15s}
+.prj-new input:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(167,139,250,.12)}
+.prj-new button{background:linear-gradient(135deg,var(--ac),var(--bl));color:#fff;border:none;border-radius:12px;padding:12px 20px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .12s}
+.prj-new button:hover{opacity:.9}
 .prj-merge{display:flex;gap:6px;align-items:center}
-.prj-merge select{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:6px;color:var(--tx);font-size:11px}
+.prj-merge select{flex:1;background:var(--bg);border:1.5px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--tx);font-size:12px}
 .prj-merge .arrow{color:var(--mu);font-size:14px;flex-shrink:0}
-.prj-merge button{background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer}
-.prj-status{font-size:11px;color:var(--gn);min-height:14px}
+.prj-merge button{background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.prj-status{font-size:12px;color:var(--gn);min-height:14px;text-align:center}
 .prj-cur{font-size:10px;color:var(--mu);padding:2px 6px;background:var(--s2);border-radius:6px;display:inline-block}
-.prj-adv{display:none;flex-direction:column;gap:8px}
+.prj-adv{display:none;flex-direction:column;gap:10px;padding:14px;background:var(--bg);border-radius:12px;border:1px dashed var(--bd)}
 .prj-adv.on{display:flex}
-.prj-adv-toggle{font-size:10px;color:var(--dm);background:none;border:none;cursor:pointer;text-align:left;padding:2px 0}
-.prj-adv-toggle:hover{color:var(--ac)}
+.prj-adv-toggle{font-size:12px;color:var(--mu);background:none;border:none;cursor:pointer;text-align:center;padding:8px;width:100%;border-radius:8px;transition:all .12s}
+.prj-adv-toggle:hover{color:var(--ac);background:var(--s2)}
+
+/* Redesigned template cards — larger, clearer */
+.tmpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tmpl-card{padding:16px 14px;background:var(--bg);border:1.5px solid var(--bd);border-radius:14px;cursor:pointer;transition:all .15s;text-align:center;display:flex;flex-direction:column;gap:4px;min-height:100px;align-items:center;justify-content:center}
+.tmpl-card:hover{border-color:var(--ac);background:rgba(167,139,250,.05);transform:translateY(-2px);box-shadow:0 6px 20px rgba(167,139,250,.15)}
+.tmpl-card:active{transform:none}
+.tmpl-card .tmpl-ico{font-size:28px;margin-bottom:4px}
+.tmpl-card .tmpl-name{font-size:13px;font-weight:700;color:var(--tx)}
+.tmpl-card .tmpl-desc{font-size:11px;color:var(--dm);margin-top:2px}
 
 /* Cron */
-#cron-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
-#cron-modal.on{display:flex}
+#cron-modal,#deploy-modal,#agents-modal,#live-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);align-items:center;justify-content:center}
+#cron-modal.on,#deploy-modal.on,#agents-modal.on,#live-modal.on{display:flex}
 .crn{width:min(500px,94vw);background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;animation:.2s cubic-bezier(.16,1,.3,1) both fi;box-shadow:var(--shadow);max-height:85vh;overflow-y:auto}
 .crn h2{font-size:18px;font-weight:700;letter-spacing:-.03em}
 .crn-list{display:flex;flex-direction:column;gap:6px}
@@ -438,25 +483,70 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 /* ── LANDING PAGE ── */
 #landing{position:fixed;inset:0;background:var(--bg);z-index:310;overflow-y:auto;display:none}
 #landing.on{display:block}
-.ld{max-width:720px;margin:0 auto;padding:40px 20px 60px}
-.ld-hero{text-align:center;padding:48px 0 36px}
-.ld-logo{width:64px;height:64px;border-radius:18px;margin:0 auto 20px;background:linear-gradient(135deg,var(--ac),var(--bl));box-shadow:0 8px 36px rgba(167,139,250,.4);display:grid;place-items:center;font-size:28px;font-weight:900;color:#fff}
-.ld h1{font-size:clamp(28px,5vw,42px);font-weight:900;letter-spacing:-.05em;line-height:1.1;margin-bottom:12px}
+.ld{max-width:960px;margin:0 auto;padding:40px 24px 80px}
+
+/* Hero: 2-column above 700px */
+.ld-hero{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;padding:56px 0 48px}
+@media(max-width:700px){.ld-hero{grid-template-columns:1fr;text-align:center;padding:36px 0 28px}}
+.ld-hero-text{}
+.ld-logo{width:48px;height:48px;border-radius:14px;margin-bottom:16px;background:linear-gradient(135deg,var(--ac),var(--bl));box-shadow:0 8px 36px rgba(167,139,250,.4);display:grid;place-items:center;font-size:22px;font-weight:900;color:#fff}
+@media(max-width:700px){.ld-logo{margin:0 auto 16px}}
+.ld h1{font-size:clamp(26px,4.5vw,44px);font-weight:900;letter-spacing:-.05em;line-height:1.08;margin-bottom:14px}
 .ld h1 span{background:linear-gradient(135deg,var(--ac),var(--bl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.ld-sub{font-size:clamp(14px,2.5vw,18px);color:var(--mu);line-height:1.6;max-width:480px;margin:0 auto 28px}
-.ld-cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.ld-cta .bp{padding:14px 32px;font-size:16px;border-radius:14px}
-.ld-demo-btn{background:var(--s2);color:var(--tx);border:1.5px solid var(--bd);border-radius:14px;padding:14px 28px;font-size:16px;font-weight:600;cursor:pointer;transition:all .15s}
+.ld-sub{font-size:clamp(14px,2vw,17px);color:var(--mu);line-height:1.65;margin-bottom:28px}
+.ld-cta{display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:700px){.ld-cta{justify-content:center}}
+.ld-cta .bp{padding:14px 28px;font-size:15px;border-radius:12px}
+.ld-demo-btn{background:var(--s2);color:var(--tx);border:1.5px solid var(--bd);border-radius:12px;padding:14px 20px;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s}
 .ld-demo-btn:hover{border-color:var(--ac);color:var(--ac)}
-.ld-section{margin-top:48px}
-.ld-section h2{font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:20px;text-align:center}
+
+/* Product mockup in hero */
+.ld-mockup{border-radius:14px;overflow:hidden;border:1px solid var(--bd);box-shadow:0 24px 64px rgba(0,0,0,.5);background:var(--s1);animation:.6s cubic-bezier(.16,1,.3,1) both fi}
+.ld-mockup-bar{display:flex;align-items:center;gap:6px;padding:9px 12px;background:var(--bg);border-bottom:1px solid var(--bd)}
+.ld-mockup-dot{width:9px;height:9px;border-radius:50%}
+.ld-mockup-title{flex:1;text-align:center;font-size:11px;color:var(--dm)}
+.ld-mockup-body{padding:12px;display:flex;flex-direction:column;gap:8px;min-height:280px}
+.ld-mk-msg-u{align-self:flex-end;background:linear-gradient(135deg,var(--ac),#818cf8);color:#fff;padding:8px 14px;border-radius:14px 14px 4px 14px;font-size:12px;line-height:1.5;max-width:85%}
+.ld-mk-msg-a{background:transparent;font-size:12px;color:var(--tx);line-height:1.6;padding:4px 0}
+.ld-mk-tool{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:5px 10px;font-size:11px;color:var(--mu);margin:2px 0}
+.ld-mk-tool-ico{font-size:13px}
+.ld-mk-ok{color:var(--gn);font-size:11px;margin-left:auto}
+.ld-mk-deploy{display:flex;align-items:center;gap:8px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:8px;padding:8px 12px;font-size:12px;margin-top:4px}
+.ld-mk-url{font-family:var(--m);font-size:11px;color:var(--bl);text-decoration:underline}
+.ld-mk-input{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--bd);margin-top:auto}
+.ld-mk-inp-box{flex:1;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--dm)}
+.ld-mk-send{width:26px;height:26px;border-radius:7px;background:var(--ac);display:grid;place-items:center;color:#fff;font-size:13px;flex-shrink:0}
+
+.ld-section{margin-top:56px}
+.ld-section h2{font-size:22px;font-weight:800;letter-spacing:-.03em;margin-bottom:24px;text-align:center}
 .ld-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-.ld-card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:18px 16px;transition:all .15s}
+.ld-card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:20px 16px;transition:all .15s}
 .ld-card:hover{border-color:var(--ac);transform:translateY(-2px)}
-.ld-card-ico{font-size:24px;margin-bottom:8px}
-.ld-card h3{font-size:14px;font-weight:700;margin-bottom:4px}
-.ld-card p{font-size:12px;color:var(--mu);line-height:1.5}
-.ld-demo{background:var(--s1);border:1px solid var(--bd);border-radius:16px;overflow:hidden;margin-top:48px}
+.ld-card-ico{font-size:24px;margin-bottom:10px}
+.ld-card h3{font-size:14px;font-weight:700;margin-bottom:5px}
+.ld-card p{font-size:12px;color:var(--mu);line-height:1.55}
+
+/* Compare table */
+.ld-compare{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}
+.ld-compare th{padding:10px 16px;text-align:left;font-size:11px;color:var(--dm);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)}
+.ld-compare td{padding:11px 16px;border-bottom:1px solid var(--bd)}
+.ld-compare tr:last-child td{border-bottom:none}
+.ld-compare .ck{color:var(--gn);font-size:16px}
+.ld-compare .xk{color:var(--rd);font-size:16px}
+.ld-compare .col-us{background:rgba(167,139,250,.04)}
+.ld-compare th.col-us{color:var(--ac)}
+
+/* FAQ */
+.ld-faq{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.ld-faq-item{background:var(--s1);border:1px solid var(--bd);border-radius:12px;overflow:hidden}
+.ld-faq-q{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;font-size:14px;font-weight:600;cursor:pointer;user-select:none;gap:12px}
+.ld-faq-q:hover{background:var(--s2)}
+.ld-faq-icon{flex-shrink:0;color:var(--dm);font-size:18px;transition:transform .2s}
+.ld-faq-item.open .ld-faq-icon{transform:rotate(45deg)}
+.ld-faq-a{display:none;padding:0 18px 14px;font-size:13px;color:var(--mu);line-height:1.65}
+.ld-faq-item.open .ld-faq-a{display:block}
+
+.ld-demo{background:var(--s1);border:1px solid var(--bd);border-radius:16px;overflow:hidden;margin-top:0}
 .ld-demo-hd{padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mu)}
 .ld-demo-hd .dt{width:7px;height:7px;border-radius:50%;background:var(--gn);box-shadow:0 0 6px var(--gn)}
 .ld-demo-hd .demo-replay{margin-left:auto;background:none;border:1px solid var(--bd);color:var(--mu);border-radius:6px;padding:2px 10px;font-size:10px;cursor:pointer;transition:all .15s}
@@ -478,15 +568,15 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .ld-demo-preview .pv-bar .pv-dot{width:6px;height:6px;border-radius:50%;background:var(--gn);box-shadow:0 0 4px var(--gn)}
 .ld-demo-preview .pv-bar .pv-url{flex:1;font-family:var(--m);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ld-demo-preview iframe{width:100%;height:200px;border:none;background:#fff;border-radius:0 0 10px 10px}
-.ld-bottom{text-align:center;margin-top:48px}
-.ld-bottom .bp{padding:14px 40px;font-size:16px;border-radius:14px}
-.ld-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:48px}
-@media(max-width:480px){.ld-prices{grid-template-columns:1fr}}
-.ld-pr{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:18px 12px;text-align:center;position:relative}
-.ld-pr.pop{border-color:var(--ac)}
-.ld-pr h3{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-.ld-pr .price{font-size:28px;font-weight:800;letter-spacing:-.04em}.ld-pr .per{font-size:11px;color:var(--dm)}
-.ld-pr .val{font-size:12px;color:var(--gn);font-weight:600;margin:6px 0}
+.ld-bottom{text-align:center;margin-top:64px;padding:48px 24px;background:linear-gradient(180deg,transparent,rgba(167,139,250,.05));border-radius:24px;border:1px solid rgba(167,139,250,.12)}
+.ld-bottom .bp{padding:16px 44px;font-size:16px;border-radius:14px}
+.ld-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:0}
+@media(max-width:540px){.ld-prices{grid-template-columns:1fr}}
+.ld-pr{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:20px 14px;text-align:center;position:relative}
+.ld-pr.pop{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
+.ld-pr h3{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.ld-pr .price{font-size:30px;font-weight:800;letter-spacing:-.04em}.ld-pr .per{font-size:11px;color:var(--dm)}
+.ld-pr .val{font-size:12px;color:var(--gn);font-weight:600;margin:8px 0 4px}
 .ld-pr .turns{font-size:10px;color:var(--dm)}
 
 /* ── TUTORIAL ── */
@@ -551,22 +641,31 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
   .ib{width:36px;height:36px;font-size:18px;border-radius:10px;-webkit-tap-highlight-color:transparent}
   .lg{width:20px;height:20px;border-radius:6px}
 }
-</style></head><body>
+</style>
+<script src="https://enabler-analytics.fly.dev/t.js" defer></script>
+<script defer data-domain="chatweb.ai" src="https://plausible.io/js/script.js"></script>
+</head><body>
 
 <!-- Landing page (shown before login) -->
 <div id="landing" class="on"><div class="ld">
 <div class="ld-hero">
-  <div class="ld-logo">C</div>
-  <h1><span>ChatWeb</span></h1>
-  <div class="ld-sub" id="ld-sub"></div>
-  <div class="ld-cta">
-    <a href="#" class="bp" id="ld-start"></a>
-    <button class="ld-demo-btn" id="ld-try"></button>
+  <div class="ld-hero-text">
+    <div class="ld-logo">C</div>
+    <h1 id="ld-h1"></h1>
+    <div class="ld-sub" id="ld-sub"></div>
+    <div id="ld-proof" style="display:flex;align-items:center;gap:14px;margin-bottom:24px;flex-wrap:wrap"></div>
+    <div class="ld-cta">
+      <a href="#" class="bp" id="ld-start"></a>
+      <button class="ld-demo-btn" id="ld-try"></button>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--dm)" id="ld-no-cc-hero"></div>
   </div>
+  <!-- Product UI Mockup -->
+  <div class="ld-mockup" id="ld-mockup"></div>
 </div>
 
 <!-- Live demo -->
-<div class="ld-demo">
+<div class="ld-demo" id="ld-demo-section">
   <div class="ld-demo-hd"><span class="dt"></span> <span id="ld-demo-label"></span><button class="demo-replay" id="demo-replay" style="display:none">↻ Replay</button></div>
   <div class="ld-demo-body" id="ld-demo-body"></div>
 </div>
@@ -582,8 +681,30 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
   <div class="ld-prices" id="ld-prices"></div>
 </div>
 
+<div class="ld-section" id="ld-how-section">
+  <h2 id="ld-how-title"></h2>
+  <div id="ld-how-steps" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px"></div>
+</div>
+
+<!-- Compare section -->
+<div class="ld-section">
+  <h2 id="ld-compare-title"></h2>
+  <div style="overflow-x:auto;border-radius:14px;border:1px solid var(--bd)">
+    <table class="ld-compare" id="ld-compare-table"></table>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div class="ld-section">
+  <h2 id="ld-faq-title"></h2>
+  <div class="ld-faq" id="ld-faq"></div>
+</div>
+
 <div class="ld-bottom">
+  <div id="ld-bottom-msg" style="font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:10px"></div>
+  <div style="font-size:15px;color:var(--mu);margin-bottom:24px" id="ld-bottom-sub"></div>
   <a href="#" class="bp" id="ld-start2"></a>
+  <div style="margin-top:12px;font-size:12px;color:var(--dm)" id="ld-no-cc"></div>
 </div>
 </div></div>
 
@@ -634,6 +755,11 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button id="ubtn" class="hm-item"><span>👤</span><span id="hm-settings"></span><span class="hm-key">⌘,</span></button>
 <button id="usagebtn" class="hm-item"><span>&#128202;</span><span id="hm-usage"></span></button>
 <div class="hm-sep"></div>
+<button id="deploybtn" class="hm-item"><span>🚀</span><span id="hm-deploy">Deploy</span></button>
+<button id="livebtn" class="hm-item"><span>📡</span><span id="hm-live">Live</span></button>
+<button id="agentsbtn" class="hm-item"><span>🤖</span><span id="hm-agents">Agents</span></button>
+<button id="timebtn" class="hm-item"><span>⏪</span><span id="hm-time">Time Machine</span></button>
+<button id="appsbtn" class="hm-item" onclick="window.open('/apps','_blank')"><span>🏪</span><span>App Store</span></button>
 <button id="gallerybtn" class="hm-item"><span>🏛</span><span id="hm-gallery"></span></button>
 <button id="shortcutsbtn" class="hm-item"><span>⌨</span><span id="hm-shortcuts"></span><span class="hm-key">?</span></button>
 </div>
@@ -654,7 +780,8 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button class="mp" data-m="haiku">⚡ Fast</button>
 <button class="mp" data-m="sonnet">✦ Sonnet</button>
 <button class="mp" data-m="opus">◆ Max</button>
-<select id="mdl" style="display:none"><option value="auto">auto</option><option value="haiku">haiku</option><option value="sonnet">sonnet</option><option value="opus">opus</option></select>
+<button class="mp" data-m="nou" id="nou-btn" style="display:none" title="Your local NOU machine">◈ NOU</button>
+<select id="mdl" style="display:none"><option value="auto">auto</option><option value="haiku">haiku</option><option value="sonnet">sonnet</option><option value="opus">opus</option><option value="nou">nou</option></select>
 </div>
 <div class="ir">
 <button class="cb cb-m" id="mi" style="display:none">&#127908;</button>
@@ -695,6 +822,14 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <label>Email<input id="s-email" disabled></label>
 <div class="s-plan-row"><span>現在のプラン</span><span class="s-plan-badge" id="s-plan">Free</span></div>
 <label><span id="s-credits-label"></span><input id="s-credits" disabled></label>
+<div id="s-memory-section" style="display:none">
+<label style="display:flex;align-items:center;justify-content:space-between">
+  <span>🧠 Pro Memory</span>
+  <button id="s-memory-clear" style="background:none;border:1px solid var(--bd);color:var(--mu);border-radius:6px;padding:3px 10px;font-size:10px;cursor:pointer;font-family:var(--f)">Clear</button>
+</label>
+<div id="s-memory-content" style="background:var(--s3);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mu);font-family:var(--m);line-height:1.6;min-height:36px;white-space:pre-wrap;max-height:120px;overflow-y:auto"></div>
+<div class="info">Automatically remembers your projects and preferences across sessions.</div>
+</div>
 <label>Anthropic API Key (optional)
 <input id="s-key" type="password" placeholder="sk-ant-...">
 </label>
@@ -714,6 +849,13 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
   <button id="s-key-add" style="background:var(--ac);color:#000;border:none;border-radius:6px;padding:6px 12px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap"></button>
 </div>
 <div class="info" style="margin-top:4px" id="s-keys-info"></div>
+<div id="s-nou-section">
+<label style="display:flex;align-items:center;justify-content:space-between">
+  <span>◈ NOU Local Machine</span>
+  <span id="s-nou-status" style="font-size:10px;padding:2px 8px;border-radius:99px;background:var(--s3);color:var(--mu);border:1px solid var(--bd)">checking...</span>
+</label>
+<div class="info" id="s-nou-info">Set <code>NOU_NODE_ID</code> in keys to use your own machine. Or start NOU on your Mac.</div>
+</div>
 <label>📱 KAGIアプリから受け取る</label>
 <div style="display:flex;gap:6px">
   <input id="s-transfer-code" placeholder="6桁コード" maxlength="6" inputmode="numeric" style="flex:1;font-family:var(--m);font-size:16px;text-align:center;letter-spacing:4px;background:var(--bg);border:1.5px solid var(--bd);border-radius:6px;padding:8px;color:var(--tx);outline:none">
@@ -852,33 +994,108 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button class="pm-close" id="crn-close">&times;</button>
 </div></div>
 
+<!-- Deploy modal -->
+<div id="deploy-modal"><div class="crn" style="max-width:560px">
+<button class="pm-close" id="deploy-close">&times;</button>
+<h2 id="deploy-title">Deploy</h2>
+<div id="deploy-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+<div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap" id="deploy-tabs">
+  <button class="mb on" data-tab="chatweb" onclick="switchDeployTab('chatweb',this)">ChatWeb</button>
+  <button class="mb" data-tab="ext" onclick="switchDeployTab('ext',this)">Fly / Vercel / CF...</button>
+</div>
+<div id="deploy-tab-chatweb">
+  <p style="color:var(--mu);font-size:11px;margin-bottom:8px">Instantly publish to <b>slug.chatweb.ai</b></p>
+  <div class="crn-new">
+    <div class="crn-row">
+      <select id="deploy-proj"><option value="">Select project</option></select>
+      <input id="deploy-slug" placeholder="my-app" style="flex:1;text-transform:lowercase">
+    </div>
+    <input id="deploy-title-in" placeholder="App title (optional)">
+    <button class="bs bs-p" id="deploy-btn" style="width:100%">Deploy to chatweb.ai</button>
+  </div>
+</div>
+<div id="deploy-tab-ext" style="display:none">
+  <p style="color:var(--mu);font-size:11px;margin-bottom:10px">Set tokens in Settings → Keys, then ask AI to deploy.</p>
+  <div id="deploy-platforms" style="display:flex;flex-direction:column;gap:6px"></div>
+</div>
+</div></div>
+
+<!-- Agents modal -->
+<div id="agents-modal"><div class="crn" style="max-width:560px">
+<button class="pm-close" id="agents-close">&times;</button>
+<h2>Agent Marketplace</h2>
+<p style="color:var(--mu);font-size:12px;margin-bottom:12px">AI agents that run on a schedule. Install with one click.</p>
+<div id="agents-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto"></div>
+<div class="hm-sep" style="margin:12px 0"></div>
+<h3 style="font-size:13px;margin-bottom:8px">Publish Your Agent</h3>
+<div style="display:flex;flex-direction:column;gap:6px">
+  <input id="agent-name" placeholder="Agent name">
+  <input id="agent-desc" placeholder="Description">
+  <input id="agent-cmd" placeholder="Command (e.g. Summarize Hacker News top 10)">
+  <div class="crn-row">
+    <select id="agent-interval">
+      <option value="3600">Every hour</option>
+      <option value="21600">Every 6h</option>
+      <option value="43200">Every 12h</option>
+      <option value="86400">Daily</option>
+    </select>
+    <input id="agent-tags" placeholder="Tags (comma-sep)" style="flex:1">
+  </div>
+  <button class="bs bs-p" id="agent-publish-btn" style="width:100%">Publish Agent</button>
+</div>
+</div></div>
+
+<!-- Live coding modal -->
+<div id="live-modal"><div class="crn" style="max-width:560px">
+<button class="pm-close" id="live-close">&times;</button>
+<h2>Live Coding</h2>
+<p style="color:var(--mu);font-size:12px;margin-bottom:8px">Watch others build in real-time, or broadcast your session.</p>
+<div style="margin-bottom:12px">
+  <button class="bs bs-p" id="live-broadcast-btn" style="width:100%">Start Broadcasting This Session</button>
+</div>
+<div id="live-list" style="display:flex;flex-direction:column;gap:8px"></div>
+</div></div>
+
+<!-- Live watch view (full-screen overlay) -->
+<div id="live-watch" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:200;flex-direction:column">
+<div style="height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--bd);flex-shrink:0">
+  <div class="lg"></div>
+  <span class="lt">ChatWeb Live</span>
+  <span id="live-watch-title" style="color:var(--mu);font-size:12px;flex:1"></span>
+  <span id="live-watch-viewers" style="font-size:11px;color:var(--dm)"></span>
+  <button class="ib" id="live-watch-close" style="font-size:16px">&times;</button>
+</div>
+<div id="live-watch-msgs" style="flex:1;overflow-y:auto;padding:16px;font-family:var(--m);font-size:12px;line-height:1.7;white-space:pre-wrap;color:var(--mu)"></div>
+</div>
+
 <!-- Project picker / merge modal -->
 <div id="proj-modal"><div class="prj">
 <button class="pm-close" id="prj-close">&times;</button>
 <h2 id="prj-title"></h2>
 
-<!-- Quick: existing projects -->
-<div class="prj-list" id="prj-list"></div>
-
-<!-- New project (always visible) -->
-<div class="prj-section" id="prj-new-label"></div>
-<div style="display:flex;flex-direction:column;gap:8px">
-  <input id="prj-name" class="prj-new" placeholder="my-app" style="width:100%;padding:9px 12px;border-radius:10px">
-  <div id="prj-types" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-  <button id="prj-create-btn" style="width:100%;background:linear-gradient(135deg,var(--ac),var(--bl));color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s"></button>
-</div>
-
-<!-- Templates -->
+<!-- Primary: Templates (start from here) -->
 <div class="prj-section" id="prj-tmpl-label"></div>
 <div class="tmpl-grid" id="prj-templates"></div>
+
+<!-- Empty project with custom name -->
+<div class="prj-section" id="prj-new-label"></div>
+<div class="prj-new">
+  <input id="prj-name" placeholder="my-app">
+  <button id="prj-create-btn"></button>
+</div>
+<div id="prj-types" style="display:none"></div>
+
+<!-- Existing projects (collapsed into its own section) -->
+<div class="prj-section" id="prj-existing-label" style="display:none"></div>
+<div class="prj-list" id="prj-list"></div>
 
 <!-- Advanced (toggle) -->
 <button class="prj-adv-toggle" id="prj-adv-toggle"></button>
 <div class="prj-adv" id="prj-adv">
   <div class="prj-section" id="prj-clone-label"></div>
   <div style="display:flex;gap:6px">
-    <input id="prj-clone-url" class="prj-new" placeholder="https://github.com/user/repo" style="flex:1;padding:7px 10px;font-size:11px;border-radius:8px">
-    <button id="prj-clone-btn" style="background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Clone</button>
+    <input id="prj-clone-url" placeholder="https://github.com/user/repo" style="flex:1;background:var(--s1);border:1.5px solid var(--bd);border-radius:8px;padding:8px 12px;color:var(--tx);font-size:12px;outline:none">
+    <button id="prj-clone-btn" style="background:var(--s3);color:var(--tx);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Clone</button>
   </div>
   <div id="prj-clone-status" style="font-size:11px;color:var(--dm)"></div>
   <div class="prj-section" id="prj-merge-label"></div>
@@ -894,13 +1111,23 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 
 <!-- Shared session view (public, no auth needed) -->
 <div id="shared-view"><div class="sv">
-<div class="sv-hd">
-  <div class="sv-logo"></div>
-  <div><div class="sv-title" id="sv-title"></div><div class="sv-author" id="sv-author"></div></div>
-  <a class="sv-home" href="/" id="sv-home"></a>
+<div class="sv-hero">
+  <div class="sv-hero-logo">C</div>
+  <div class="sv-hero-title" id="sv-title"></div>
+  <div class="sv-hero-author" id="sv-author"></div>
+  <div class="sv-hero-meta">
+    <span id="sv-msg-count"></span>
+    <span id="sv-project-name"></span>
+  </div>
 </div>
-<div class="sv-actions" id="sv-actions" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"></div>
+<div id="sv-deploy-bar"></div>
+<div class="sv-actions" id="sv-actions"></div>
+<div class="sv-divider"></div>
 <div class="sv-msgs" id="sv-msgs"></div>
+<div class="sv-footer">
+  <a href="/" id="sv-home"></a>
+  <p>Built with AI on ChatWeb</p>
+</div>
 </div></div>
 
 <script>
@@ -995,7 +1222,9 @@ async function doLogin(){
     const r=await fetch('/api/auth/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,code})});
     if(!r.ok){$('er').style.color='var(--rd)';$('er').textContent=isJa?'コードが正しくありません':'Invalid or expired code';$('go').disabled=false;return}
     const d=await r.json();tk=d.token;user=d.user;
-    localStorage.setItem('ct_tk',tk);show();
+    localStorage.setItem('ct_tk',tk);
+    if(window.plausible)plausible('Signup');
+    show();
   }
 }
 $('go').onclick=doLogin;
@@ -1012,10 +1241,29 @@ async function checkToken(t){
   return true;
 }
 
+async function checkNou(){
+  try{
+    const r=await fetch('/api/nou/status'+tq());
+    if(!r.ok)return;
+    const d=await r.json();
+    const btn=$('nou-btn');
+    if(!btn)return;
+    if(d.connected){
+      btn.style.display='';
+      const label=d.node?.label?.split('.')[0]||'NOU';
+      btn.title=`${label} — local machine`;
+      btn.textContent='◈ '+label.slice(0,6);
+    }else{
+      btn.style.display='none';
+    }
+  }catch(e){}
+}
+
 async function show(){
   $('landing').classList.remove('on');$('login').style.display='none';$('app').style.display='flex';
   $('ubtn').textContent=user.email.split('@')[0];
   shCr();connect();lF('');
+  checkNou();
   const r=await fetch('/api/sessions'+tq());if(r.ok)ss=await r.json();
   if(!ss.length)await cS('Session 1');
   // Restore last active session across reloads
@@ -1039,7 +1287,11 @@ async function show(){
     try{
       const ps=JSON.parse(pendingShare);
       currentShareId=ps.shareId;
-      await joinOrFork(ps.action);
+      if(ps.action==='pair'&&typeof startPairSession==='function'){
+        await startPairSession(ps.shareId);
+      }else{
+        await joinOrFork(ps.action);
+      }
     }catch{}
   }
   // Show tutorial for first-time users (no token consumption)
@@ -1060,6 +1312,25 @@ $('ubtn').onclick=()=>{
   const el=$('s-plan');
   el.textContent=plan.charAt(0).toUpperCase()+plan.slice(1);
   el.className='s-plan-badge'+(plan!=='free'?' '+plan:'');
+  // NOU status in settings
+  fetch('/api/nou/status'+tq()).then(r=>r.json()).then(d=>{
+    const st=$('s-nou-status');const info=$('s-nou-info');
+    if(!st)return;
+    if(d.connected){
+      st.textContent='Connected';st.style.background='rgba(52,211,153,.12)';st.style.color='var(--gn)';st.style.borderColor='rgba(52,211,153,.3)';
+      const nd=d.node;
+      if(nd)info.textContent=`${nd.label||nd.node_id} — ${nd.url}`;
+    }else{
+      st.textContent='Not connected';st.style.background='';st.style.color='var(--mu)';
+    }
+  }).catch(()=>{});
+  // Pro Memory panel
+  if(plan==='pro'||plan==='power'){
+    $('s-memory-section').style.display='';
+    refreshMemory();
+  } else {
+    $('s-memory-section').style.display='none';
+  }
   // Render subscription plans
   $('s-sub-label').textContent=isJa?'月額プラン':'Monthly Plans';
   $('s-sub-grid').innerHTML=PLANS.map(p=>`
@@ -1120,6 +1391,21 @@ $('ubtn').onclick=()=>{
   $('settings').classList.add('on');
 };
 $('s-close').onclick=()=>$('settings').classList.remove('on');
+
+// Pro Memory
+async function refreshMemory(){
+  const el=$('s-memory-content');
+  if(!el)return;
+  try{
+    const r=await fetch('/api/memory'+tq());
+    const d=await r.json();
+    el.textContent=d.content||'No memory yet. Start chatting to build context across sessions.';
+  }catch(e){el.textContent='—';}
+}
+$('s-memory-clear')&&($('s-memory-clear').onclick=async()=>{
+  await fetch('/api/memory'+tq(),{method:'DELETE'});
+  $('s-memory-content').textContent='Memory cleared.';
+});
 
 // Key management
 async function refreshKeys(){
@@ -1216,6 +1502,7 @@ $('s-ref-apply-btn').onclick=async()=>{
 // Buy credits (one-time)
 window.buyCredits=async function(amt){
   $('buy-msg').textContent='Redirecting to payment...';
+  if(window.plausible)plausible('Checkout Started',{props:{type:'credits',amount:amt}});
   const r=await fetch('/api/billing/checkout'+tq(),{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({amount:amt})});
   if(!r.ok){$('buy-msg').textContent='Payment not available yet';return}
@@ -1226,6 +1513,7 @@ window.buyCredits=async function(amt){
 
 // Subscribe (monthly)
 window.subscribe=async function(plan){
+  if(window.plausible)plausible('Checkout Started',{props:{type:'subscription',plan}});
   const r=await fetch('/api/billing/subscribe'+tq(),{method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({plan})});
   if(!r.ok){alert('Payment not available. Please try again.');return}
@@ -1346,6 +1634,9 @@ $('hm-usage').textContent=isJa?'使用量':'Usage';
 $('hm-shortcuts').textContent=isJa?'ショートカット':'Shortcuts';
 $('hm-preview').textContent=isJa?'プレビュー':'Preview';
 $('hm-gallery').textContent=isJa?'ギャラリー':'Gallery';
+$('hm-deploy').textContent=isJa?'デプロイ':'Deploy';
+$('hm-live').textContent=isJa?'ライブ':'Live';
+$('hm-agents').textContent=isJa?'エージェント':'Agents';
 
 // Usage
 async function showUsage(){
@@ -1390,18 +1681,39 @@ async function showGallery(){
     return;
   }
   $('gal-grid').innerHTML=items.map(it=>`
-    <div class="gal-card" onclick="window.open('${it.url}','_blank')">
+    <div class="gal-card">
       <h4>${esc(it.title)}</h4>
       <p>${esc(it.description||'')}</p>
       <div class="gal-meta">
         <span class="gal-author">@${esc(it.author)}</span>
         ${it.tags?`<span>${esc(it.tags)}</span>`:''}
       </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="event.stopPropagation();remixGallery('${esc(it.id)}')" style="flex:1;background:linear-gradient(135deg,var(--ac),var(--bl));color:#fff;border:none;border-radius:8px;padding:6px;font-size:11px;font-weight:600;cursor:pointer">Remix</button>
+        <button onclick="event.stopPropagation();likeGallery('${esc(it.id)}',this)" style="background:var(--s3);color:var(--mu);border:none;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer">${it.likes>0?it.likes+' ':''}&hearts;</button>
+      </div>
     </div>`).join('');
 }
 $('gallerybtn').onclick=showGallery;
 $('gal-close').onclick=()=>$('gallery-modal').classList.remove('on');
 $('gallery-modal').onclick=e=>{if(e.target===$('gallery-modal'))$('gallery-modal').classList.remove('on')};
+window.remixGallery=async function(id){
+  if(!tk){alert('Please log in first');return}
+  const r=await fetch('/api/community/gallery/'+id+'/remix'+tq(),{method:'POST'});
+  if(r.ok){
+    const d=await r.json();
+    $('gallery-modal').classList.remove('on');
+    ss.unshift({id:d.session_id,name:d.name,created_at:new Date().toISOString(),project:d.project||''});
+    sid=d.session_id;tU();lH(sid);
+    const t=document.createElement('div');t.className='share-toast';
+    t.textContent='Remixed! Project "'+d.project+'" is in your workspace.';
+    document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+  }else{alert('Remix failed — please log in first')}
+};
+window.likeGallery=async function(id,btn){
+  const r=await fetch('/api/community/gallery/'+id+'/like',{method:'POST'});
+  if(r.ok){const d=await r.json();btn.innerHTML=d.likes+' &hearts;';btn.style.color='var(--rd)'}
+};
 
 // Shortcuts modal
 const isMac=navigator.platform?.includes('Mac');
@@ -1609,22 +1921,36 @@ const r=new SR();r.continuous=false;r.interimResults=true;r.lang='ja-JP';let rc=
 r.onresult=e=>{let i='';fn='';for(let j=0;j<e.results.length;j++){if(e.results[j].isFinal)fn+=e.results[j][0].transcript;else i+=e.results[j][0].transcript}$('mg').value=fn+i};
 r.onend=()=>{rc=false;$('mi').classList.remove('rc')};r.onerror=r.onend;
 $('mi').style.display='grid';$('mi').onclick=()=>{if(rc){r.stop();return}rc=true;$('mi').classList.add('rc');fn='';r.start()}}
+// TTS: read AI responses aloud (toggle with voice button long-press)
+let ttsEnabled=localStorage.getItem('ct_tts')==='1';
+window.speakText=function(text){
+  if(!ttsEnabled||!window.speechSynthesis)return;
+  const u=new SpeechSynthesisUtterance(text.slice(0,500));
+  u.lang=lang==='ja'?'ja-JP':'en-US';u.rate=1.1;
+  speechSynthesis.speak(u);
+};
+window.toggleTTS=function(){
+  ttsEnabled=!ttsEnabled;localStorage.setItem('ct_tts',ttsEnabled?'1':'0');
+  const t=document.createElement('div');t.className='share-toast';
+  t.textContent=ttsEnabled?(isJa?'音声読み上げON':'Voice ON'):(isJa?'音声読み上げOFF':'Voice OFF');
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2000);
+};
 
 // ── Landing page ──
 const LD_FEATS=isJa?[
-  {ico:'💻',t:'コードを書く',d:'Claude CodeがReact / Python / Rust など何でも書いて実行。ファイル編集もお任せ。'},
-  {ico:'🚀',t:'ワンクリックデプロイ',d:'作ったWebアプリをFly.ioやCloudflareに即公開。コマンド1つ。'},
-  {ico:'🐛',t:'バグ修正・レビュー',d:'エラーを貼るだけでAIが原因特定→修正→テストまで自動で実行。'},
-  {ico:'📱',t:'モバイルアプリ開発',d:'Swift / Kotlinのコードを書き、ビルド・テスト・App Store提出まで。'},
-  {ico:'🎨',t:'画像生成',d:'/image コマンドでAI画像を生成。デザインモックやアイコン作成に。'},
-  {ico:'⚙️',t:'インフラ自動化',d:'Docker / CI/CD / AWS / Terraform をAIが設定・デプロイ。'},
+  {ico:'🌐',t:'ゼロインストール',d:'Chromeを開くだけ。Node.js・Python・Rustが全部入ってる。iPadでも動く。'},
+  {ico:'🤖',t:'Claude Code フル機能',d:'ファイル編集・ターミナル・Git・テスト実行まで、Claude Code の全機能がブラウザで使える。'},
+  {ico:'🚀',t:'ワンクリックデプロイ',d:'Fly.io・Vercel・Cloudflare に即公開。ドメイン設定もAIがやってくれる。'},
+  {ico:'⚡',t:'高速プロトタイピング',d:'「SaaSを作って」と打つだけでLanding Page→認証→DB→決済まで一気に完成。'},
+  {ico:'🔐',t:'APIキー管理',d:'自分のAnthropic / OpenAI キーを使ってコストコントロール。チームで共有も可。'},
+  {ico:'📂',t:'プロジェクト保存',d:'セッションをまたいでプロジェクトが保持される。GitHubにプッシュしてコラボも。'},
 ]:[
-  {ico:'💻',t:'Write Code',d:'Claude Code writes & runs React, Python, Rust — anything. Edits files for you.'},
-  {ico:'🚀',t:'One-Click Deploy',d:'Ship your web app to Fly.io or Cloudflare with a single command.'},
-  {ico:'🐛',t:'Fix Bugs',d:'Paste an error, AI finds the cause, fixes it, and runs tests automatically.'},
-  {ico:'📱',t:'Mobile Apps',d:'Write Swift / Kotlin, build, test, and submit to App Store.'},
-  {ico:'🎨',t:'Generate Images',d:'Use /image to create AI images for mockups, icons, and designs.'},
-  {ico:'⚙️',t:'DevOps',d:'AI sets up Docker, CI/CD, AWS, Terraform and deploys for you.'},
+  {ico:'🌐',t:'Zero Setup',d:'Open Chrome and code. Node.js, Python, Rust — all pre-installed. Works on iPad too.'},
+  {ico:'🤖',t:'Full Claude Code',d:'File editing, terminal, Git, test runner — every Claude Code feature, right in the browser.'},
+  {ico:'🚀',t:'Deploy in Seconds',d:'Ship to Fly.io, Vercel, or Cloudflare with one command. AI handles DNS too.'},
+  {ico:'⚡',t:'Instant Prototypes',d:'Type "build a SaaS" and get landing page → auth → DB → payments in one session.'},
+  {ico:'🔐',t:'Bring Your API Key',d:'Use your own Anthropic/OpenAI key for full cost control. Share with your team.'},
+  {ico:'📂',t:'Projects Persist',d:'Your work is saved across sessions. Push to GitHub and collaborate easily.'},
 ];
 const DEMO_TODO_HTML=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f14;color:#e2e8f0;display:flex;justify-content:center;padding:24px}.app{width:100%;max-width:360px}.app h1{font-size:18px;font-weight:700;margin-bottom:16px;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.add{display:flex;gap:8px;margin-bottom:16px}.add input{flex:1;padding:8px 12px;background:#1a1a24;border:1px solid #2a2a3a;border-radius:8px;color:#e2e8f0;font-size:13px;outline:none}.add input:focus{border-color:#a78bfa}.add button{padding:8px 16px;background:linear-gradient(135deg,#a78bfa,#818cf8);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}.items{display:flex;flex-direction:column;gap:6px}.item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#1a1a24;border:1px solid #2a2a3a;border-radius:8px;font-size:13px;transition:all .15s}.item.done{opacity:.5}.item.done .text{text-decoration:line-through}.item input[type=checkbox]{accent-color:#a78bfa;width:16px;height:16px;cursor:pointer}.text{flex:1}.del{background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;padding:0 4px}.del:hover{color:#f87171}</style></head><body><div class="app"><h1>✨ Todo App</h1><div class="add"><input placeholder="${isJa?'新しいタスク...':'New task...'}" id="inp"><button onclick="addTodo()">+</button></div><div class="items" id="list"></div></div>\x3cscript>let todos=[{t:'${isJa?'デザインをレビュー':'Review design'}',d:true},{t:'${isJa?'APIを実装':'Implement API'}',d:false},{t:'${isJa?'テストを書く':'Write tests'}',d:false}];function render(){const l=document.getElementById('list');l.innerHTML=todos.map((t,i)=>\`<div class="item \${t.d?'done':''}"><input type="checkbox" \${t.d?'checked':''} onchange="toggle(\${i})"><span class="text">\${t.t}</span><button class="del" onclick="del(\${i})">×</button></div>\`).join('')}function addTodo(){const inp=document.getElementById('inp');if(inp.value.trim()){todos.unshift({t:inp.value.trim(),d:false});inp.value='';render()}}function toggle(i){todos[i].d=!todos[i].d;render()}function del(i){todos.splice(i,1);render()}document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter')addTodo()});render()\x3c/script></body></html>`;
 const DEMO_RECORDING=isJa?[
@@ -1662,24 +1988,62 @@ const DEMO_RECORDING=isJa?[
 ];
 
 function initLanding(){
-  $('ld-sub').textContent=isJa
-    ?'ブラウザだけでコードを書いて、実行して、デプロイ。\nClaude Code がすべてサポートします。'
-    :'Write code, run it, deploy — all in your browser.\nPowered by Claude Code.';
-  $('ld-start').textContent=isJa?'無料で始める →':'Start Free →';
+  // Hero headline
+  $('ld-h1').innerHTML=isJa
+    ?'ブラウザだけで<br><span>Claude Code</span>'
+    :'Claude Code,<br><span>in your browser</span>';
+  // Subtitle
+  $('ld-sub').innerHTML=isJa
+    ?'インストール不要。設定ゼロ。<br>AIがコードを書いて、テストして、<strong style="color:var(--tx)">デプロイまで全部</strong>やってくれる。'
+    :'No install. No config. No Docker.<br>AI writes, tests, and <strong style="color:var(--tx)">deploys your app</strong> — right from the browser.';
+  // Social proof
+  $('ld-proof').innerHTML=[
+    `<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--mu)"><span style="color:var(--gn);font-size:8px">●</span>${isJa?'今すぐ使える':'Live now'}</span>`,
+    `<span style="font-size:12px;color:var(--bd)">|</span>`,
+    `<span style="font-size:12px;color:var(--mu)">⚡ Claude 4 Sonnet</span>`,
+    `<span style="font-size:12px;color:var(--bd)">|</span>`,
+    `<span style="font-size:12px;color:var(--mu)">🔒 ${isJa?'セキュア':'Secure'}</span>`,
+  ].join('');
+  $('ld-start').textContent=isJa?'無料で始める — $10クレジット付き':'Start Free — $10 credit';
   $('ld-start').onclick=e=>{e.preventDefault();showLogin()};
-  $('ld-try').textContent=isJa?'試してみる':'Try it';
-  // Add gift text below CTA
-  const giftEl=document.createElement('div');
-  giftEl.style.cssText='text-align:center;margin-top:12px;font-size:13px;color:var(--gn)';
-  giftEl.textContent=isJa?'🎁 今なら¥450分プレゼント（ログインするだけ！）':'🎁 $3 free — just sign in!';
-  document.querySelector('.ld-cta').after(giftEl);
-  $('ld-try').onclick=()=>{startDemoReplay()};
+  $('ld-try').textContent=isJa?'▶ デモを見る':'▶ See demo';
+  $('ld-try').onclick=()=>{ $('ld-demo-section').scrollIntoView({behavior:'smooth'});setTimeout(startDemoReplay,400); };
+  $('ld-no-cc-hero').textContent=isJa?'クレジットカード不要':'No credit card required';
+
+  // Product UI Mockup
+  $('ld-mockup').innerHTML=`
+    <div class="ld-mockup-bar">
+      <span class="ld-mockup-dot" style="background:#f87171"></span>
+      <span class="ld-mockup-dot" style="background:#facc15;margin-left:4px"></span>
+      <span class="ld-mockup-dot" style="background:#4ade80;margin-left:4px"></span>
+      <span class="ld-mockup-title">chatweb.ai — Claude Code</span>
+    </div>
+    <div class="ld-mockup-body">
+      <div class="ld-mk-msg-u">${isJa?'Reactのランディングページを作って、Fly.ioにデプロイして':'Build a React landing page and deploy it to Fly.io'}</div>
+      <div class="ld-mk-msg-a">✦ ${isJa?'承知しました！まずプロジェクトを作成します。':'Sure! Let me set up the project first.'}</div>
+      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">📝</span><span>Write <strong>src/App.tsx</strong></span><span class="ld-mk-ok">✓</span></div>
+      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">📝</span><span>Write <strong>src/index.css</strong></span><span class="ld-mk-ok">✓</span></div>
+      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">⚡</span><span>Bash <strong>npm run build</strong></span><span class="ld-mk-ok">✓</span></div>
+      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">🚀</span><span>Bash <strong>fly deploy --remote-only</strong></span><span class="ld-mk-ok" style="color:var(--yl)">⟳</span></div>
+      <div class="ld-mk-deploy">
+        <span>🎉</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--gn)">${isJa?'デプロイ完了！':'Deployed!'}</div>
+          <div class="ld-mk-url">https://my-app.fly.dev</div>
+        </div>
+      </div>
+      <div class="ld-mk-input">
+        <div class="ld-mk-inp-box">${isJa?'次は何をしますか？':'What should I add next?'}</div>
+        <div class="ld-mk-send">↑</div>
+      </div>
+    </div>`;
+
   $('demo-replay').onclick=()=>{startDemoReplay()};
   $('demo-replay').textContent=isJa?'↻ もう一度':'↻ Replay';
-  $('ld-start2').textContent=isJa?'今すぐ始める — 無料':'Get Started — Free';
+  $('ld-start2').innerHTML=isJa?'今すぐ無料で始める &rarr;':'Get Started Free &rarr;';
   $('ld-start2').onclick=e=>{e.preventDefault();showLogin()};
-  $('ld-demo-label').textContent=isJa?'ライブデモ':'Live Demo';
-  $('ld-feat-title').textContent=isJa?'何ができる？':'What can you do?';
+  $('ld-demo-label').textContent=isJa?'ライブデモ — Claude がアプリを作ってデプロイ':'Live Demo — Claude builds and deploys an app';
+  $('ld-feat-title').textContent=isJa?'なぜ ChatWeb？':'Why developers choose ChatWeb';
   $('ld-feats').innerHTML=LD_FEATS.map(f=>`<div class="ld-card"><div class="ld-card-ico">${f.ico}</div><h3>${f.t}</h3><p>${f.d}</p></div>`).join('');
   $('ld-price-title').textContent=isJa?'料金':'Pricing';
   $('ld-prices').innerHTML=PLANS.map(p=>`
@@ -1690,7 +2054,78 @@ function initLanding(){
       <div class="val">${fcv(p.value)}/${isJa?'月':'mo'}</div>
       <div class="turns">${p.turns} Sonnet</div>
     </div>`).join('')
-    +`<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--gn);margin-top:4px">${isJa?'無料で'+fcv(3)+'付き':'Free '+fcv(3)+' included'}</div>`;
+    +`<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--gn);margin-top:4px">${isJa?'無料で'+fcv(10)+'付き — クレカ不要':'Free $10 included — no credit card'}</div>`;
+  // How it works
+  const HOW=isJa?[
+    {ico:'1',t:'サインイン',d:'Googleアカウントかメールで登録。10秒で完了。'},
+    {ico:'2',t:'Claudeに話しかける',d:'「〇〇を作って」と日本語で入力するだけ。'},
+    {ico:'3',t:'完成・公開',d:'AIが全部やってくれる。URLをコピーして即シェア。'},
+  ]:[
+    {ico:'1',t:'Sign in',d:'Google or email. Done in 10 seconds.'},
+    {ico:'2',t:'Talk to Claude',d:'Just type what you want to build. Plain English.'},
+    {ico:'3',t:'Ship it',d:'AI does the rest. Copy the URL and share.'},
+  ];
+  $('ld-how-title').textContent=isJa?'3ステップで始める':'How it works';
+  $('ld-how-steps').innerHTML=HOW.map(h=>`
+    <div style="background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:20px 16px;text-align:center">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--bl));color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${h.ico}</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">${h.t}</div>
+      <div style="font-size:12px;color:var(--mu);line-height:1.5">${h.d}</div>
+    </div>`).join('');
+  // Bottom CTA
+  $('ld-bottom-msg').textContent=isJa?'今すぐ試してみよう':'Start building today';
+  $('ld-bottom-sub').textContent=isJa?'無料で $10 分のクレジットをプレゼント。クレジットカード不要。':'$10 free credit included. No credit card required.';
+  $('ld-no-cc').textContent='';
+
+  // Compare table
+  $('ld-compare-title').textContent=isJa?'ChatWeb vs ローカル開発環境':'ChatWeb vs Local Claude Code';
+  const cmpRows=isJa?[
+    ['セットアップ時間','即起動（0秒）','30分以上'],
+    ['Node.js / Python / Rust','最初から入ってる','自分でインストール'],
+    ['デプロイ（Fly.io等）','内蔵済み','自分で設定'],
+    ['どこからでも使える','✓ iPad・Chromebook OK','✗ 自分のPCのみ'],
+    ['チームで共有','✓ URLをシェア','✗ 環境差分で詰まる'],
+    ['アップデート','自動','手動'],
+  ]:[
+    ['Setup time','Instant (0 sec)','30+ min'],
+    ['Node / Python / Rust','Pre-installed','Install yourself'],
+    ['Deploy to Fly.io etc.','Built-in','Manual config'],
+    ['Works anywhere','✓ iPad, Chromebook, any device','✗ Your machine only'],
+    ['Share with team','✓ Share a URL','✗ "Works on my machine"'],
+    ['Always up to date','✓ Automatic','Manual updates'],
+  ];
+  $('ld-compare-table').innerHTML=`<thead><tr>
+    <th>${isJa?'機能':'Feature'}</th>
+    <th class="col-us" style="color:var(--ac)">ChatWeb ✨</th>
+    <th>${isJa?'ローカル':'Local Install'}</th>
+  </tr></thead><tbody>`+cmpRows.map(r=>`<tr>
+    <td>${r[0]}</td>
+    <td class="col-us" style="color:var(--gn);font-weight:600">${r[1]}</td>
+    <td style="color:var(--mu)">${r[2]}</td>
+  </tr>`).join('')+'</tbody>';
+
+  // FAQ
+  $('ld-faq-title').textContent=isJa?'よくある質問':'FAQ';
+  const faqs=isJa?[
+    ['本当に無料で使えますか？','はい。ログインするだけで $10 分のクレジットが付きます。クレジットカードは不要です。$10 を使い切ったら、月額プラン（$9〜）または追加クレジット購入が必要です。'],
+    ['自分のAnthropicキーは使えますか？','はい。設定からAPIキーを登録すると、ChatWebのクレジットではなく自分のAnthropicアカウントで課金されます。コスト管理が完全に自分でできます。'],
+    ['どんな言語・フレームワークに対応してますか？','Node.js / Python / Rust / Go / Ruby が最初からインストール済みです。npm / pip / cargo コマンドがそのまま使えます。React / Next.js / Vue / FastAPI など主要フレームワークはすべて動きます。'],
+    ['コードは安全ですか？','各セッションは独立した環境で動きます。コードはFly.ioのサーバー上で実行され、セッション終了後は自動削除されます。'],
+    ['デプロイはどこにできますか？','Fly.io（標準）、Vercel、Cloudflare Workers、Netlify、Railwayに対応。自分のAPIトークンを設定するだけでどこにでもデプロイできます。'],
+  ]:[
+    ['Is it really free?','Yes — just sign in to get $10 free credit. No credit card needed. Once you use it up, you can subscribe ($9/mo) or buy more credits.'],
+    ['Can I use my own Anthropic API key?','Yes. Add your API key in settings and usage is billed directly to your Anthropic account — not ChatWeb credits.'],
+    ['What languages and frameworks are supported?','Node.js, Python, Rust, Go, and Ruby are pre-installed. React, Next.js, Vue, FastAPI — anything with npm/pip/cargo works out of the box.'],
+    ['Is my code safe?','Each session runs in an isolated environment. Code runs on Fly.io servers and is cleaned up after the session ends.'],
+    ['Where can I deploy?','Fly.io (default), Vercel, Cloudflare Workers, Netlify, and Railway. Set your token once and deploy anywhere.'],
+  ];
+  $('ld-faq').innerHTML=faqs.map(([q,a])=>`
+    <div class="ld-faq-item">
+      <div class="ld-faq-q" onclick="this.parentElement.classList.toggle('open')">
+        <span>${q}</span><span class="ld-faq-icon">+</span>
+      </div>
+      <div class="ld-faq-a">${a}</div>
+    </div>`).join('');
 }
 function showLogin(){
   $('landing').classList.remove('on');
@@ -2076,25 +2511,52 @@ function showOB(){
     }
   }
 
-  // Default: show pipeline selector (only when no messages)
+  // Default: show simple home screen (only when no messages)
   if(h.m.filter(m=>m.role==='user').length>0)return;
 
-  const cards=PIPELINES.map((p,i)=>
-    `<div class="ob-cap" data-pl="${i}">
-      <div class="ob-cap-ico">${p.ico}</div>
-      <div class="ob-cap-body">
-        <div class="ob-cap-title">${p.title}</div>
-        <div class="ob-cap-examples">${p.steps.slice(0,3).map(st=>`<span>${st.s} ${st.t}</span>`).join('')}<span style="color:var(--dm)">...${p.steps.length} ${isJa?'ステップ':'steps'}</span></div>
-      </div>
-    </div>`).join('');
+  // Quick-start prompts — examples the user can click to auto-fill input
+  const QUICK=isJa?[
+    {ico:'📝',t:'Todoアプリを作って',p:'React + Tailwind でシンプルなTodoアプリを作って。追加・完了・削除ができて、localStorage に保存。'},
+    {ico:'🎨',t:'ランディングページを作って',p:'シンプルでモダンなSaaSのランディングページを作って。ヒーロー・機能・料金・FAQ・CTAを含めて。'},
+    {ico:'🔌',t:'REST APIを作って',p:'Node.js + Express でユーザー管理のREST APIを作って。GET/POST/PUT/DELETE と SQLite で永続化。'},
+    {ico:'🐛',t:'このエラーを直して',p:'このエラーを直したい:\n\n[ここにエラーを貼り付け]'},
+    {ico:'📊',t:'CSVを分析して',p:'Pythonで pandas を使ってCSVファイルを分析して、主要な統計とグラフを作って。'},
+    {ico:'🚀',t:'Fly.io にデプロイして',p:'今のプロジェクトをFly.ioにデプロイして。Dockerfileがなければ作って、環境変数も整理して。'},
+  ]:[
+    {ico:'📝',t:'Build a Todo app',p:'Build a simple Todo app with React + Tailwind. Add, complete, delete tasks. Persist with localStorage.'},
+    {ico:'🎨',t:'Create a landing page',p:'Create a clean modern SaaS landing page with hero, features, pricing, FAQ, and CTA sections.'},
+    {ico:'🔌',t:'Build a REST API',p:'Build a REST API with Node.js + Express for user management. GET/POST/PUT/DELETE with SQLite.'},
+    {ico:'🐛',t:'Fix this error',p:'Help me fix this error:\n\n[paste error here]'},
+    {ico:'📊',t:'Analyze a CSV',p:'Analyze a CSV file with Python + pandas. Show key statistics and create charts.'},
+    {ico:'🚀',t:'Deploy to Fly.io',p:'Deploy the current project to Fly.io. Create a Dockerfile if needed and set up env vars.'},
+  ];
 
-  wrap.innerHTML=`<div class="empty-state">
-    <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--ac),var(--bl));display:grid;place-items:center;font-size:22px;font-weight:900;color:#fff;box-shadow:0 6px 20px rgba(167,139,250,.3)">C</div>
-    <div style="font-size:13px;color:var(--mu);max-width:400px;line-height:1.6">${isJa?'ワークフローを選んでステップバイステップで進められます。<br>もちろん自由に質問してもOK！':'Choose a workflow for step-by-step guidance.<br>Or just ask anything freely!'}</div>
-    <div class="ob-caps">${cards}</div>
+  wrap.innerHTML=`<div class="hs">
+    <div class="hs-logo">C</div>
+    <div class="hs-title">${isJa?'<span>何を作りますか？</span>':'What do you want to <span>build</span>?'}</div>
+    <div class="hs-sub">${isJa?'下のアイデアから選ぶか、自由に質問してください':'Pick an idea below or ask anything'}</div>
+    <div class="hs-chips">${QUICK.map((q,i)=>
+      `<button class="hs-chip" data-q="${i}"><span class="hs-chip-ico">${q.ico}</span><span>${q.t}</span></button>`).join('')}</div>
+    <div class="hs-hint">${isJa?'下の入力欄に直接打つか、 <kbd>⌘K</kbd> でコマンドパレット':'Type below or press <kbd>⌘K</kbd> for command palette'}</div>
+    <div class="hs-divider">${isJa?'または ステップバイステップ':'or step-by-step'}</div>
+    <div class="hs-workflows">${PIPELINES.map((p,i)=>
+      `<button class="hs-wf" data-pl="${i}"><span class="hs-wf-ico">${p.ico}</span>${p.title}</button>`).join('')}</div>
   </div>`;
 
-  wrap.querySelectorAll('.ob-cap[data-pl]').forEach(el=>{
+  // Quick-start chip → auto-fill input
+  wrap.querySelectorAll('.hs-chip').forEach(el=>{
+    el.onclick=()=>{
+      const q=QUICK[parseInt(el.dataset.q)];
+      const mg=$('mg');
+      mg.value=q.p;
+      mg.focus();
+      mg.setSelectionRange(mg.value.length,mg.value.length);
+      // Auto-resize textarea
+      mg.style.height='auto';mg.style.height=Math.min(mg.scrollHeight,200)+'px';
+    };
+  });
+  // Workflow chip → start pipeline
+  wrap.querySelectorAll('.hs-wf[data-pl]').forEach(el=>{
     el.onclick=()=>{
       const pl=PIPELINES[parseInt(el.dataset.pl)];
       activePipeline=pl.id;pipelineStep=0;
@@ -2180,32 +2642,38 @@ async function showProjectPicker(){
   const cur=curProject();
   $('prj-title').textContent=isJa?'新しいセッション':'New Session';
   // Advanced toggle
-  $('prj-adv-toggle').textContent=isJa?'▸ GitHub clone / マージ':'▸ GitHub clone / Merge';
+  $('prj-adv-toggle').textContent=isJa?'＋ GitHub clone / マージ':'＋ GitHub clone / Merge';
   $('prj-adv-toggle').onclick=()=>{
-    const adv=$('prj-adv');adv.classList.toggle('on');
-    $('prj-adv-toggle').textContent=(adv.classList.contains('on')?'▾ ':'▸ ')+(isJa?'GitHub clone / マージ':'GitHub clone / Merge');
+    const adv=$('prj-adv');const open=adv.classList.toggle('on');
+    $('prj-adv-toggle').textContent=(open?'− ':'＋ ')+(isJa?'GitHub clone / マージ':'GitHub clone / Merge');
   };
-  // List
+  // Existing projects (only show section if there are any beyond root)
+  const hasProjects=projects.length>0;
+  $('prj-existing-label').style.display=hasProjects?'':'none';
+  $('prj-existing-label').textContent=isJa?'または既存プロジェクトを開く':'Or open existing project';
   const el=$('prj-list');
-  el.innerHTML=`<div class="prj-item${!cur?' active':''}" data-p="">
-    <span class="prj-ico">🏠</span><span class="prj-name">${isJa?'ルート（デフォルト）':'Root (default)'}</span>
-  </div>`+projects.map(p=>`<div class="prj-item${p.path===cur?' active':''}" data-p="${esc(p.path)}">
-    <span class="prj-ico">📁</span><span class="prj-name">${esc(p.name)}</span>
-  </div>`).join('');
-  el.querySelectorAll('.prj-item').forEach(d=>{
-    d.onclick=()=>{
-      const proj=d.dataset.p;
-      $('proj-modal').classList.remove('on');
-      cS((proj||'Session '+(ss.length+1)),proj);
-    };
-  });
-  // New project (name + create)
-  $('prj-new-label').textContent=isJa?'空のプロジェクト':'Empty Project';
+  el.style.display=hasProjects?'':'none';
+  if(hasProjects){
+    el.innerHTML=`<div class="prj-item${!cur?' active':''}" data-p="">
+      <span class="prj-ico">🏠</span><span class="prj-name">${isJa?'ルート（デフォルト）':'Root (default)'}</span><span class="prj-arrow">→</span>
+    </div>`+projects.map(p=>`<div class="prj-item${p.path===cur?' active':''}" data-p="${esc(p.path)}">
+      <span class="prj-ico">📁</span><span class="prj-name">${esc(p.name)}</span><span class="prj-arrow">→</span>
+    </div>`).join('');
+    el.querySelectorAll('.prj-item').forEach(d=>{
+      d.onclick=()=>{
+        const proj=d.dataset.p;
+        $('proj-modal').classList.remove('on');
+        cS((proj||'Session '+(ss.length+1)),proj);
+      };
+    });
+  }
+  // New empty project
+  $('prj-new-label').textContent=isJa?'空のプロジェクトを作成':'Create empty project';
   $('prj-create-btn').textContent=isJa?'作成':'Create';
   $('prj-name').value='';
-  $('prj-types').style.display='none'; // Hidden, use templates instead
+  $('prj-name').onkeydown=e=>{if(e.key==='Enter')$('prj-create-btn').click()};
   window._selectedProjType=()=>'general';
-  // Template starters (replaces type pills)
+  // Template starters
   const TEMPLATES=[
     {id:'react-todo',ico:'✅',name:'Todo App',desc:'React + Vite'},
     {id:'nextjs-blog',ico:'📝',name:'Blog',desc:'Next.js'},
@@ -2214,7 +2682,7 @@ async function showProjectPicker(){
     {id:'python-data',ico:'🐍',name:'Data/ML',desc:'Python + pandas'},
     {id:'landing-page',ico:'🎨',name:'Landing Page',desc:'HTML/CSS'},
   ];
-  $('prj-tmpl-label').textContent=isJa?'テンプレートから始める':'Start from Template';
+  $('prj-tmpl-label').textContent=isJa?'テンプレートから始める':'Start from a template';
   $('prj-templates').innerHTML=TEMPLATES.map(t=>
     `<div class="tmpl-card" data-tmpl="${t.id}">
       <div class="tmpl-ico">${t.ico}</div>
@@ -2380,6 +2848,300 @@ $('cronbtn').onclick=()=>{$('hd-menu').classList.remove('on');showCronModal()};
 $('crn-close').onclick=()=>$('cron-modal').classList.remove('on');
 $('cron-modal').onclick=e=>{if(e.target===$('cron-modal'))$('cron-modal').classList.remove('on')};
 
+// ── Deploy ──
+async function showDeployModal(){
+  $('hd-menu').classList.remove('on');
+  await loadProjects();
+  $('deploy-proj').innerHTML='<option value="">Select project</option>'+projects.map(p=>`<option value="${esc(p.path)}">${esc(p.name)}</option>`).join('');
+  // Load existing deploys
+  const r=await fetch('/api/deploy'+tq());
+  const deploys=r.ok?await r.json():[];
+  $('deploy-list').innerHTML=deploys.length?deploys.map(d=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border-radius:8px;border:1px solid var(--bd)">
+      <span style="color:var(--gn);font-size:10px">●</span>
+      <a href="${esc(d.url)}" target="_blank" style="color:var(--ac);font-size:12px;text-decoration:none;flex:1">${esc(d.slug)}.chatweb.ai</a>
+      <span style="color:var(--dm);font-size:10px">${esc(d.project)}</span>
+      <button onclick="getWidgetCode('${esc(d.slug)}')" title="Embed code" style="background:none;border:none;color:var(--mu);cursor:pointer;font-size:11px">📦</button>
+      <button onclick="undeploy('${esc(d.id)}')" style="background:none;border:none;color:var(--rd);cursor:pointer;font-size:12px">✕</button>
+    </div>`).join(''):'<div style="text-align:center;color:var(--dm);font-size:12px;padding:12px">No deployments yet</div>';
+  $('deploy-modal').classList.add('on');
+}
+window.undeploy=async function(id){
+  if(!confirm('Remove this deployment?'))return;
+  await fetch('/api/deploy/'+id+tq(),{method:'DELETE'});
+  showDeployModal();
+};
+$('deploy-btn').onclick=async()=>{
+  const proj=$('deploy-proj').value;
+  const slug=$('deploy-slug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
+  const title=$('deploy-title-in').value.trim();
+  if(!proj||!slug){alert('Select a project and enter a subdomain');return}
+  $('deploy-btn').disabled=true;
+  const r=await fetch('/api/deploy'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({project:proj,slug,title:title||null})});
+  if(r.ok){
+    const d=await r.json();
+    $('deploy-slug').value='';$('deploy-title-in').value='';
+    showDeployModal();
+    // Toast
+    const t=document.createElement('div');t.className='share-toast';
+    t.innerHTML=`Deployed! <a href="${d.url}" target="_blank" style="color:#a78bfa">${d.url}</a>`;
+    document.body.appendChild(t);setTimeout(()=>t.remove(),4000);
+  }else{
+    const msg=await r.text();alert(msg||'Deploy failed');
+  }
+  $('deploy-btn').disabled=false;
+};
+window.switchDeployTab=function(tab,btn){
+  document.querySelectorAll('#deploy-tabs .mb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  $('deploy-tab-chatweb').style.display=tab==='chatweb'?'block':'none';
+  $('deploy-tab-ext').style.display=tab==='ext'?'block':'none';
+  if(tab==='ext') loadDeployPlatforms();
+};
+const PLATFORMS=[
+  {name:'Fly.io',key:'FLY_API_TOKEN',cmd:'fly deploy --remote-only',icon:'🛩',good:'Full-stack, Docker, DB'},
+  {name:'Vercel',key:'VERCEL_TOKEN',cmd:'vercel --yes',icon:'▲',good:'Next.js, React, static'},
+  {name:'Cloudflare',key:'CLOUDFLARE_API_TOKEN',cmd:'wrangler deploy',icon:'☁',good:'Workers, Pages, edge'},
+  {name:'Netlify',key:'NETLIFY_AUTH_TOKEN',cmd:'netlify deploy --prod',icon:'◆',good:'Static, serverless, forms'},
+  {name:'Railway',key:'RAILWAY_TOKEN',cmd:'railway up',icon:'🚂',good:'Full-stack, DB, cron'},
+  {name:'Supabase',key:'SUPABASE_ACCESS_TOKEN',cmd:'supabase functions deploy',icon:'⚡',good:'Backend, auth, edge functions'},
+];
+async function loadDeployPlatforms(){
+  const r=await fetch('/api/keys'+tq());
+  const keys=r.ok?(await r.json()).keys.map(k=>k.name):[];
+  $('deploy-platforms').innerHTML=PLATFORMS.map(p=>{
+    const has=keys.includes(p.key);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:10px;border:1px solid var(--bd)">
+      <span style="font-size:18px">${p.icon}</span>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${p.name}</div>
+        <div style="font-size:10px;color:var(--dm)">${p.good}</div>
+      </div>
+      ${has
+        ?`<span style="color:var(--gn);font-size:10px;font-weight:600">● Ready</span>
+          <code style="font-size:9px;color:var(--mu);background:var(--bg);padding:2px 6px;border-radius:4px">${esc(p.cmd)}</code>`
+        :`<span style="color:var(--dm);font-size:10px">${p.key}</span>
+          <button onclick="$('deploy-modal').classList.remove('on');$('ubtn').click()" style="background:var(--s3);color:var(--tx);border:none;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer">Set Key</button>`
+      }
+    </div>`;
+  }).join('');
+}
+$('deploybtn').onclick=showDeployModal;
+$('deploy-close').onclick=()=>$('deploy-modal').classList.remove('on');
+$('deploy-modal').onclick=e=>{if(e.target===$('deploy-modal'))$('deploy-modal').classList.remove('on')};
+
+// ── Agents Marketplace ──
+async function showAgentsModal(){
+  $('hd-menu').classList.remove('on');
+  $('agents-list').innerHTML='<div style="text-align:center;color:var(--dm);padding:16px">Loading...</div>';
+  $('agents-modal').classList.add('on');
+  const r=await fetch('/api/agents');
+  const agents=r.ok?await r.json():[];
+  if(!agents.length){
+    $('agents-list').innerHTML='<div style="text-align:center;color:var(--dm);padding:16px;font-size:12px">No agents published yet. Be the first!</div>';
+    return;
+  }
+  $('agents-list').innerHTML=agents.map(a=>`
+    <div style="padding:10px 12px;background:var(--s2);border-radius:10px;border:1px solid var(--bd)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-weight:600;font-size:13px">${esc(a.name)}</span>
+        <span style="font-size:10px;color:var(--dm)">by @${esc(a.author)}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--dm)">${a.installs} installs</span>
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-bottom:6px">${esc(a.description)}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <code style="font-size:10px;color:var(--dm);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.command)}</code>
+        ${a.tags?`<span style="font-size:9px;color:var(--ac)">${esc(a.tags)}</span>`:''}
+        <button onclick="installAgent('${esc(a.id)}')" style="background:var(--ac);color:#000;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Install</button>
+      </div>
+    </div>`).join('');
+}
+window.installAgent=async function(id){
+  const r=await fetch('/api/agents/'+id+'/install'+tq(),{method:'POST'});
+  if(r.ok){
+    const d=await r.json();
+    const t=document.createElement('div');t.className='share-toast';
+    t.textContent='Agent "'+d.name+'" installed! Check Scheduled Tasks.';
+    document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+  }else{alert('Install failed')}
+};
+$('agent-publish-btn').onclick=async()=>{
+  const name=$('agent-name').value.trim();
+  const desc=$('agent-desc').value.trim();
+  const cmd=$('agent-cmd').value.trim();
+  const interval=parseInt($('agent-interval').value);
+  const tags=$('agent-tags').value.trim();
+  if(!name||!cmd){alert('Name and command required');return}
+  const r=await fetch('/api/agents/publish'+tq(),{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({name,description:desc||null,command:cmd,interval_secs:interval,tags:tags||null})});
+  if(r.ok){
+    $('agent-name').value='';$('agent-desc').value='';$('agent-cmd').value='';$('agent-tags').value='';
+    showAgentsModal();
+  }
+};
+$('agentsbtn').onclick=showAgentsModal;
+$('agents-close').onclick=()=>$('agents-modal').classList.remove('on');
+$('agents-modal').onclick=e=>{if(e.target===$('agents-modal'))$('agents-modal').classList.remove('on')};
+
+// ── Live Coding ──
+let broadcasting=false;
+async function showLiveModal(){
+  $('hd-menu').classList.remove('on');
+  $('live-broadcast-btn').textContent=broadcasting?'Stop Broadcasting':'Start Broadcasting This Session';
+  $('live-broadcast-btn').style.background=broadcasting?'var(--rd)':'';
+  // Load live sessions
+  $('live-list').innerHTML='<div style="text-align:center;color:var(--dm);padding:12px;font-size:12px">Loading...</div>';
+  $('live-modal').classList.add('on');
+  const r=await fetch('/api/live');
+  const lives=r.ok?await r.json():[];
+  if(!lives.length){
+    $('live-list').innerHTML='<div style="text-align:center;color:var(--dm);padding:16px;font-size:12px">No one is broadcasting right now. Be the first!</div>';
+    return;
+  }
+  $('live-list').innerHTML=lives.map(l=>`
+    <div style="padding:10px 12px;background:var(--s2);border-radius:10px;border:1px solid var(--bd);cursor:pointer" onclick="watchLive('${esc(l.session_id)}','${esc(l.name)}')">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:var(--rd);font-size:8px;animation:bk .8s step-end infinite">●</span>
+        <span style="font-weight:600;font-size:13px">${esc(l.name)}</span>
+        <span style="font-size:10px;color:var(--dm)">by @${esc(l.author)}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--dm)">${l.viewers} watching</span>
+      </div>
+      ${l.project?`<div style="font-size:10px;color:var(--dm);margin-top:2px">Project: ${esc(l.project)}</div>`:''}
+    </div>`).join('');
+}
+$('live-broadcast-btn').onclick=async()=>{
+  if(!sid){alert('Open a session first');return}
+  const r=await fetch('/api/sessions/'+sid+'/broadcast'+tq(),{method:'POST'});
+  if(r.ok){
+    const d=await r.json();
+    broadcasting=d.broadcasting;
+    $('live-broadcast-btn').textContent=broadcasting?'Stop Broadcasting':'Start Broadcasting This Session';
+    $('live-broadcast-btn').style.background=broadcasting?'var(--rd)':'';
+    if(broadcasting){
+      const t=document.createElement('div');t.className='share-toast';
+      t.textContent='You are now live! Others can watch from the Live menu.';
+      document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+    }
+  }
+};
+let liveWs=null;
+window.watchLive=function(sessionId,name){
+  $('live-modal').classList.remove('on');
+  $('live-watch').style.display='flex';
+  $('live-watch-title').textContent=name;
+  $('live-watch-msgs').innerHTML='<div style="color:var(--dm)">Connecting...</div>';
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  liveWs=new WebSocket(`${proto}//${location.host}/ws/watch/${sessionId}`);
+  liveWs.onmessage=e=>{
+    const el=$('live-watch-msgs');
+    try{
+      const v=JSON.parse(e.data);
+      // Extract text content from stream-json
+      if(v.type==='assistant'&&v.message?.content){
+        for(const p of v.message.content){
+          if(p.type==='text'&&p.text) el.insertAdjacentHTML('beforeend','<span style="color:var(--tx)">'+esc(p.text)+'</span>');
+        }
+      }else if(v.type==='content_block_delta'&&v.delta?.text){
+        el.insertAdjacentHTML('beforeend','<span style="color:var(--tx)">'+esc(v.delta.text)+'</span>');
+      }else if(v.type==='result'){
+        el.insertAdjacentHTML('beforeend','<div style="color:var(--gn);margin:8px 0">--- Done ---</div>');
+      }else{
+        // Show raw for tool use etc
+        const t=v.type||'';
+        if(t.includes('tool')){
+          el.insertAdjacentHTML('beforeend','<div style="color:var(--yl)">'+esc(JSON.stringify(v).slice(0,200))+'</div>');
+        }
+      }
+    }catch{
+      el.insertAdjacentHTML('beforeend',esc(e.data)+'\n');
+    }
+    el.scrollTop=el.scrollHeight;
+  };
+  liveWs.onclose=()=>{
+    $('live-watch-msgs').insertAdjacentHTML('beforeend','<div style="color:var(--rd);margin-top:12px">Stream ended.</div>');
+  };
+};
+$('live-watch-close').onclick=()=>{
+  $('live-watch').style.display='none';
+  if(liveWs){liveWs.close();liveWs=null}
+};
+$('livebtn').onclick=showLiveModal;
+$('live-close').onclick=()=>$('live-modal').classList.remove('on');
+$('live-modal').onclick=e=>{if(e.target===$('live-modal'))$('live-modal').classList.remove('on')};
+
+// ── Time Machine ──
+async function showTimeModal(){
+  $('hd-menu').classList.remove('on');
+  // Find current project from active session
+  const cur=ss.find(s=>s.id===sid);
+  const proj=cur?.project;
+  if(!proj){alert(isJa?'プロジェクトを選んでください':'Select a project first');return}
+  const r=await fetch(`/api/snapshots/${encodeURIComponent(proj)}`+tq());
+  if(!r.ok)return;
+  const d=await r.json();
+  const snaps=d.snapshots||[];
+  const html=snaps.length?snaps.map((s,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${i===0?'rgba(74,222,128,.08)':'var(--s2)'};border-radius:8px;border:1px solid ${i===0?'rgba(74,222,128,.2)':'var(--bd)'}">
+      <span style="font-size:10px;color:${i===0?'var(--gn)':'var(--dm)'};font-family:var(--m)">${s.hash.slice(0,7)}</span>
+      <span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.message)}</span>
+      <span style="font-size:10px;color:var(--dm);white-space:nowrap">${esc(s.time)}</span>
+      ${i>0?`<button onclick="revertTo('${esc(proj)}','${s.hash}')" style="background:var(--s3);color:var(--tx);border:none;border-radius:6px;padding:3px 10px;font-size:10px;cursor:pointer;white-space:nowrap">Revert</button>`:'<span style="font-size:9px;color:var(--gn);font-weight:600">CURRENT</span>'}
+    </div>`).join(''):'<div style="text-align:center;color:var(--dm);font-size:12px;padding:16px">No snapshots yet. Chat with AI to create changes.</div>';
+  // Show in a simple alert-style modal (reuse live-modal pattern)
+  const m=document.createElement('div');m.id='time-modal-tmp';m.style.cssText='position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center';
+  m.innerHTML=`<div class="crn" style="max-width:520px"><button class="pm-close" onclick="this.closest('#time-modal-tmp').remove()">&times;</button><h2>Time Machine — ${esc(proj)}</h2><p style="color:var(--mu);font-size:11px;margin-bottom:12px">${isJa?'各AIターンのスナップショット。クリックで巻き戻し。':'Snapshots from each AI turn. Click to revert.'}</p><div style="display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto">${html}</div></div>`;
+  m.onclick=e=>{if(e.target===m)m.remove()};
+  document.body.appendChild(m);
+}
+window.revertTo=async function(proj,hash){
+  if(!confirm(isJa?'このバージョンに戻しますか？':'Revert to this version?'))return;
+  const r=await fetch(`/api/snapshots/${encodeURIComponent(proj)}/revert`+tq(),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({hash})});
+  if(r.ok){
+    document.getElementById('time-modal-tmp')?.remove();
+    const t=document.createElement('div');t.className='share-toast';t.textContent=isJa?'巻き戻しました！':'Reverted!';document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
+  }else{alert('Revert failed')}
+};
+$('timebtn').onclick=showTimeModal;
+
+// ── Widget Embed ──
+window.getWidgetCode=async function(slug){
+  if(!slug){alert('No deploy slug');return}
+  const r=await fetch(`/api/widget/${slug}/embed`);
+  if(!r.ok){alert('Could not get embed code');return}
+  const d=await r.json();
+  // Try clipboard, fallback to prompt
+  try{await navigator.clipboard.writeText(d.script)}catch(e){prompt('Embed code:',d.script)}
+  const t=document.createElement('div');t.className='share-toast';
+  t.style.maxWidth='90vw';t.style.wordBreak='break-all';
+  t.innerHTML=`${isJa?'埋め込みコードをコピーしました！':'Embed code copied!'}<br><code style="font-size:10px;user-select:all">${esc(d.script)}</code><br><br><code style="font-size:10px;user-select:all">${esc(d.iframe)}</code>`;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),6000);
+};
+
+// ── Pair Programming (enhanced join) ──
+window.startPairSession=async function(shareId){
+  const tk=localStorage.getItem('ct_tk');
+  if(!tk){alert('Please log in first');return}
+  const r=await fetch(`/api/share/${shareId}/pair?token=${encodeURIComponent(tk)}`,{method:'POST'});
+  if(!r.ok){alert('Could not join pair session');return}
+  const d=await r.json();
+  // Switch to the paired session directly
+  if(!user){
+    if(await checkToken(tk)){show();await new Promise(r=>setTimeout(r,300))}
+    else{location.href='/';return}
+  }
+  // Add session to sidebar and switch
+  if(!ss.find(s=>s.id===d.session_id)){
+    ss.unshift({id:d.session_id,name:d.name+' (pair)',created_at:new Date().toISOString(),project:d.project||''});
+  }
+  sid=d.session_id;tU();lH(sid);
+  $('shared-view')?.classList.remove('on');
+  history.replaceState({},'','/');
+  const t=document.createElement('div');t.className='share-toast';
+  t.textContent=isJa?'ペアプロモードで参加しました！':'Joined pair programming session!';
+  document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+};
+
 // ── Share ──
 $('sharebtn').onclick=async()=>{
   $('hd-menu').classList.remove('on');
@@ -2407,28 +3169,84 @@ async function checkSharedView(){
     const r=await fetch('/api/share/'+currentShareId);
     if(!r.ok)return false;
     const d=await r.json();
+    const msgs=d.messages||[];
+    const userMsgs=msgs.filter(m=>m.role==='user');
     $('sv-title').textContent=d.name||'Shared Session';
-    $('sv-author').textContent=(isJa?'作成者: ':'by ')+d.author;
-    $('sv-home').textContent=isJa?'ChatWebで始める':'Start with ChatWeb';
+    $('sv-author').textContent=(isJa?'by @':'by @')+d.author;
+    $('sv-home').textContent=isJa?'ChatWebで自分も作る →':'Build your own on ChatWeb →';
+    $('sv-msg-count').innerHTML=`💬 ${msgs.length} ${isJa?'メッセージ':'messages'}`;
+    $('sv-project-name').innerHTML=d.project?`📁 ${esc(d.project)}`:'';
+
+    // Deploy bar
+    if(d.deploy_url){
+      const slug=d.deploy_url.split('//')[1]?.split('.')[0]||'';
+      $('sv-deploy-bar').innerHTML=`<div class="sv-deploy-bar">
+        <div class="sv-deploy-dot"></div>
+        <a href="${esc(d.deploy_url)}" target="_blank" class="sv-deploy-url">${esc(d.deploy_url)}</a>
+        <span class="sv-deploy-badge">LIVE</span>
+      </div>`;
+    }else{$('sv-deploy-bar').innerHTML=''}
+
+    // Messages
     const el=$('sv-msgs');el.innerHTML='';
-    (d.messages||[]).forEach(m=>{
+    msgs.forEach((m,i)=>{
       if(m.role==='user'){
-        const txt=(m.content||'').replace(/\n\n\[Project env vars available:[^\]]*\]/g,'').trim();
-        el.insertAdjacentHTML('beforeend',`<div class="msg u"><div class="bb">${esc(txt)}</div></div>`);
+        let txt=(m.content||'').replace(/\n\n\[Project env vars available:[^\]]*\]/g,'').replace(/\n\n\[IMPORTANT:.*?\]/gs,'').replace(/\n\[Deploy targets.*?\]/g,'').trim();
+        el.insertAdjacentHTML('beforeend',`<div class="msg u" style="animation-delay:${i*50}ms"><div class="bb">${esc(txt)}</div></div>`);
       }else if(m.role==='assistant'){
-        el.insertAdjacentHTML('beforeend',`<div class="msg a"><div class="bb">${md(m.content||'')}</div></div>`);
+        el.insertAdjacentHTML('beforeend',`<div class="msg a" style="animation-delay:${i*50}ms"><div class="bb">${md(m.content||'')}</div></div>`);
       }
     });
+
     // Action buttons
+    const slug=d.deploy_url?d.deploy_url.split('//')[1]?.split('.')[0]||'':'';
     $('sv-actions').innerHTML=`
-      <button class="sv-act-btn primary" id="sv-join">
-        ${isJa?'🤝 共同編集する':'🤝 Collaborate'}
+      <button class="sv-act-btn primary" id="sv-pair">
+        ${isJa?'👥 ペアプロで参加':'👥 Pair Program'}
       </button>
       <button class="sv-act-btn secondary" id="sv-fork">
-        ${isJa?'📋 コピーして自分のフォルダで続ける':'📋 Fork to my workspace'}
-      </button>`;
-    $('sv-join').onclick=()=>joinOrFork('join');
-    $('sv-fork').onclick=()=>joinOrFork('fork');
+        ${isJa?'🔀 フォークして編集':'🔀 Fork & Edit'}
+      </button>
+      ${d.deploy_url?`<button class="sv-act-btn secondary" onclick="getWidgetCode('${esc(slug)}')">
+        ${isJa?'📦 埋め込みコード':'📦 Embed Code'}
+      </button>`:''}`;
+    // Bind button events (use inline to avoid timing issues)
+    const pairBtn=$('sv-pair');
+    const forkBtn=$('sv-fork');
+    if(pairBtn) pairBtn.onclick=async()=>{
+      const storedTk=localStorage.getItem('ct_tk');
+      if(!storedTk){
+        localStorage.setItem('ct_pending_share',JSON.stringify({action:'pair',shareId:currentShareId}));
+        $('shared-view').classList.remove('on');
+        showLogin();
+        return;
+      }
+      try{
+        const r=await fetch('/api/share/'+currentShareId+'/pair?token='+encodeURIComponent(storedTk),{method:'POST'});
+        if(!r.ok){
+          // Need login
+          localStorage.setItem('ct_pending_share',JSON.stringify({action:'pair',shareId:currentShareId}));
+          $('shared-view').classList.remove('on');
+          showLogin();
+          return;
+        }
+        const dd=await r.json();
+        $('shared-view').classList.remove('on');
+        if(!user){
+          if(await checkToken(storedTk)){tk=storedTk;show();await new Promise(r=>setTimeout(r,300))}
+          else{location.href='/';return}
+        }
+        if(!ss.find(s=>s.id===dd.session_id)){
+          ss.unshift({id:dd.session_id,name:dd.name+' (pair)',created_at:new Date().toISOString(),project:dd.project||''});
+        }
+        sid=dd.session_id;tU();lH(sid);
+        history.replaceState({},'','/');
+        const toast=document.createElement('div');toast.className='share-toast';
+        toast.textContent=isJa?'ペアプロモードで参加しました！':'Joined pair programming!';
+        document.body.appendChild(toast);setTimeout(()=>toast.remove(),3000);
+      }catch(e){alert('Error: '+e.message)}
+    };
+    if(forkBtn) forkBtn.onclick=()=>joinOrFork('fork');
     $('shared-view').classList.add('on');
     $('landing').classList.remove('on');
     return true;
@@ -2436,34 +3254,39 @@ async function checkSharedView(){
 }
 
 async function joinOrFork(action){
-  const tk=localStorage.getItem('ct_tk');
-  if(!tk){
+  let storedTk=localStorage.getItem('ct_tk');
+  if(!storedTk){
     // Not logged in — redirect to login, then come back
     localStorage.setItem('ct_pending_share',JSON.stringify({action,shareId:currentShareId}));
     $('shared-view').classList.remove('on');
     showLogin();
     return;
   }
-  const url=`/api/share/${currentShareId}/${action}?token=${encodeURIComponent(tk)}`;
+  const url=`/api/share/${currentShareId}/${action}?token=${encodeURIComponent(storedTk)}`;
   const r=await fetch(url,{method:'POST'});
   if(!r.ok){
     alert(isJa?'ログインが必要です。ログインしてからもう一度お試しください。':'Please log in first, then try again.');
     return;
   }
   const d=await r.json();
-  // Navigate to the app with new session
   $('shared-view').classList.remove('on');
-  // If already in app, just switch
-  if(user){
-    ss.unshift({id:d.session_id,name:d.name,created_at:new Date().toISOString(),project:d.project||''});
-    sid=d.session_id;tU();lH(sid);
-    history.replaceState({},'','/');
-  }else{
-    // Need to login first — store pending action
-    localStorage.setItem('ct_pending_session',d.session_id);
-    history.replaceState({},'','/');
-    location.reload();
+  // If app not yet initialized (came directly from /s/ URL), init first
+  if(!user){
+    if(await checkToken(storedTk)){
+      tk=storedTk;
+      show();
+      // Wait for app to render, then switch to the new session
+      await new Promise(r=>setTimeout(r,300));
+    }else{
+      localStorage.setItem('ct_pending_session',d.session_id);
+      history.replaceState({},'','/');
+      location.reload();
+      return;
+    }
   }
+  ss.unshift({id:d.session_id,name:d.name,created_at:new Date().toISOString(),project:d.project||''});
+  sid=d.session_id;tU();lH(sid);
+  history.replaceState({},'','/');
 }
 
 // ── Music Demo (/demo) ──
@@ -2764,6 +3587,14 @@ initLanding();
 (async()=>{
   // Demo mode: /demo — music-synced product demo
   if(location.pathname==='/demo'){startMusicDemo();return}
+  // Live page: /live — show live coding sessions
+  if(location.pathname==='/live'){
+    // Auto-open live modal after login check
+    const liveT=localStorage.getItem('ct_tk')||'';
+    if(liveT&&await checkToken(liveT)){show();setTimeout(showLiveModal,300)}
+    else{showLogin();localStorage.setItem('ct_pending_live','1')}
+    // Don't return — let the rest of the flow continue
+  }
   // Shared view: /s/:id — show read-only conversation, no login needed
   if(await checkSharedView())return;
   // Save referral code from ?ref=CODE
