@@ -2,15 +2,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#09090b">
-<meta name="description" content="Claude Code in your browser. Build, test, and deploy apps with AI — no install needed. Free $10 credit. Plans from $9/mo.">
+<meta name="description" content="Claude Code in your browser. Build, test, and deploy apps with AI — no install needed. Free $3 credit to start. Plans from $9/mo.">
 <meta property="og:title" content="ChatWeb — Claude Code in Your Browser">
-<meta property="og:description" content="Run Claude Code without installing anything. AI builds and deploys your app right from the browser. Start free with $10 credit.">
+<meta property="og:description" content="Run Claude Code without installing anything. AI builds and deploys your app in your browser. Free $3 credit — no credit card needed.">
 <meta property="og:image" content="https://chatweb.ai/og.png">
 <meta property="og:url" content="https://chatweb.ai">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="ChatWeb — Claude Code in Your Browser">
-<meta name="twitter:description" content="No install. AI writes, tests, deploys your app. Free $10 credit → plans from $9/mo."  />
+<meta name="twitter:description" content="No install. AI writes, tests, deploys your app. Free $3 credit — no credit card needed." />
 <meta name="twitter:image" content="https://chatweb.ai/og.png">
 <link rel="canonical" href="https://chatweb.ai">
 <meta name="robots" content="index, follow">
@@ -711,7 +711,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <!-- Login modal -->
 <div id="login"><div class="lc">
 <div class="lc-logo"></div><h1>ChatWeb</h1>
-<div class="lc-s">AI-powered development terminal</div>
+<div class="lc-s">Claude Code in your browser — build & deploy in minutes</div>
 <div class="lc-free" id="lc-free"></div>
 <a href="/api/auth/google" class="bp g-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;margin-bottom:4px">
   <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.7 2.3 30.2 0 24 0 14.7 0 6.7 5.4 2.8 13.3l7.8 6C12.4 13.2 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.9 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.9c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.3-10.1 7.3-17.3z"/><path fill="#FBBC05" d="M10.6 28.6A14.6 14.6 0 0 1 9.5 24c0-1.6.3-3.1.7-4.6l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l8-6.2z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.5l-7.5-5.8c-2 1.4-4.6 2.2-7.7 2.2-6.2 0-11.5-4.2-13.4-9.8l-8 6.2C6.6 42.5 14.7 48 24 48z"/></svg>
@@ -2004,7 +2004,7 @@ function initLanding(){
     `<span style="font-size:12px;color:var(--bd)">|</span>`,
     `<span style="font-size:12px;color:var(--mu)">🔒 ${isJa?'セキュア':'Secure'}</span>`,
   ].join('');
-  $('ld-start').textContent=isJa?'無料で始める — $10クレジット付き':'Start Free — $10 credit';
+  $('ld-start').textContent=isJa?'無料で始める →':'Start Free →';
   $('ld-start').onclick=e=>{e.preventDefault();showLogin()};
   $('ld-try').textContent=isJa?'▶ デモを見る':'▶ See demo';
   $('ld-try').onclick=()=>{ $('ld-demo-section').scrollIntoView({behavior:'smooth'});setTimeout(startDemoReplay,400); };
@@ -2054,7 +2054,7 @@ function initLanding(){
       <div class="val">${fcv(p.value)}/${isJa?'月':'mo'}</div>
       <div class="turns">${p.turns} Sonnet</div>
     </div>`).join('')
-    +`<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--gn);margin-top:4px">${isJa?'無料で'+fcv(10)+'付き — クレカ不要':'Free $10 included — no credit card'}</div>`;
+    +`<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--gn);margin-top:4px">${isJa?'無料で'+fcv(3)+'付き — クレカ不要':'Free $3 included — no credit card'}</div>`;
   // How it works
   const HOW=isJa?[
     {ico:'1',t:'サインイン',d:'Googleアカウントかメールで登録。10秒で完了。'},
@@ -2074,7 +2074,7 @@ function initLanding(){
     </div>`).join('');
   // Bottom CTA
   $('ld-bottom-msg').textContent=isJa?'今すぐ試してみよう':'Start building today';
-  $('ld-bottom-sub').textContent=isJa?'無料で $10 分のクレジットをプレゼント。クレジットカード不要。':'$10 free credit included. No credit card required.';
+  $('ld-bottom-sub').textContent=isJa?'無料で $3 分のクレジットをプレゼント。クレジットカード不要。':'$3 free credit included. No credit card required.';
   $('ld-no-cc').textContent='';
 
   // Compare table
@@ -2107,13 +2107,13 @@ function initLanding(){
   // FAQ
   $('ld-faq-title').textContent=isJa?'よくある質問':'FAQ';
   const faqs=isJa?[
-    ['本当に無料で使えますか？','はい。ログインするだけで $10 分のクレジットが付きます。クレジットカードは不要です。$10 を使い切ったら、月額プラン（$9〜）または追加クレジット購入が必要です。'],
+    ['本当に無料で使えますか？','はい。ログインするだけで $3 分のクレジットが付きます。クレジットカードは不要です。使い切ったら、月額プラン（$9〜）または追加クレジット購入で続けられます。'],
     ['自分のAnthropicキーは使えますか？','はい。設定からAPIキーを登録すると、ChatWebのクレジットではなく自分のAnthropicアカウントで課金されます。コスト管理が完全に自分でできます。'],
     ['どんな言語・フレームワークに対応してますか？','Node.js / Python / Rust / Go / Ruby が最初からインストール済みです。npm / pip / cargo コマンドがそのまま使えます。React / Next.js / Vue / FastAPI など主要フレームワークはすべて動きます。'],
     ['コードは安全ですか？','各セッションは独立した環境で動きます。コードはFly.ioのサーバー上で実行され、セッション終了後は自動削除されます。'],
     ['デプロイはどこにできますか？','Fly.io（標準）、Vercel、Cloudflare Workers、Netlify、Railwayに対応。自分のAPIトークンを設定するだけでどこにでもデプロイできます。'],
   ]:[
-    ['Is it really free?','Yes — just sign in to get $10 free credit. No credit card needed. Once you use it up, you can subscribe ($9/mo) or buy more credits.'],
+    ['Is it really free?','Yes — sign in to get $3 free credit instantly. No credit card needed. When you run out, subscribe from $9/mo or buy more credits.'],
     ['Can I use my own Anthropic API key?','Yes. Add your API key in settings and usage is billed directly to your Anthropic account — not ChatWeb credits.'],
     ['What languages and frameworks are supported?','Node.js, Python, Rust, Go, and Ruby are pre-installed. React, Next.js, Vue, FastAPI — anything with npm/pip/cargo works out of the box.'],
     ['Is my code safe?','Each session runs in an isolated environment. Code runs on Fly.io servers and is cleaned up after the session ends.'],
