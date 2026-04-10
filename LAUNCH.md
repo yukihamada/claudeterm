@@ -123,3 +123,56 @@ Features:
 It's free to start ($3 credit included). The code is open source: https://github.com/yukihamada/claudeterm
 
 I'd love to hear what you think. What would make this more useful?
+
+## Product Hunt
+
+### Tagline
+Claude Code in your browser — build & deploy in minutes
+
+### Description
+**ChatWeb** turns your browser into a full Claude Code terminal.
+
+**The problem**: Running Claude Code locally requires Node.js, CLI setup, API keys, and a dev environment. Not everyone has that — or wants to maintain it.
+
+**The solution**: Open chatweb.ai, sign in, tell Claude what to build. It writes code, installs packages, runs tests, and deploys — all from one browser tab.
+
+**What's included:**
+- Full terminal with Claude Code (Sonnet 4)
+- Pre-installed: Node.js, Python, Rust, Go, Ruby
+- One-click deploy to Fly.io, Vercel, Netlify, Cloudflare, Railway
+- Subdomain hosting: your-app.chatweb.ai
+- Veo 3 video generation built-in
+- Works on any device: iPad, Chromebook, phone
+- $3 free credit, no credit card needed
+
+**Built with:** Rust (axum) + Fly.io + SQLite
+
+### First Comment
+Hey PH! I built this because I wanted to use Claude Code from my iPad and share dev environments without "works on my machine" issues.
+
+The whole thing is a single Rust binary — ~5K lines of axum serving WebSocket connections to Claude CLI processes. Each user gets an isolated workspace with Node/Python/Rust pre-installed.
+
+Try it: https://chatweb.ai
+
+---
+
+## Demo Video Script (60 sec)
+
+[0-5s] "What if you could use Claude Code from any browser?"
+[5-15s] Open chatweb.ai → sign in with Google (2-click flow)
+[15-25s] Type: "Build a React landing page with hero, features, and pricing"
+[25-40s] Claude writing files, installing deps, running build (speed up 4x)
+[40-50s] "Deploy to Fly.io" → deploy completing, URL appearing
+[50-55s] Open the deployed URL → show the finished site
+[55-60s] "chatweb.ai — Claude Code in your browser. Free to start."
+
+---
+
+## Key Stats for Press
+- Single Rust binary (~5K lines)
+- 5 language runtimes pre-installed (Node, Python, Rust, Go, Ruby)
+- 5 deploy platforms (Fly.io, Vercel, Cloudflare, Netlify, Railway)
+- Response latency: ~350ms
+- Pricing: Free $3 → Starter $9/mo → Pro $29/mo → Power $79/mo
+- Stack: Rust + axum + SQLite + Fly.io
+- Open source: github.com/yukihamada/claudeterm
