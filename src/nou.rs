@@ -5,11 +5,8 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::StreamExt;
 
-pub const RELAY_URL: &str = "https://nou-relay.fly.dev";
-
 pub struct NouResult {
     pub text: String,
-    pub cost_usd: f64, // local inference = $0
 }
 
 /// Stream a response from NOU node to the WebSocket, emitting claude-compatible events.
@@ -61,42 +58,39 @@ pub async fn stream(
     let mut stream = resp.bytes_stream();
     let mut buf = String::new();
     let mut full_text = String::new();
+    let mut done = false;
 
-    while let Some(chunk) = stream.next().await {
+    'outer: while let Some(chunk) = stream.next().await {
         let bytes = chunk.map_err(|e| e.to_string())?;
         buf.push_str(&String::from_utf8_lossy(&bytes));
 
-        // Process complete SSE lines
-        loop {
-            if let Some(pos) = buf.find('\n') {
-                let line = buf[..pos].trim().to_string();
-                buf = buf[pos + 1..].to_string();
+        while let Some(pos) = buf.find('\n') {
+            let line = buf[..pos].trim().to_string();
+            buf = buf[pos + 1..].to_string();
 
-                if line == "data: [DONE]" { break; }
-                if !line.starts_with("data: ") { continue; }
+            if line == "data: [DONE]" { done = true; break 'outer; }
+            if !line.starts_with("data: ") { continue; }
 
-                let json_str = &line["data: ".len()..];
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
-                    let delta = &v["choices"][0]["delta"];
-                    // OpenAI SSE delta format — prefer content, fall back to reasoning_content
-                    // (Qwen3 thinking mode puts the real answer in reasoning_content)
-                    let text = delta["content"].as_str()
-                        .filter(|s| !s.is_empty())
-                        .or_else(|| delta["reasoning_content"].as_str().filter(|s| !s.is_empty()));
-                    if let Some(t) = text {
-                        full_text.push_str(t);
-                        let event = serde_json::json!({"type": "text", "text": t});
-                        let _ = ws.send(Message::Text(event.to_string().into())).await;
-                    }
-                    if v["choices"][0]["finish_reason"].as_str() == Some("stop") {
-                        break;
-                    }
+            let json_str = &line["data: ".len()..];
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
+                let delta = &v["choices"][0]["delta"];
+                // OpenAI SSE delta format — prefer content, fall back to reasoning_content
+                // (Qwen3 thinking mode puts the real answer in reasoning_content)
+                let text = delta["content"].as_str()
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| delta["reasoning_content"].as_str().filter(|s| !s.is_empty()));
+                if let Some(t) = text {
+                    full_text.push_str(t);
+                    let event = serde_json::json!({"type": "text", "text": t});
+                    let _ = ws.send(Message::Text(event.to_string().into())).await;
                 }
-            } else {
-                break;
+                if v["choices"][0]["finish_reason"].as_str() == Some("stop") {
+                    done = true; break 'outer;
+                }
             }
         }
     }
+    let _ = done;
 
-    Ok(NouResult { text: full_text, cost_usd: 0.0 })
+    Ok(NouResult { text: full_text })
 }

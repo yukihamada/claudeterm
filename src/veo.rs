@@ -1,63 +1,7 @@
-/// Veo 3 + Nano Banana video/image generation via Gemini API
-/// - Nano Banana: fast image generation (character sheets, storyboards)
-/// - Veo 3: 8-second cinematic video clips with audio/dialogue
-
-use serde::{Deserialize, Serialize};
+/// Veo 3 + Nano Banana video/image generation via Gemini API.
 
 const VEO_MODEL: &str = "veo-3.0-generate-001";
 const NANOBANANA_MODEL: &str = "nano-banana-pro-preview";
-
-#[derive(Serialize)]
-struct VeoRequest {
-    model: String,
-    prompt: String,
-    #[serde(rename = "generationConfig")]
-    config: VeoConfig,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    image: Option<VeoImage>,
-}
-
-#[derive(Serialize)]
-struct VeoConfig {
-    #[serde(rename = "aspectRatio")]
-    aspect_ratio: String,
-    #[serde(rename = "durationSeconds")]
-    duration_seconds: u32,
-    #[serde(rename = "numberOfVideos")]
-    number_of_videos: u32,
-}
-
-#[derive(Serialize)]
-struct VeoImage {
-    #[serde(rename = "imageBytes")]
-    image_bytes: String, // base64
-    #[serde(rename = "mimeType")]
-    mime_type: String,
-}
-
-#[derive(Deserialize)]
-struct OperationResponse {
-    name: Option<String>,
-    done: Option<bool>,
-    response: Option<VeoResponse>,
-    error: Option<serde_json::Value>,
-}
-
-#[derive(Deserialize)]
-struct VeoResponse {
-    #[serde(rename = "generatedVideos")]
-    generated_videos: Option<Vec<GeneratedVideo>>,
-}
-
-#[derive(Deserialize)]
-struct GeneratedVideo {
-    video: Option<VideoFile>,
-}
-
-#[derive(Deserialize)]
-struct VideoFile {
-    uri: Option<String>,
-}
 
 pub struct VideoResult {
     pub video_data: Vec<u8>,

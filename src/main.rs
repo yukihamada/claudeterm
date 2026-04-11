@@ -1,7 +1,7 @@
 use axum::{
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, Host, Path, Query, State},
     http::{HeaderMap, StatusCode},
-    response::{Html, IntoResponse, Json, Redirect, Response},
+    response::{Html, IntoResponse, Json, Response},
     routing::{delete, get, post},
     Router,
 };
@@ -13,13 +13,15 @@ mod imagen;
 mod veo;
 mod storage;
 mod nou;
+mod email_templates;
+mod drip;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::{Arc, Mutex as StdMutex}};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
-    sync::{watch, Mutex},
+    sync::watch,
     time::Duration,
 };
 
@@ -147,6 +149,28 @@ fn init_db(path: &str) -> Connection {
             installs INTEGER DEFAULT 0,
             created_at TEXT,
             FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+    ").ok();
+    // ── Drip email campaigns (P2 conversion) ──
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS email_campaigns (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            template TEXT NOT NULL,
+            variant TEXT NOT NULL,
+            sent_at TEXT NOT NULL,
+            opened_at TEXT,
+            clicked_at TEXT,
+            converted_at TEXT,
+            stripe_amt INTEGER DEFAULT 0,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_email_campaigns_user ON email_campaigns(user_id);
+        CREATE INDEX IF NOT EXISTS idx_email_campaigns_template ON email_campaigns(template);
+        CREATE TABLE IF NOT EXISTS email_suppression (
+            email TEXT PRIMARY KEY,
+            reason TEXT NOT NULL,
+            created_at TEXT NOT NULL
         );
     ").ok();
     conn
@@ -531,6 +555,8 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
 // ── Subdomain Middleware ──
 // Intercepts requests to xxxx.chatweb.ai and serves deployed app files
 
+const BADGE_HTML: &str = r##"<div style="position:fixed;bottom:12px;right:12px;z-index:99999;font-family:system-ui;font-size:12px"><a href="https://chatweb.ai" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;background:rgba(9,9,11,.85);color:#a1a1aa;padding:6px 12px;border-radius:20px;text-decoration:none;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px)"><svg width="14" height="14" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#a78bfa"/><text x="7" y="22" font-size="18" fill="white" font-weight="bold">C</text></svg>Made with ChatWeb</a></div>"##;
+
 async fn subdomain_middleware(
     State(state): State<Arc<AppState>>,
     host: Host,
@@ -595,24 +621,12 @@ async fn subdomain_middleware(
             match std::fs::read(&r) {
                 Ok(data) => {
                     let ct = content_type_for(&r.to_string_lossy());
-                    // Inject "Made with ChatWeb" badge for HTML files
                     if ct.contains("text/html") {
                         let html = String::from_utf8_lossy(&data);
-                        let badge = concat!(
-                            r##"<div style="position:fixed;bottom:12px;right:12px;z-index:99999;font-family:system-ui;font-size:12px">"##,
-                            r##"<a href="https://chatweb.ai" target="_blank" rel="noopener" "##,
-                            r##"style="display:flex;align-items:center;gap:6px;background:rgba(9,9,11,.85);color:#a1a1aa;"##,
-                            r##"padding:6px 12px;border-radius:20px;text-decoration:none;border:1px solid rgba(255,255,255,.1);"##,
-                            r##"backdrop-filter:blur(8px)">"##,
-                            r##"<svg width="14" height="14" viewBox="0 0 32 32">"##,
-                            r##"<rect width="32" height="32" rx="8" fill="#a78bfa"/>"##,
-                            r##"<text x="7" y="22" font-size="18" fill="white" font-weight="bold">C</text>"##,
-                            r##"</svg>Made with ChatWeb</a></div>"##,
-                        );
                         let injected = if html.contains("</body>") {
-                            html.replace("</body>", &format!("{badge}</body>"))
+                            html.replace("</body>", &format!("{BADGE_HTML}</body>"))
                         } else {
-                            format!("{html}{badge}")
+                            format!("{html}{BADGE_HTML}")
                         };
                         return (StatusCode::OK, [
                             ("content-type", ct),
@@ -633,6 +647,49 @@ async fn subdomain_middleware(
     }
 }
 
+// ── Email ────────────────────────────────────────────────────────────────────
+
+/// Send an HTML email via Resend. When `campaign_id` is Some, the caller has
+/// already recorded an email_campaigns row; this function does not touch the
+/// DB. In dev mode (no RESEND_API_KEY) the email is logged instead of sent.
+pub(crate) async fn send_email(
+    state: &Arc<AppState>,
+    to: &str,
+    subject: &str,
+    html: &str,
+    campaign_id: Option<&str>,
+) -> Result<(), String> {
+    let Some(key) = state.resend_key.as_ref() else {
+        tracing::info!(
+            "send_email (dev): to={} subject={:?} campaign={:?}",
+            to, subject, campaign_id
+        );
+        return Ok(());
+    };
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "from": "chatweb.ai <noreply@chatweb.ai>",
+        "to": [to],
+        "subject": subject,
+        "html": html,
+    });
+    let resp = client
+        .post("https://api.resend.com/emails")
+        .header("Authorization", format!("Bearer {key}"))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("resend request: {e}"))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let txt = resp.text().await.unwrap_or_default();
+        return Err(format!("resend {}: {}", status, txt));
+    }
+    tracing::info!("send_email ok: to={} campaign={:?}", to, campaign_id);
+    Ok(())
+}
+
 // ── Auth ──
 
 async fn login(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Value>) -> Response {
@@ -650,26 +707,21 @@ async fn login(State(s): State<Arc<AppState>>, Json(body): Json<serde_json::Valu
         rusqlite::params![email, code, expires as i64]).ok(); }
 
     // Send via Resend if key is set, otherwise log for dev
-    if let Some(ref key) = s.resend_key {
-        let client = reqwest::Client::new();
-        let body = serde_json::json!({
-            "from": "chatweb.ai <noreply@chatweb.ai>",
-            "to": [&email],
-            "subject": format!("Your login code: {}", code),
-            "html": format!(
-                "<div style='font-family:system-ui;max-width:400px;margin:40px auto;padding:32px;background:#09090b;border-radius:16px;border:1px solid #27272a'>\
-                <div style='width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#a78bfa,#60a5fa);margin-bottom:24px'></div>\
-                <h2 style='color:#fafafa;font-size:22px;margin:0 0 8px'>Your login code</h2>\
-                <p style='color:#a1a1aa;font-size:14px;margin:0 0 24px'>Enter this code to sign in to chatweb.ai</p>\
-                <div style='font-size:36px;font-weight:700;letter-spacing:8px;color:#a78bfa;background:#18181b;padding:20px;border-radius:12px;text-align:center'>{}</div>\
-                <p style='color:#52525b;font-size:12px;margin:20px 0 0'>Expires in 10 minutes. If you didn't request this, ignore this email.</p>\
-                </div>", code)
-        });
-        let _ = client.post("https://api.resend.com/emails")
-            .header("Authorization", format!("Bearer {key}"))
-            .header("Content-Type", "application/json")
-            .json(&body).send().await;
-        tracing::info!("OTP sent to {email}");
+    if s.resend_key.is_some() {
+        let subject = format!("Your login code: {}", code);
+        let html = format!(
+            "<div style='font-family:system-ui;max-width:400px;margin:40px auto;padding:32px;background:#09090b;border-radius:16px;border:1px solid #27272a'>\
+            <div style='width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#a78bfa,#60a5fa);margin-bottom:24px'></div>\
+            <h2 style='color:#fafafa;font-size:22px;margin:0 0 8px'>Your login code</h2>\
+            <p style='color:#a1a1aa;font-size:14px;margin:0 0 24px'>Enter this code to sign in to chatweb.ai</p>\
+            <div style='font-size:36px;font-weight:700;letter-spacing:8px;color:#a78bfa;background:#18181b;padding:20px;border-radius:12px;text-align:center'>{}</div>\
+            <p style='color:#52525b;font-size:12px;margin:20px 0 0'>Expires in 10 minutes. If you didn't request this, ignore this email.</p>\
+            </div>", code);
+        if let Err(e) = send_email(&s, &email, &subject, &html, None).await {
+            tracing::warn!("OTP send failed for {email}: {e}");
+        } else {
+            tracing::info!("OTP sent to {email}");
+        }
     } else {
         // Dev mode: log the code
         tracing::info!("OTP for {email}: {code}");
@@ -1912,14 +1964,6 @@ footer{text-align:center;padding:40px;color:#9ca3af;font-size:.9rem}
         }
     }
 
-    // Write CLAUDE.md with appropriate type
-    let ptype = match body.template.as_str() {
-        "nextjs-blog"|"react-todo"|"landing-page" => "webapp",
-        "api-rust"|"api-node" => "api",
-        "python-data" => "data",
-        _ => "general",
-    };
-    // Reuse the CLAUDE.md generation
     let base_rules = format!("# {name}\n\n## Critical Rules (MUST follow)\n- **NEVER say \"done\" without evidence**: Always show diffs, test output, or logs as proof\n- **NEVER guess at fixes**: Read error messages, grep the codebase, trace the stack — then fix\n- **NEVER commit secrets**: API keys, tokens, credentials → `.env` only, never in code or logs\n\n## Workflow\n1. Explore → 2. Plan → 3. Implement → 4. Verify → 5. Report\n\n");
     std::fs::write(dir.join("CLAUDE.md"), format!("{}## Template: {}\n", base_rules, body.template)).ok();
 
@@ -1961,6 +2005,26 @@ async fn stripe_webhook(headers: HeaderMap, State(s): State<Arc<AppState>>, body
             db.execute("UPDATE users SET credits = credits + ?1 WHERE token = ?2",
                 rusqlite::params![credits, token]).ok();
             tracing::info!("One-time +${} credits", credits);
+            // ── Drip conversion attribution ──
+            // Look up the user by token, find their most-recent unconverted
+            // campaign and mark it converted with the $amount (cents).
+            let uid: Option<String> = db.query_row(
+                "SELECT id FROM users WHERE token=?1", [&token], |r| r.get(0)
+            ).ok();
+            if let Some(uid) = uid {
+                let now = chrono::Utc::now().to_rfc3339();
+                let amt_cents = (credits * 100.0) as i64;
+                db.execute(
+                    "UPDATE email_campaigns \
+                     SET converted_at = ?1, stripe_amt = stripe_amt + ?2 \
+                     WHERE id = ( \
+                       SELECT id FROM email_campaigns \
+                       WHERE user_id=?3 AND converted_at IS NULL \
+                       ORDER BY sent_at DESC LIMIT 1 \
+                     )",
+                    rusqlite::params![now, amt_cents, uid],
+                ).ok();
+            }
         }
         Some(billing::WebhookAction::SubscriptionStarted { token, plan, customer_id }) => {
             let credits = billing::plan_credits(&plan);
@@ -1968,6 +2032,24 @@ async fn stripe_webhook(headers: HeaderMap, State(s): State<Arc<AppState>>, body
                 "UPDATE users SET credits = credits + ?1, plan = ?2, stripe_customer_id = ?3 WHERE token = ?4",
                 rusqlite::params![credits, plan, customer_id, token]).ok();
             tracing::info!("Subscription {} started: +${} credits", plan, credits);
+            // Drip conversion attribution (subscription start)
+            let uid: Option<String> = db.query_row(
+                "SELECT id FROM users WHERE token=?1", [&token], |r| r.get(0)
+            ).ok();
+            if let Some(uid) = uid {
+                let now = chrono::Utc::now().to_rfc3339();
+                let amt_cents = (credits * 100.0) as i64;
+                db.execute(
+                    "UPDATE email_campaigns \
+                     SET converted_at = ?1, stripe_amt = stripe_amt + ?2 \
+                     WHERE id = ( \
+                       SELECT id FROM email_campaigns \
+                       WHERE user_id=?3 AND converted_at IS NULL \
+                       ORDER BY sent_at DESC LIMIT 1 \
+                     )",
+                    rusqlite::params![now, amt_cents, uid],
+                ).ok();
+            }
         }
         Some(billing::WebhookAction::SubscriptionRenewed { customer_id }) => {
             let plan: String = db.query_row(
@@ -1984,7 +2066,7 @@ async fn stripe_webhook(headers: HeaderMap, State(s): State<Arc<AppState>>, body
     StatusCode::OK.into_response()
 }
 
-async fn billing_success(Query(q): Query<TokenQ>) -> Html<&'static str> {
+async fn billing_success() -> Html<&'static str> {
     Html("<html><body style='background:#09090b;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100dvh'><div style='text-align:center;max-width:400px;padding:24px'><div style='font-size:48px;margin-bottom:16px'>✅</div><h1 style='font-size:24px;font-weight:700;margin-bottom:8px'>Payment successful!</h1><p style='color:#a1a1aa;margin-bottom:24px'>Credits have been added to your account.</p><a href='/' style='background:#a78bfa;color:#000;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600'>Back to ChatWeb</a></div></body></html>")
 }
 
@@ -2180,7 +2262,51 @@ async fn apply_referral(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
 }
 
 /// Redirect /r/:code → landing page with referral code in URL
-async fn referral_redirect(Path(code): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+#[derive(Deserialize)]
+struct RedirectQ { to: Option<String> }
+
+/// Unified /r/:id handler. First tries to match an email_campaigns.id
+/// (drip click tracker). If no campaign is found, falls back to the
+/// original referral-code behaviour (/r/:code → /?ref=CODE).
+async fn referral_redirect(
+    Path(code): Path<String>,
+    Query(q): Query<RedirectQ>,
+    State(s): State<Arc<AppState>>,
+) -> Response {
+    // 1. Email-campaign click tracker
+    let is_campaign = {
+        let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
+        let exists: Option<i64> = db
+            .query_row(
+                "SELECT 1 FROM email_campaigns WHERE id=?1",
+                [&code],
+                |r| r.get(0),
+            )
+            .ok();
+        if exists.is_some() {
+            let now = chrono::Utc::now().to_rfc3339();
+            db.execute(
+                "UPDATE email_campaigns SET clicked_at=COALESCE(clicked_at,?1) WHERE id=?2",
+                rusqlite::params![now, code],
+            )
+            .ok();
+        }
+        exists.is_some()
+    };
+
+    if is_campaign {
+        // Allow arbitrary internal paths via ?to=/path, default /topup
+        let to = q.to.unwrap_or_else(|| "/topup".to_string());
+        // Safety: only allow internal paths (starts with '/')
+        let target = if to.starts_with('/') {
+            format!("{}{}", s.base_url, to)
+        } else {
+            format!("{}/topup", s.base_url)
+        };
+        return axum::response::Redirect::to(&target).into_response();
+    }
+
+    // 2. Fallback: referral code
     axum::response::Redirect::temporary(&format!("{}/?ref={}", s.base_url, code)).into_response()
 }
 
@@ -2257,10 +2383,20 @@ async fn toggle_cron(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s): 
     Json(serde_json::json!({"enabled": enabled})).into_response()
 }
 
-/// Background scheduler: checks every 30s for due cron jobs
+/// Background scheduler: checks every 30s for due cron jobs, and
+/// every ~5 minutes runs the trial→paid drip email tick.
 async fn cron_scheduler(state: Arc<AppState>) {
+    let mut drip_ticks: u64 = 0;
     loop {
         tokio::time::sleep(Duration::from_secs(30)).await;
+
+        // ── Drip emails (every 10 * 30s = 5 min) ──
+        drip_ticks = drip_ticks.wrapping_add(1);
+        if drip_ticks % 10 == 0 {
+            if let Err(e) = drip::drip_tick(&state).await {
+                tracing::warn!("drip_tick error: {e}");
+            }
+        }
 
         // Get all due jobs
         let jobs: Vec<(String, String, String, String, i64)> = {
@@ -2642,8 +2778,8 @@ async fn generate_video(State(s): State<Arc<AppState>>, Json(body): Json<VideoRe
             let video_path = format!("{}/{}", video_dir, filename);
             std::fs::write(&video_path, &result.video_data).ok();
 
-            // Return as base64 data URL for preview
-            let b64 = base64_encode(&result.video_data);
+            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            let b64 = STANDARD.encode(&result.video_data);
             Json(serde_json::json!({
                 "url": format!("data:video/mp4;base64,{}", b64),
                 "path": format!("videos/{}", filename),
@@ -2653,24 +2789,6 @@ async fn generate_video(State(s): State<Arc<AppState>>, Json(body): Json<VideoRe
         }
         Err(e) => (StatusCode::BAD_GATEWAY, Json(serde_json::json!({"error": e}))).into_response(),
     }
-}
-
-fn base64_encode(data: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::with_capacity(data.len() * 4 / 3 + 4);
-    for chunk in data.chunks(3) {
-        let b = match chunk.len() {
-            3 => ((chunk[0] as u32) << 16) | ((chunk[1] as u32) << 8) | (chunk[2] as u32),
-            2 => ((chunk[0] as u32) << 16) | ((chunk[1] as u32) << 8),
-            1 => (chunk[0] as u32) << 16,
-            _ => 0,
-        };
-        result.push(CHARS[((b >> 18) & 0x3F) as usize] as char);
-        result.push(CHARS[((b >> 12) & 0x3F) as usize] as char);
-        if chunk.len() > 1 { result.push(CHARS[((b >> 6) & 0x3F) as usize] as char); } else { result.push('='); }
-        if chunk.len() > 2 { result.push(CHARS[(b & 0x3F) as usize] as char); } else { result.push('='); }
-    }
-    result
 }
 
 // ── Nano Banana (fast image gen) ──
@@ -2810,8 +2928,7 @@ async fn get_widget(Path(widget_id): Path<String>, State(s): State<Arc<AppState>
     ], script).into_response()
 }
 
-async fn widget_embed_info(Path(slug): Path<String>, State(s): State<Arc<AppState>>) -> Response {
-    // Public endpoint — no auth required
+async fn widget_embed_info(Path(slug): Path<String>) -> Response {
     let embed_script = format!(r#"<script src="https://chatweb.ai/w/{}"></script>"#, slug);
     let iframe = format!(r#"<iframe src="https://{}.chatweb.ai" style="width:100%;height:600px;border:none;border-radius:12px" loading="lazy"></iframe>"#, slug);
     Json(serde_json::json!({

@@ -50,7 +50,6 @@ pub async fn create_checkout_session(
     let cancel_url = format!("{}/billing/cancel", base_url);
     let credits_str = amount_credits.to_string();
 
-    let client = reqwest::Client::new();
     let params: Vec<(&str, &str)> = vec![
         ("mode", "payment"),
         ("success_url", &success_url),
