@@ -1,7 +1,7 @@
 /// Veo 3 + Nano Banana video/image generation via Gemini API.
 
 const VEO_MODEL: &str = "veo-3.0-generate-001";
-const NANOBANANA_MODEL: &str = "nano-banana-pro-preview";
+const NANOBANANA_MODEL: &str = "gemini-3.1-flash-image-preview";
 
 pub struct VideoResult {
     pub video_data: Vec<u8>,
