@@ -1348,9 +1348,9 @@ curl -s "https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&
 import json,sys,subprocess
 data = json.load(sys.stdin)
 for m in data.get('messages',[]):
-    r = subprocess.run(['curl','-s',f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{m[\"id\"]}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date','-H',f'Authorization: Bearer '\$GMAIL_TOKEN'],capture_output=True,text=True)
+    r = subprocess.run(['curl','-s',f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{{m["id"]}}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date','-H','Authorization: Bearer '+os.environ.get('GMAIL_TOKEN','')],capture_output=True,text=True)
     d = json.loads(r.stdout)
-    h = {x['name']:x['value'] for x in d['payload']['headers']}
+    h = {{x['name']:x['value'] for x in d['payload']['headers']}}
     print(h.get('Date','')[:16], '|', h.get('From','')[:30], '|', h.get('Subject','')[:50])
 "
 ```
@@ -1364,7 +1364,7 @@ curl -s "https://gmail.googleapis.com/gmail/v1/users/me/messages/$MSG_ID?format=
 import json,sys,base64,re
 d=json.load(sys.stdin)
 def get_body(p):
-    if p.get('body',{}).get('data'): return base64.urlsafe_b64decode(p['body']['data']).decode('utf-8','replace')
+    if p.get('body',{{}}).get('data'): return base64.urlsafe_b64decode(p['body']['data']).decode('utf-8','replace')
     for pp in p.get('parts',[]):
         r=get_body(pp)
         if r: return r
@@ -1388,7 +1388,7 @@ curl -s "https://gmail.googleapis.com/gmail/v1/users/me/messages?q=subject:請�
 ENCODED=$(echo -e "To: TARGET@example.com\nSubject: Re: ...\n\n本文ここ" | base64 -w 0 | tr '+/' '-_')
 curl -s -X POST "https://gmail.googleapis.com/gmail/v1/users/me/messages/send" \
   -H "Authorization: Bearer $GMAIL_TOKEN" -H "Content-Type: application/json" \
-  -d "{\"raw\":\"$ENCODED\"}"
+  -d '{{"raw":"'"$ENCODED"'"}}'
 ```
 
 When user says "メール見て", "メールチェック", "未読確認": automatically run the unread list command above and summarize in Japanese. Identify: invoices (請求書), App Store notifications, CI failures, and other action items.
