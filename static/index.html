@@ -644,6 +644,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 </style>
 <script src="https://enabler-analytics.fly.dev/t.js" defer></script>
 <script defer data-domain="chatweb.ai" src="https://plausible.io/js/script.js"></script>
+<script async src="https://umami-analytics.fly.dev/script.js" data-website-id="00000000-0000-0000-0000-000000000000"></script>
 </head><body>
 
 <!-- Landing page (shown before login) -->
@@ -747,6 +748,7 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 <button id="fb" class="hm-item"><span>📁</span><span id="hm-files"></span><span class="hm-key">⌘B</span></button>
 <button id="sharebtn" class="hm-item"><span>↗</span><span id="hm-share"></span><span class="hm-key">⌘⇧S</span></button>
 <button id="previewbtn" class="hm-item"><span>👁</span><span id="hm-preview"></span><span class="hm-key">⌘P</span></button>
+<button id="mailbtn" class="hm-item"><span>📧</span><span>Mail</span></button>
 <button id="cronbtn" class="hm-item"><span>⏲</span><span id="hm-cron"></span></button>
 <button id="fbbtn" class="hm-item"><span>💬</span><span id="hm-fb"></span></button>
 <button id="thm" class="hm-item"><span id="thm-ico">☾</span><span id="hm-theme"></span><span class="hm-key">⌘D</span></button>
@@ -2844,6 +2846,7 @@ $('crn-add').onclick=async()=>{
   $('crn-name').value='';$('crn-cmd').value='';
   await refreshCronList();
 };
+$('mailbtn').onclick=()=>{$('hd-menu').classList.remove('on');send('未読メールを確認して、請求書・重要なアクションが必要なものを日本語で教えて')};
 $('cronbtn').onclick=()=>{$('hd-menu').classList.remove('on');showCronModal()};
 $('crn-close').onclick=()=>$('cron-modal').classList.remove('on');
 $('cron-modal').onclick=e=>{if(e.target===$('cron-modal'))$('cron-modal').classList.remove('on')};

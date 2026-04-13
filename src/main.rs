@@ -194,6 +194,7 @@ struct AppState {
     active_procs: Arc<StdMutex<HashMap<String, bool>>>,
     preview_ports: Arc<StdMutex<HashMap<String, u16>>>, // uid -> port for live preview
     live_broadcasts: Arc<StdMutex<HashMap<String, LiveBroadcast>>>, // session_id -> broadcast
+    oauth_states: Arc<StdMutex<HashMap<String, std::time::Instant>>>, // CSRF state → expiry
 }
 
 #[derive(Clone)]
@@ -407,6 +408,7 @@ async fn main() {
         active_procs: Arc::new(StdMutex::new(HashMap::new())),
         preview_ports: Arc::new(StdMutex::new(HashMap::new())),
         live_broadcasts: Arc::new(StdMutex::new(HashMap::new())),
+        oauth_states: Arc::new(StdMutex::new(HashMap::new())),
     });
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let app = Router::new()
@@ -546,10 +548,93 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
     // ── Subdomain router: xxxx.chatweb.ai serves deployed apps ──
     let sub_state = state.clone();
     let app = app.layer(axum::middleware::from_fn_with_state(sub_state, subdomain_middleware));
+    let app = app.layer(axum::middleware::from_fn(security_headers));
+
+    // ── IP rate limiter: /api/auth/* and /api/billing/* (30 req / 60 sec) ──
+    let rate_limiter = IpRateLimiter::new(30);
+    let rate_state = Arc::new(rate_limiter);
+    let app = app.layer(axum::middleware::from_fn_with_state(rate_state, ip_rate_limit));
 
     let addr = format!("0.0.0.0:{port}");
     tracing::info!("claudeterm v6 → http://{addr}");
     axum::serve(tokio::net::TcpListener::bind(&addr).await.unwrap(), app).await.unwrap();
+}
+
+// ── Security Headers Middleware ──
+async fn security_headers(request: axum::extract::Request, next: axum::middleware::Next) -> Response {
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    use axum::http::header::{HeaderName, HeaderValue};
+    let set = |h: &'static str, v: &'static str| {
+        (HeaderName::from_static(h), HeaderValue::from_static(v))
+    };
+    let pairs = [
+        set("x-content-type-options",   "nosniff"),
+        set("x-frame-options",          "DENY"),
+        set("x-xss-protection",         "0"),
+        set("referrer-policy",          "strict-origin-when-cross-origin"),
+        set("permissions-policy",       "camera=(), microphone=(), geolocation=()"),
+        set("strict-transport-security","max-age=63072000; includeSubDomains; preload"),
+        set("content-security-policy",  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss: https:; frame-ancestors 'none'"),
+    ];
+    for (k, v) in pairs { headers.insert(k, v); }
+    response
+}
+
+// ── IP Rate Limiter ──
+#[derive(Clone)]
+struct IpRateLimiter {
+    windows: Arc<tokio::sync::Mutex<HashMap<String, Vec<std::time::Instant>>>>,
+    max_per_window: usize,
+}
+
+impl IpRateLimiter {
+    fn new(max_per_window: usize) -> Self {
+        Self {
+            windows: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            max_per_window,
+        }
+    }
+
+    async fn check(&self, ip: &str) -> bool {
+        let mut w = self.windows.lock().await;
+        let now = std::time::Instant::now();
+        let entry = w.entry(ip.to_string()).or_default();
+        entry.retain(|t| now.duration_since(*t).as_secs() < 60);
+        if entry.len() >= self.max_per_window {
+            return false;
+        }
+        entry.push(now);
+        true
+    }
+}
+
+async fn ip_rate_limit(
+    State(limiter): State<Arc<IpRateLimiter>>,
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let path = request.uri().path().to_string();
+    // Apply rate limit only to auth and billing endpoints
+    if path.starts_with("/api/auth/") || path.starts_with("/api/billing/") {
+        let ip = request
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.split(',').next())
+            .unwrap_or("unknown")
+            .trim()
+            .to_string();
+        if !limiter.check(&ip).await {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                [("retry-after", "60"), ("content-type", "application/json")],
+                r#"{"error":"rate limit exceeded","retry_after":60}"#,
+            )
+                .into_response();
+        }
+    }
+    next.run(request).await
 }
 
 // ── Subdomain Middleware ──
@@ -745,6 +830,16 @@ async fn google_oauth_start(State(s): State<Arc<AppState>>) -> Response {
         Ok(id) => id,
         Err(_) => return (StatusCode::SERVICE_UNAVAILABLE, "Google OAuth not configured").into_response(),
     };
+    // Generate CSRF state token, store with 5-minute expiry
+    let state_token = uuid::Uuid::new_v4().to_string().replace("-", "");
+    let expiry = std::time::Instant::now() + std::time::Duration::from_secs(300);
+    {
+        let mut states = s.oauth_states.lock().unwrap_or_else(|e| e.into_inner());
+        // Prune expired states
+        let now = std::time::Instant::now();
+        states.retain(|_, exp| *exp > now);
+        states.insert(state_token.clone(), expiry);
+    }
     let redirect_uri = google_redirect_uri(&s.base_url);
     let url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth\
@@ -753,15 +848,17 @@ async fn google_oauth_start(State(s): State<Arc<AppState>>) -> Response {
         &response_type=code\
         &scope=email+profile\
         &access_type=offline\
-        &prompt=select_account",
+        &prompt=select_account\
+        &state={}",
         urlencoding::encode(&client_id),
-        urlencoding::encode(&redirect_uri)
+        urlencoding::encode(&redirect_uri),
+        urlencoding::encode(&state_token)
     );
     axum::response::Redirect::temporary(&url).into_response()
 }
 
 #[derive(Deserialize)]
-struct OAuthCallbackQ { code: Option<String>, error: Option<String> }
+struct OAuthCallbackQ { code: Option<String>, error: Option<String>, state: Option<String> }
 
 async fn google_oauth_callback(
     Query(q): Query<OAuthCallbackQ>,
@@ -769,6 +866,19 @@ async fn google_oauth_callback(
 ) -> Response {
     if let Some(err) = q.error {
         return axum::response::Redirect::temporary(&format!("/?oauth_error={}", urlencoding::encode(&err))).into_response();
+    }
+    // Validate CSRF state
+    let state_token = match q.state {
+        Some(st) => st,
+        None => return axum::response::Redirect::temporary("/?oauth_error=missing_state").into_response(),
+    };
+    {
+        let mut states = s.oauth_states.lock().unwrap_or_else(|e| e.into_inner());
+        let now = std::time::Instant::now();
+        match states.remove(&state_token) {
+            Some(expiry) if expiry > now => {} // valid
+            _ => return axum::response::Redirect::temporary("/?oauth_error=invalid_state").into_response(),
+        }
     }
     let code = match q.code {
         Some(c) => c,
@@ -1219,6 +1329,69 @@ If the user wants to automate property management:
   - Cron → check departures → send LINE/Telegram notification
 - **Guest auto-reply**: FAQ answers (WiFi password, check-out time, etc.)
 These can all be built as Cron jobs. Guide the user to set up the tokens and cron schedules.
+
+## Gmail Integration
+If the user wants to check email, read invoices, or take action on messages, use the Gmail REST API via curl.
+
+### Get access token (do this first, every time)
+```bash
+GMAIL_TOKEN=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+  -d "client_id=$GMAIL_CLIENT_ID&client_secret=$GMAIL_CLIENT_SECRET&refresh_token=$GMAIL_REFRESH_TOKEN&grant_type=refresh_token" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+```
+
+### List unread emails
+```bash
+curl -s "https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&q=is:unread+-category:promotions&maxResults=20" \
+  -H "Authorization: Bearer $GMAIL_TOKEN" \
+  | python3 -c "
+import json,sys,subprocess
+data = json.load(sys.stdin)
+for m in data.get('messages',[]):
+    r = subprocess.run(['curl','-s',f'https://gmail.googleapis.com/gmail/v1/users/me/messages/{m[\"id\"]}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date','-H',f'Authorization: Bearer '\$GMAIL_TOKEN'],capture_output=True,text=True)
+    d = json.loads(r.stdout)
+    h = {x['name']:x['value'] for x in d['payload']['headers']}
+    print(h.get('Date','')[:16], '|', h.get('From','')[:30], '|', h.get('Subject','')[:50])
+"
+```
+
+### Get a specific message (full body)
+```bash
+MSG_ID="MESSAGE_ID_HERE"
+curl -s "https://gmail.googleapis.com/gmail/v1/users/me/messages/$MSG_ID?format=full" \
+  -H "Authorization: Bearer $GMAIL_TOKEN" \
+  | python3 -c "
+import json,sys,base64,re
+d=json.load(sys.stdin)
+def get_body(p):
+    if p.get('body',{}).get('data'): return base64.urlsafe_b64decode(p['body']['data']).decode('utf-8','replace')
+    for pp in p.get('parts',[]):
+        r=get_body(pp)
+        if r: return r
+    return ''
+body=get_body(d['payload'])
+text=re.sub(r'<[^>]+>',' ',body); text=re.sub(r'\s+',' ',text).strip()
+print(text[:2000])
+"
+```
+
+### Search emails
+```bash
+# 請求書を探す
+curl -s "https://gmail.googleapis.com/gmail/v1/users/me/messages?q=subject:請求書+OR+subject:invoice+is:unread&maxResults=10" \
+  -H "Authorization: Bearer $GMAIL_TOKEN"
+```
+
+### Send a reply or draft
+```bash
+# Base64エンコードしてsend
+ENCODED=$(echo -e "To: TARGET@example.com\nSubject: Re: ...\n\n本文ここ" | base64 -w 0 | tr '+/' '-_')
+curl -s -X POST "https://gmail.googleapis.com/gmail/v1/users/me/messages/send" \
+  -H "Authorization: Bearer $GMAIL_TOKEN" -H "Content-Type: application/json" \
+  -d "{\"raw\":\"$ENCODED\"}"
+```
+
+When user says "メール見て", "メールチェック", "未読確認": automatically run the unread list command above and summarize in Japanese. Identify: invoices (請求書), App Store notifications, CI failures, and other action items.
 
 ## Anime & Video Creation (Veo 3 + Nano Banana)
 ChatWeb has built-in video/image generation. The user can create anime, short films, and music videos.
@@ -1990,14 +2163,18 @@ async fn create_checkout(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>
 }
 
 async fn stripe_webhook(headers: HeaderMap, State(s): State<Arc<AppState>>, body: String) -> Response {
-    // Verify Stripe webhook signature if secret is configured
-    let wh_secret = std::env::var("STRIPE_WEBHOOK_SECRET").unwrap_or_default();
-    if !wh_secret.is_empty() {
-        let sig = headers.get("stripe-signature").and_then(|v| v.to_str().ok()).unwrap_or("");
-        if !verify_stripe_signature(&body, sig, &wh_secret) {
-            tracing::warn!("Stripe webhook: invalid signature");
-            return StatusCode::UNAUTHORIZED.into_response();
+    // STRIPE_WEBHOOK_SECRET must be set; if missing, refuse to process
+    let wh_secret = match std::env::var("STRIPE_WEBHOOK_SECRET").ok().filter(|v| !v.is_empty()) {
+        Some(s) => s,
+        None => {
+            tracing::error!("Stripe webhook: STRIPE_WEBHOOK_SECRET is not configured");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
+    };
+    let sig = headers.get("stripe-signature").and_then(|v| v.to_str().ok()).unwrap_or("");
+    if !verify_stripe_signature(&body, sig, &wh_secret) {
+        tracing::warn!("Stripe webhook: invalid signature");
+        return StatusCode::UNAUTHORIZED.into_response();
     }
     let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
     match billing::parse_webhook_action(&body) {
@@ -2142,13 +2319,13 @@ async fn submit_feedback(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>
 
     // Telegram notification
     let bot_token = std::env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default();
-    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_else(|_| "1136442501".to_string());
+    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
     let emoji = match body.category.as_str() { "bug" => "🐛", "feature" => "💡", _ => "💬" };
     let text = format!(
         "{} *Feedback — {}*\nFrom: `{}`\n\n{}\n\n_{}_",
         emoji, body.category, email, body.message, now
     );
-    if !bot_token.is_empty() {
+    if !bot_token.is_empty() && !chat_id.is_empty() {
         let client = reqwest::Client::new();
         let _ = client.post(format!("https://api.telegram.org/bot{}/sendMessage", bot_token))
             .json(&serde_json::json!({"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}))
@@ -2697,9 +2874,9 @@ async fn admin_alert(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
 
     // Send to Telegram
     let bot_token = std::env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default();
-    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_else(|_| "1136442501".to_string());
+    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
 
-    if !bot_token.is_empty() {
+    if !bot_token.is_empty() && !chat_id.is_empty() {
         let client = reqwest::Client::new();
         let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
         let _ = client.post(&url)
@@ -3172,8 +3349,13 @@ async fn list_live(State(s): State<Arc<AppState>>) -> Response {
 async fn ws_watch_handler(
     ws: WebSocketUpgrade,
     Path(session_id): Path<String>,
+    Query(q): Query<TokenQ>,
     State(state): State<Arc<AppState>>,
 ) -> Response {
+    // Require valid authentication token
+    if auth_user(&state, q.token.as_deref()).is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
     let rx = {
         let broadcasts = state.live_broadcasts.lock().unwrap_or_else(|e| e.into_inner());
         broadcasts.get(&session_id).map(|b| b.tx.subscribe())
@@ -3212,7 +3394,10 @@ async fn live_page(State(_s): State<Arc<AppState>>) -> Html<&'static str> {
 
 // ── Gallery Enhancements ──
 
-async fn like_gallery(Path(id): Path<String>, State(s): State<Arc<AppState>>) -> Response {
+async fn like_gallery(Path(id): Path<String>, Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> Response {
+    if auth_user(&s, q.token.as_deref()).is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
     let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
     db.execute("UPDATE gallery SET likes = likes + 1 WHERE id=?1", [&id]).ok();
     let likes: i64 = db.query_row("SELECT likes FROM gallery WHERE id=?1", [&id], |r| r.get(0)).unwrap_or(0);
