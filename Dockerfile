@@ -15,8 +15,12 @@ RUN cargo build --release --bin claudeterm
 # ── base: apt + npm install (cached unless this layer changes) ──────────────
 FROM node:22-slim AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git python3 python3-pip gosu ffmpeg \
+    ca-certificates curl git python3 python3-pip gosu ffmpeg wget \
     && pip3 install --break-system-packages google-genai \
+    && ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
+    && wget -q "https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-${ARCH}.tar.gz" -O /tmp/ls.tar.gz \
+    && tar -C /usr/local/bin -xf /tmp/ls.tar.gz \
+    && rm /tmp/ls.tar.gz \
     && rm -rf /var/lib/apt/lists/*
 # Pin version so cache is stable; bump manually when upgrading claude CLI
 RUN npm install -g @anthropic-ai/claude-code@1
@@ -41,6 +45,8 @@ COPY --from=builder /app/target/release/claudeterm /usr/local/bin/claudeterm
 # Entrypoint: fix /data ownership at startup (volume mounts as root), then drop to codeuser
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+COPY litestream.yml /etc/litestream.yml
 
 ENV PORT=3000
 ENV WORKDIR=/data/workspaces

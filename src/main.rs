@@ -17,6 +17,8 @@ mod email_templates;
 mod drip;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use base64::Engine as _;
+use rand::RngCore as _;
 use std::{collections::HashMap, path::PathBuf, sync::{Arc, Mutex as StdMutex}};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -192,9 +194,40 @@ struct AppState {
     base_url: String,
     limiter: Arc<billing::RateLimiter>,
     active_procs: Arc<StdMutex<HashMap<String, bool>>>,
-    preview_ports: Arc<StdMutex<HashMap<String, u16>>>, // uid -> port for live preview
-    live_broadcasts: Arc<StdMutex<HashMap<String, LiveBroadcast>>>, // session_id -> broadcast
-    oauth_states: Arc<StdMutex<HashMap<String, std::time::Instant>>>, // CSRF state → expiry
+    preview_ports: Arc<StdMutex<HashMap<String, u16>>>,
+    live_broadcasts: Arc<StdMutex<HashMap<String, LiveBroadcast>>>,
+    oauth_states: Arc<StdMutex<HashMap<String, std::time::Instant>>>,
+    encryption_key: [u8; 32], // AES-256-GCM key for encrypting user API keys
+}
+
+/// Encrypt a plaintext API key using AES-256-GCM. Stored as "enc:<base64(nonce||ciphertext)>".
+fn encrypt_api_key(key: &[u8; 32], plaintext: &str) -> String {
+    use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let mut nonce_bytes = [0u8; 12];
+    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let ciphertext = cipher.encrypt(nonce, plaintext.as_bytes()).expect("api key encryption failed");
+    let mut combined = nonce_bytes.to_vec();
+    combined.extend_from_slice(&ciphertext);
+    format!("enc:{}", base64::engine::general_purpose::STANDARD.encode(&combined))
+}
+
+/// Decrypt an AES-256-GCM encrypted API key. Returns None on failure.
+/// Falls back transparently for legacy plaintext values (no "enc:" prefix).
+fn decrypt_api_key(key: &[u8; 32], stored: &str) -> Option<String> {
+    let encoded = match stored.strip_prefix("enc:") {
+        Some(e) => e,
+        None => return Some(stored.to_string()), // legacy plaintext — backward compat
+    };
+    use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
+    let combined = base64::engine::general_purpose::STANDARD.decode(encoded).ok()?;
+    if combined.len() <= 12 { return None; }
+    let (nonce_bytes, ciphertext) = combined.split_at(12);
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let nonce = Nonce::from_slice(nonce_bytes);
+    let plaintext = cipher.decrypt(nonce, ciphertext).ok()?;
+    String::from_utf8(plaintext).ok()
 }
 
 #[derive(Clone)]
@@ -231,10 +264,14 @@ fn build_sandbox_profile(user_sandbox: &str) -> String {
 "#, user_sandbox = user_sandbox)
 }
 
-fn get_user(db: &Connection, token: &str) -> Option<(String, String, f64, Option<String>, String)> {
+fn get_user(db: &Connection, token: &str, enc_key: &[u8; 32]) -> Option<(String, String, f64, Option<String>, String)> {
     db.query_row(
         "SELECT id, email, credits, api_key, COALESCE(plan,'free') FROM users WHERE token=?1",
-        [token], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_,Option<String>>(3)?, r.get::<_,String>(4)?))
+        [token], |r| {
+            let raw_key: Option<String> = r.get(3)?;
+            let api_key = raw_key.and_then(|k| decrypt_api_key(enc_key, &k));
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, api_key, r.get::<_,String>(4)?))
+        }
     ).ok()
 }
 
@@ -373,7 +410,7 @@ fn auth_user(state: &AppState, token: Option<&str>) -> Option<(String, String, f
     let t = token?;
     if t.is_empty() { return None; }
     let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
-    get_user(&db, t)
+    get_user(&db, t, &state.encryption_key)
 }
 
 #[tokio::main]
@@ -392,6 +429,23 @@ async fn main() {
     let db_path = std::env::var("DB_PATH")
         .unwrap_or_else(|_| format!("{}/claudeterm.db", data_dir));
     let store = storage::Storage::from_env(&workdir);
+    // Load or generate AES-256 encryption key for user API keys.
+    // Set ENCRYPTION_KEY env var (base64-encoded 32 bytes) to persist across restarts.
+    let encryption_key: [u8; 32] = {
+        if let Ok(s) = std::env::var("ENCRYPTION_KEY") {
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(s.trim())
+                .expect("ENCRYPTION_KEY must be base64-encoded 32 bytes");
+            let mut k = [0u8; 32];
+            k.copy_from_slice(&decoded[..32]);
+            k
+        } else {
+            tracing::warn!("ENCRYPTION_KEY not set — generating ephemeral key. User API keys will be invalid after restart!");
+            let mut k = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut k);
+            k
+        }
+    };
     let state = Arc::new(AppState {
         admin_token: std::env::var("AUTH_TOKEN").ok(),
         command: std::env::var("CLAUDE_COMMAND").unwrap_or_else(|_| "claude".to_string()),
@@ -409,6 +463,7 @@ async fn main() {
         preview_ports: Arc::new(StdMutex::new(HashMap::new())),
         live_broadcasts: Arc::new(StdMutex::new(HashMap::new())),
         oauth_states: Arc::new(StdMutex::new(HashMap::new())),
+        encryption_key,
     });
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let app = Router::new()
@@ -1074,8 +1129,12 @@ async fn set_api_key(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     };
     let key = body.get("api_key").and_then(|k| k.as_str()).unwrap_or("");
     let db = s.db.lock().unwrap_or_else(|e| e.into_inner());
-    let key_val: Option<&str> = if key.is_empty() { None } else { Some(key) };
-    db.execute("UPDATE users SET api_key=?1 WHERE id=?2", rusqlite::params![key_val, uid]).ok();
+    let encrypted: Option<String> = if key.is_empty() {
+        None
+    } else {
+        Some(encrypt_api_key(&s.encryption_key, key))
+    };
+    db.execute("UPDATE users SET api_key=?1 WHERE id=?2", rusqlite::params![encrypted, uid]).ok();
     Json(serde_json::json!({"ok": true})).into_response()
 }
 
@@ -2516,6 +2575,29 @@ async fn list_crons(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>) -> 
     Json(list).into_response()
 }
 
+fn validate_cron_command(cmd: &str) -> Result<(), &'static str> {
+    if cmd.len() > 2000 {
+        return Err("コマンドが長すぎます（最大2000文字）");
+    }
+    // Block shell patterns that could escape the sandbox or cause system damage
+    let dangerous = [
+        "rm -rf /", "rm -fr /",
+        ":(){ :|:& };:", // fork bomb
+        "mkfs", "dd if=/dev/",
+        "> /dev/sd", "chmod -R 777 /", "chmod 777 /",
+        "shutdown", "reboot", "halt",
+        "--dangerously-skip-permissions", // must not be injected into claude args
+        "/etc/passwd", "/etc/shadow",
+    ];
+    let lower = cmd.to_lowercase();
+    for pattern in &dangerous {
+        if lower.contains(&pattern.to_lowercase()) {
+            return Err("危険なコマンドパターンが検出されました");
+        }
+    }
+    Ok(())
+}
+
 async fn create_cron(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     Json(body): Json<CronCreateReq>) -> Response {
     let (uid, ..) = match auth_user(&s, q.token.as_deref()) {
@@ -2523,6 +2605,9 @@ async fn create_cron(Query(q): Query<TokenQ>, State(s): State<Arc<AppState>>,
     };
     if body.command.trim().is_empty() || body.name.trim().is_empty() {
         return (StatusCode::BAD_REQUEST, "name and command required").into_response();
+    }
+    if let Err(e) = validate_cron_command(body.command.trim()) {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"ok": false, "error": e}))).into_response();
     }
     // Min 5 min, max 7 days
     let interval = body.interval_secs.max(300).min(604800);
@@ -2630,37 +2715,56 @@ async fn cron_scheduler(state: Arc<AppState>) {
                 let result = match cmd.output().await {
                     Ok(output) => {
                         let stdout = String::from_utf8_lossy(&output.stdout);
-                        // Extract assistant text from stream-json
+                        // Extract assistant text and cost from stream-json
                         let mut text = String::new();
+                        let mut cost_usd: f64 = 0.0;
                         for line in stdout.lines() {
                             if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
-                                if v.get("type").and_then(|t| t.as_str()) == Some("assistant") {
-                                    if let Some(ct) = v.get("message")
-                                        .and_then(|m| m.get("content"))
-                                        .and_then(|c| c.as_array()) {
-                                        for p in ct {
-                                            if p.get("type").and_then(|t| t.as_str()) == Some("text") {
-                                                if let Some(t) = p.get("text").and_then(|t| t.as_str()) {
-                                                    text.push_str(t);
+                                match v.get("type").and_then(|t| t.as_str()) {
+                                    Some("assistant") => {
+                                        if let Some(ct) = v.get("message")
+                                            .and_then(|m| m.get("content"))
+                                            .and_then(|c| c.as_array()) {
+                                            for p in ct {
+                                                if p.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                                    if let Some(t) = p.get("text").and_then(|t| t.as_str()) {
+                                                        text.push_str(t);
+                                                    }
                                                 }
                                             }
                                         }
                                     }
+                                    Some("result") => {
+                                        if let Some(c) = v.get("cost_usd").and_then(|c| c.as_f64()) {
+                                            cost_usd = c;
+                                        }
+                                    }
+                                    _ => {}
                                 }
                             }
                         }
                         if text.is_empty() { text = "(no output)".to_string(); }
-                        (if output.status.success() { "success" } else { "error" }, text)
+                        (if output.status.success() { "success" } else { "error" }, text, cost_usd)
                     }
-                    Err(e) => ("error", format!("Failed to run: {}", e)),
+                    Err(e) => ("error", format!("Failed to run: {}", e), 0.0),
                 };
+
+                // Deduct credits for cron run
+                if result.2 > 0.0 {
+                    let charge = result.2 * COST_MULTIPLIER;
+                    let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+                    db.execute("UPDATE users SET credits = credits - ?1 WHERE id = ?2",
+                        rusqlite::params![charge, uid]).ok();
+                    db.execute("INSERT INTO usage_log (user_id,session_id,model,cost_usd,created_at) VALUES (?1,'cron','claude-haiku-4-5-20251001',?2,?3)",
+                        rusqlite::params![uid, charge, chrono::Utc::now().to_rfc3339()]).ok();
+                }
 
                 // Update result
                 let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
                 let truncated = if result.1.len() > 2000 { &result.1[..2000] } else { &result.1 };
                 db.execute("UPDATE cron_jobs SET last_status=?1, last_result=?2 WHERE id=?3",
                     rusqlite::params![result.0, truncated, job_id]).ok();
-                tracing::info!("Cron [{}] done: {}", job_id, result.0);
+                tracing::info!("Cron [{}] done: {} (cost: ${:.6})", job_id, result.0, result.2);
             });
         }
     }
@@ -3470,6 +3574,9 @@ async fn ws_handler(ws: WebSocketUpgrade, Query(q): Query<TokenQ>, State(state):
 
 async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut credits: f64, api_key: Option<String>, plan: String) {
     let (stop_tx, mut stop_rx) = watch::channel(false);
+    // Per-connection message rate limit: max 60 messages per 60-second window
+    let mut conn_msg_count = 0u32;
+    let mut conn_window_start = std::time::Instant::now();
 
     loop {
         let msg = ws.recv().await;
@@ -3481,7 +3588,20 @@ async fn handle_ws(mut ws: WebSocket, state: Arc<AppState>, uid: String, mut cre
                     }
                 }
 
-                // Rate limit
+                // Per-connection rate limit: reset window every 60s, max 60 msgs/window
+                if conn_window_start.elapsed().as_secs() >= 60 {
+                    conn_msg_count = 0;
+                    conn_window_start = std::time::Instant::now();
+                }
+                conn_msg_count += 1;
+                if conn_msg_count > 60 {
+                    let _ = ws.send(Message::Text(serde_json::json!({
+                        "type":"error","text":"Too many messages. Please wait a moment."
+                    }).to_string().into())).await;
+                    continue;
+                }
+
+                // Global rate limit
                 if !state.limiter.check(&uid) {
                     let _ = ws.send(Message::Text(serde_json::json!({
                         "type":"error","text":"Rate limited. Please wait a moment."
