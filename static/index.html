@@ -570,8 +570,9 @@ code[class*=language-],pre[class*=language-]{font-family:var(--m);font-size:12.5
 .ld-demo-preview iframe{width:100%;height:200px;border:none;background:#fff;border-radius:0 0 10px 10px}
 .ld-bottom{text-align:center;margin-top:64px;padding:48px 24px;background:linear-gradient(180deg,transparent,rgba(167,139,250,.05));border-radius:24px;border:1px solid rgba(167,139,250,.12)}
 .ld-bottom .bp{padding:16px 44px;font-size:16px;border-radius:14px}
-.ld-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:0}
-@media(max-width:540px){.ld-prices{grid-template-columns:1fr}}
+.ld-prices{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:0}
+@media(max-width:680px){.ld-prices{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){.ld-prices{grid-template-columns:1fr}}
 .ld-pr{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:20px 14px;text-align:center;position:relative}
 .ld-pr.pop{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
 .ld-pr h3{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
@@ -1940,19 +1941,19 @@ window.toggleTTS=function(){
 
 // ── Landing page ──
 const LD_FEATS=isJa?[
-  {ico:'🌐',t:'ゼロインストール',d:'Chromeを開くだけ。Node.js・Python・Rustが全部入ってる。iPadでも動く。'},
-  {ico:'🤖',t:'Claude Code フル機能',d:'ファイル編集・ターミナル・Git・テスト実行まで、Claude Code の全機能がブラウザで使える。'},
-  {ico:'🚀',t:'ワンクリックデプロイ',d:'Fly.io・Vercel・Cloudflare に即公開。ドメイン設定もAIがやってくれる。'},
-  {ico:'⚡',t:'高速プロトタイピング',d:'「SaaSを作って」と打つだけでLanding Page→認証→DB→決済まで一気に完成。'},
-  {ico:'🔐',t:'APIキー管理',d:'自分のAnthropic / OpenAI キーを使ってコストコントロール。チームで共有も可。'},
-  {ico:'📂',t:'プロジェクト保存',d:'セッションをまたいでプロジェクトが保持される。GitHubにプッシュしてコラボも。'},
+  {ico:'🌐',t:'ゼロインストール・即起動',d:'URLを開くだけでClaude Codeが動く。Node.js・Python・Rust・Go・Ruby がプリインストール済み。セットアップ時間: 0秒。'},
+  {ico:'🤖',t:'Claude Code のフル機能',d:'ファイル編集・ターミナル実行・Git・テスト・デバッグ — ローカルで使えるすべての機能がブラウザで動く。'},
+  {ico:'🚀',t:'ワンコマンドデプロイ',d:'「Fly.io にデプロイして」と言うだけで本番公開完了。Vercel・Cloudflare・Netlify・Railway も対応。'},
+  {ico:'⚡',t:'5分でプロトタイプ完成',d:'「SaaS を作って」→ ランディングページ・認証・DB・Stripe 決済まで一気に完成。アイデアを即製品に。'},
+  {ico:'📱',t:'どこからでも開発',d:'iPad・Chromebook・スマホ・借りたPC ― 環境を選ばない。「自分のPCでしか動かない」問題をゼロに。'},
+  {ico:'🔐',t:'コスト完全コントロール',d:'自分の Anthropic API キーを登録してChatWebクレジット消費なしで使用可。チームでの共有にも対応。'},
 ]:[
-  {ico:'🌐',t:'Zero Setup',d:'Open Chrome and code. Node.js, Python, Rust — all pre-installed. Works on iPad too.'},
-  {ico:'🤖',t:'Full Claude Code',d:'File editing, terminal, Git, test runner — every Claude Code feature, right in the browser.'},
-  {ico:'🚀',t:'Deploy in Seconds',d:'Ship to Fly.io, Vercel, or Cloudflare with one command. AI handles DNS too.'},
-  {ico:'⚡',t:'Instant Prototypes',d:'Type "build a SaaS" and get landing page → auth → DB → payments in one session.'},
-  {ico:'🔐',t:'Bring Your API Key',d:'Use your own Anthropic/OpenAI key for full cost control. Share with your team.'},
-  {ico:'📂',t:'Projects Persist',d:'Your work is saved across sessions. Push to GitHub and collaborate easily.'},
+  {ico:'🌐',t:'Zero Setup, Instant Start',d:'Open the URL and Claude Code is running. Node.js, Python, Rust, Go, Ruby — all pre-installed. Time to first line of code: 0 seconds.'},
+  {ico:'🤖',t:'Full Claude Code Power',d:'File editing, terminal, Git, tests, debugging — every Claude Code feature works right in your browser tab, nothing held back.'},
+  {ico:'🚀',t:'One-Command Deploy',d:'Just say "deploy to Fly.io" and your app goes live. Also supports Vercel, Cloudflare, Netlify, and Railway.'},
+  {ico:'⚡',t:'Prototype in 5 Minutes',d:'Type "build a SaaS" and get landing page → auth → database → Stripe payments in a single session. Ship ideas, not setup.'},
+  {ico:'📱',t:'Code From Anywhere',d:'iPad, Chromebook, borrowed laptop, phone — if it has a browser, you can build. No more "works on my machine" problems.'},
+  {ico:'🔐',t:'Full Cost Control',d:'Bring your own Anthropic API key to use Claude at cost. Or use ChatWeb credits and pay only for what you use.'},
 ];
 const DEMO_TODO_HTML=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f14;color:#e2e8f0;display:flex;justify-content:center;padding:24px}.app{width:100%;max-width:360px}.app h1{font-size:18px;font-weight:700;margin-bottom:16px;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.add{display:flex;gap:8px;margin-bottom:16px}.add input{flex:1;padding:8px 12px;background:#1a1a24;border:1px solid #2a2a3a;border-radius:8px;color:#e2e8f0;font-size:13px;outline:none}.add input:focus{border-color:#a78bfa}.add button{padding:8px 16px;background:linear-gradient(135deg,#a78bfa,#818cf8);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}.items{display:flex;flex-direction:column;gap:6px}.item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#1a1a24;border:1px solid #2a2a3a;border-radius:8px;font-size:13px;transition:all .15s}.item.done{opacity:.5}.item.done .text{text-decoration:line-through}.item input[type=checkbox]{accent-color:#a78bfa;width:16px;height:16px;cursor:pointer}.text{flex:1}.del{background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;padding:0 4px}.del:hover{color:#f87171}</style></head><body><div class="app"><h1>✨ Todo App</h1><div class="add"><input placeholder="${isJa?'新しいタスク...':'New task...'}" id="inp"><button onclick="addTodo()">+</button></div><div class="items" id="list"></div></div>\x3cscript>let todos=[{t:'${isJa?'デザインをレビュー':'Review design'}',d:true},{t:'${isJa?'APIを実装':'Implement API'}',d:false},{t:'${isJa?'テストを書く':'Write tests'}',d:false}];function render(){const l=document.getElementById('list');l.innerHTML=todos.map((t,i)=>\`<div class="item \${t.d?'done':''}"><input type="checkbox" \${t.d?'checked':''} onchange="toggle(\${i})"><span class="text">\${t.t}</span><button class="del" onclick="del(\${i})">×</button></div>\`).join('')}function addTodo(){const inp=document.getElementById('inp');if(inp.value.trim()){todos.unshift({t:inp.value.trim(),d:false});inp.value='';render()}}function toggle(i){todos[i].d=!todos[i].d;render()}function del(i){todos.splice(i,1);render()}document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter')addTodo()});render()\x3c/script></body></html>`;
 const DEMO_RECORDING=isJa?[
@@ -1990,27 +1991,36 @@ const DEMO_RECORDING=isJa?[
 ];
 
 function initLanding(){
-  // Hero headline
+  // Hero headline — lead with the core benefit
   $('ld-h1').innerHTML=isJa
-    ?'ブラウザだけで<br><span>Claude Code</span>'
-    :'Claude Code,<br><span>in your browser</span>';
-  // Subtitle
+    ?'ブラウザで動く<br><span>Claude Code</span><br>インストール不要。'
+    :'Claude Code<br><span>in your browser.</span><br>No install. No setup.';
+  // Subtitle — 3-point value prop as a tight list
   $('ld-sub').innerHTML=isJa
-    ?'インストール不要。設定ゼロ。<br>AIがコードを書いて、テストして、<strong style="color:var(--tx)">デプロイまで全部</strong>やってくれる。'
-    :'No install. No config. No Docker.<br>AI writes, tests, and <strong style="color:var(--tx)">deploys your app</strong> — right from the browser.';
-  // Social proof
+    ?`<ul style="list-style:none;display:flex;flex-direction:column;gap:7px;margin:0;padding:0;text-align:left">
+        <li style="display:flex;align-items:flex-start;gap:8px"><span style="color:var(--gn);margin-top:2px;flex-shrink:0">✓</span><span>コードを書いてテストしてデプロイまで — <strong style="color:var(--tx)">AIが全部やる</strong></span></li>
+        <li style="display:flex;align-items:flex-start;gap:8px"><span style="color:var(--gn);margin-top:2px;flex-shrink:0">✓</span><span>Node.js・Python・Rust が最初から入ってる。セットアップ <strong style="color:var(--tx)">0秒</strong></span></li>
+        <li style="display:flex;align-items:flex-start;gap:8px"><span style="color:var(--gn);margin-top:2px;flex-shrink:0">✓</span><span>iPad・Chromebook・スマホ — <strong style="color:var(--tx)">どこからでも開発できる</strong></span></li>
+      </ul>`
+    :`<ul style="list-style:none;display:flex;flex-direction:column;gap:7px;margin:0;padding:0;text-align:left">
+        <li style="display:flex;align-items:flex-start;gap:8px"><span style="color:var(--gn);margin-top:2px;flex-shrink:0">✓</span><span>AI writes, tests, and <strong style="color:var(--tx)">deploys your app</strong> — you just describe what to build</span></li>
+        <li style="display:flex;align-items:flex-start;gap:8px"><span style="color:var(--gn);margin-top:2px;flex-shrink:0">✓</span><span>Node.js, Python, Rust pre-installed — <strong style="color:var(--tx)">ready in 0 seconds</strong></span></li>
+        <li style="display:flex;align-items:flex-start;gap:8px"><span style="color:var(--gn);margin-top:2px;flex-shrink:0">✓</span><span>Works on iPad, Chromebook, phone — <strong style="color:var(--tx)">code from anywhere</strong></span></li>
+      </ul>`;
+  // Social proof — add more trust signals
   $('ld-proof').innerHTML=[
-    `<span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--mu)"><span style="color:var(--gn);font-size:8px">●</span>${isJa?'今すぐ使える':'Live now'}</span>`,
-    `<span style="font-size:12px;color:var(--bd)">|</span>`,
-    `<span style="font-size:12px;color:var(--mu)">⚡ Claude 4 Sonnet</span>`,
-    `<span style="font-size:12px;color:var(--bd)">|</span>`,
-    `<span style="font-size:12px;color:var(--mu)">🔒 ${isJa?'セキュア':'Secure'}</span>`,
+    `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);border-radius:99px;padding:3px 10px;color:var(--gn)"><span style="font-size:8px">●</span>${isJa?'今すぐ使える':'Live now'}</span>`,
+    `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:99px;padding:3px 10px;color:var(--mu)">✦ Claude Sonnet 4</span>`,
+    `<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:99px;padding:3px 10px;color:var(--bl)">🎁 ${isJa?'$3 無料クレジット':'$3 free credit'}</span>`,
   ].join('');
-  $('ld-start').textContent=isJa?'無料で始める →':'Start Free →';
+  $('ld-start').innerHTML=isJa?'<span style="font-size:16px">⚡</span> 無料で始める — $3付き':'<span style="font-size:16px">⚡</span> Start Free — $3 included';
+  $('ld-start').style.cssText+=';font-size:16px;padding:16px 32px;border-radius:14px;box-shadow:0 8px 32px rgba(167,139,250,.45)';
   $('ld-start').onclick=e=>{e.preventDefault();showLogin()};
-  $('ld-try').textContent=isJa?'▶ デモを見る':'▶ See demo';
+  $('ld-try').textContent=isJa?'▶ デモを見る':'▶ Watch demo';
   $('ld-try').onclick=()=>{ $('ld-demo-section').scrollIntoView({behavior:'smooth'});setTimeout(startDemoReplay,400); };
-  $('ld-no-cc-hero').textContent=isJa?'クレジットカード不要':'No credit card required';
+  $('ld-no-cc-hero').innerHTML=isJa
+    ?'<span style="color:var(--dm)">クレジットカード不要</span> &nbsp;·&nbsp; <span style="color:var(--dm)">登録30秒</span>'
+    :'<span style="color:var(--dm)">No credit card required</span> &nbsp;·&nbsp; <span style="color:var(--dm)">Sign up in 30 seconds</span>';
 
   // Product UI Mockup
   $('ld-mockup').innerHTML=`
@@ -2021,53 +2031,60 @@ function initLanding(){
       <span class="ld-mockup-title">chatweb.ai — Claude Code</span>
     </div>
     <div class="ld-mockup-body">
-      <div class="ld-mk-msg-u">${isJa?'Reactのランディングページを作って、Fly.ioにデプロイして':'Build a React landing page and deploy it to Fly.io'}</div>
-      <div class="ld-mk-msg-a">✦ ${isJa?'承知しました！まずプロジェクトを作成します。':'Sure! Let me set up the project first.'}</div>
+      <div class="ld-mk-msg-u">${isJa?'SaaSのランディングページを作って Fly.io にデプロイして':'Build a SaaS landing page and deploy to Fly.io'}</div>
+      <div class="ld-mk-msg-a" style="color:var(--ac);font-weight:600;font-size:11px">✦ Claude Sonnet 4</div>
       <div class="ld-mk-tool"><span class="ld-mk-tool-ico">📝</span><span>Write <strong>src/App.tsx</strong></span><span class="ld-mk-ok">✓</span></div>
       <div class="ld-mk-tool"><span class="ld-mk-tool-ico">📝</span><span>Write <strong>src/index.css</strong></span><span class="ld-mk-ok">✓</span></div>
-      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">⚡</span><span>Bash <strong>npm run build</strong></span><span class="ld-mk-ok">✓</span></div>
-      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">🚀</span><span>Bash <strong>fly deploy --remote-only</strong></span><span class="ld-mk-ok" style="color:var(--yl)">⟳</span></div>
+      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">⚡</span><span>Bash <strong>npm install &amp;&amp; npm run build</strong></span><span class="ld-mk-ok">✓</span></div>
+      <div class="ld-mk-tool"><span class="ld-mk-tool-ico">🚀</span><span>Bash <strong>fly deploy --remote-only</strong></span><span class="ld-mk-ok">✓</span></div>
       <div class="ld-mk-deploy">
         <span>🎉</span>
         <div>
-          <div style="font-size:12px;font-weight:600;color:var(--gn)">${isJa?'デプロイ完了！':'Deployed!'}</div>
-          <div class="ld-mk-url">https://my-app.fly.dev</div>
+          <div style="font-size:12px;font-weight:700;color:var(--gn)">${isJa?'デプロイ完了！':'Deployed! Live in 4m 12s'}</div>
+          <div class="ld-mk-url">https://my-saas.fly.dev</div>
         </div>
       </div>
+      <div style="font-size:10px;color:var(--dm);padding:4px 0 0 2px">${isJa?'⚡ 4分12秒で完了':'⚡ Zero setup — just describe what to build'}</div>
       <div class="ld-mk-input">
-        <div class="ld-mk-inp-box">${isJa?'次は何をしますか？':'What should I add next?'}</div>
+        <div class="ld-mk-inp-box">${isJa?'次は認証機能を追加して...':'Add Stripe payments next...'}</div>
         <div class="ld-mk-send">↑</div>
       </div>
     </div>`;
 
   $('demo-replay').onclick=()=>{startDemoReplay()};
   $('demo-replay').textContent=isJa?'↻ もう一度':'↻ Replay';
-  $('ld-start2').innerHTML=isJa?'今すぐ無料で始める &rarr;':'Get Started Free &rarr;';
-  $('ld-start2').onclick=e=>{e.preventDefault();showLogin()};
-  $('ld-demo-label').textContent=isJa?'ライブデモ — Claude がアプリを作ってデプロイ':'Live Demo — Claude builds and deploys an app';
-  $('ld-feat-title').textContent=isJa?'なぜ ChatWeb？':'Why developers choose ChatWeb';
+  $('ld-demo-label').textContent=isJa?'ライブデモ — Claude がアプリを作る様子をリアルタイム表示':'Live Demo — watch Claude build and deploy an app in real time';
+  $('ld-feat-title').textContent=isJa?'ChatWeb でできること':'What you can do with ChatWeb';
   $('ld-feats').innerHTML=LD_FEATS.map(f=>`<div class="ld-card"><div class="ld-card-ico">${f.ico}</div><h3>${f.t}</h3><p>${f.d}</p></div>`).join('');
-  $('ld-price-title').textContent=isJa?'料金':'Pricing';
-  $('ld-prices').innerHTML=PLANS.map(p=>`
+  $('ld-price-title').textContent=isJa?'料金 — まず無料で試せる':'Pricing — start free, upgrade anytime';
+  // Free tier card + paid plans
+  const freeTierCard=`
+    <div class="ld-pr" style="border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.04);position:relative">
+      <div class="pm-badge" style="top:-10px;background:linear-gradient(135deg,#4ade80,#22d3ee);color:#000">${isJa?'まず試す':'TRY FREE'}</div>
+      <h3>${isJa?'無料':'Free'}</h3>
+      <div class="price" style="color:var(--gn)">$0</div><div class="per"></div>
+      <div class="val" style="color:var(--gn)">${fcv(3)} ${isJa?'付き':'included'}</div>
+      <div class="turns" style="color:var(--dm)">${isJa?'クレカ不要':'no credit card'}</div>
+    </div>`;
+  $('ld-prices').innerHTML=freeTierCard+PLANS.map(p=>`
     <div class="ld-pr${p.popular?' pop':''}">
       ${p.popular?`<div class="pm-badge" style="top:-9px">${isJa?'人気':'POPULAR'}</div>`:''}
       <h3>${p.id.charAt(0).toUpperCase()+p.id.slice(1)}</h3>
       <div class="price">${fcp(p.usd)}</div><div class="per">/${isJa?'月':'mo'}</div>
       <div class="val">${fcv(p.value)}/${isJa?'月':'mo'}</div>
-      <div class="turns">${p.turns} Sonnet</div>
-    </div>`).join('')
-    +`<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--gn);margin-top:4px">${isJa?'無料で'+fcv(3)+'付き — クレカ不要':'Free $3 included — no credit card'}</div>`;
+      <div class="turns">${p.turns} Sonnet ${isJa?'回':'turns'}</div>
+    </div>`).join('');
   // How it works
   const HOW=isJa?[
-    {ico:'1',t:'サインイン',d:'Googleアカウントかメールで登録。10秒で完了。'},
-    {ico:'2',t:'Claudeに話しかける',d:'「〇〇を作って」と日本語で入力するだけ。'},
-    {ico:'3',t:'完成・公開',d:'AIが全部やってくれる。URLをコピーして即シェア。'},
+    {ico:'1',t:'サインインするだけ',d:'Googleかメールで30秒で登録完了。$3分のクレジットが即付与される。'},
+    {ico:'2',t:'作りたいものを伝える',d:'「SaaSを作って」「バグを直して」と日本語で書くだけ。プログラミング知識不要。'},
+    {ico:'3',t:'AIが全部やってくれる',d:'コード生成→テスト→デプロイまで自動。完成したらURLをコピーして共有。'},
   ]:[
-    {ico:'1',t:'Sign in',d:'Google or email. Done in 10 seconds.'},
-    {ico:'2',t:'Talk to Claude',d:'Just type what you want to build. Plain English.'},
-    {ico:'3',t:'Ship it',d:'AI does the rest. Copy the URL and share.'},
+    {ico:'1',t:'Sign in (30 sec)',d:'Google or email. Done instantly. No installs, no configuration, $3 free credit added.'},
+    {ico:'2',t:'Describe what to build',d:'Type "build a landing page" or "fix this bug". Plain English — no coding knowledge needed.'},
+    {ico:'3',t:'AI ships it for you',d:'Claude writes code, runs tests, deploys. Copy the live URL and you\'re done.'},
   ];
-  $('ld-how-title').textContent=isJa?'3ステップで始める':'How it works';
+  $('ld-how-title').textContent=isJa?'3ステップで今日から使える':'How it works — 3 steps to ship';
   $('ld-how-steps').innerHTML=HOW.map(h=>`
     <div style="background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:20px 16px;text-align:center">
       <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--bl));color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${h.ico}</div>
@@ -2075,12 +2092,21 @@ function initLanding(){
       <div style="font-size:12px;color:var(--mu);line-height:1.5">${h.d}</div>
     </div>`).join('');
   // Bottom CTA
-  $('ld-bottom-msg').textContent=isJa?'今すぐ試してみよう':'Start building today';
-  $('ld-bottom-sub').textContent=isJa?'無料で $3 分のクレジットをプレゼント。クレジットカード不要。':'$3 free credit included. No credit card required.';
-  $('ld-no-cc').textContent='';
+  $('ld-bottom-msg').innerHTML=isJa
+    ?'アイデアを今すぐ<span style="background:linear-gradient(135deg,var(--ac),var(--bl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">製品にしよう</span>'
+    :'Turn your idea into a<br><span style="background:linear-gradient(135deg,var(--ac),var(--bl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">working product today</span>';
+  $('ld-bottom-sub').innerHTML=isJa
+    ?'登録するだけで <strong style="color:var(--gn)">$3 分のクレジット</strong>をプレゼント。クレジットカード不要。30秒で始められます。'
+    :'Sign up and get <strong style="color:var(--gn)">$3 free credit</strong> instantly. No credit card. No installs. Start in 30 seconds.';
+  $('ld-start2').innerHTML=isJa?'⚡ 今すぐ無料で始める &rarr;':'⚡ Start Building Free &rarr;';
+  $('ld-start2').style.cssText+=';font-size:17px;padding:18px 48px;border-radius:14px;box-shadow:0 8px 36px rgba(167,139,250,.45)';
+  $('ld-start2').onclick=e=>{e.preventDefault();showLogin()};
+  $('ld-no-cc').innerHTML=isJa
+    ?'<span style="color:var(--dm)">クレジットカード不要</span> &nbsp;·&nbsp; <span style="color:var(--dm)">登録30秒</span> &nbsp;·&nbsp; <span style="color:var(--dm)">月額プランは $9〜</span>'
+    :'<span style="color:var(--dm)">No credit card required</span> &nbsp;·&nbsp; <span style="color:var(--dm)">Sign up in 30 seconds</span> &nbsp;·&nbsp; <span style="color:var(--dm)">Plans from $9/mo</span>';
 
   // Compare table
-  $('ld-compare-title').textContent=isJa?'ChatWeb vs ローカル開発環境':'ChatWeb vs Local Claude Code';
+  $('ld-compare-title').textContent=isJa?'ChatWeb vs ローカルのClaude Code':'ChatWeb vs Local Claude Code';
   const cmpRows=isJa?[
     ['セットアップ時間','即起動（0秒）','30分以上'],
     ['Node.js / Python / Rust','最初から入ってる','自分でインストール'],
